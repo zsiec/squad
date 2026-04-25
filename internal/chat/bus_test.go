@@ -65,11 +65,11 @@ func TestBus_DoesNotBlockOnSlowSubscriber(t *testing.T) {
 	defer bus.Unsubscribe(slow)
 	defer bus.Unsubscribe(fast)
 
-	for i := 0; i < 40; i++ {
+	for i := 0; i < subBuffer+8; i++ {
 		bus.Publish(Event{Kind: "saturate"})
 	}
-	if got := len(slow); got != 32 {
-		t.Fatalf("slow sub len=%d want 32 after saturation", got)
+	if got := len(slow); got != subBuffer {
+		t.Fatalf("slow sub len=%d want %d after saturation", got, subBuffer)
 	}
 
 	for len(fast) > 0 {
@@ -84,10 +84,50 @@ func TestBus_DoesNotBlockOnSlowSubscriber(t *testing.T) {
 	received := 0
 	for received < n {
 		select {
-		case <-fast:
-			received++
+		case e := <-fast:
+			if e.Kind == "after-saturation" {
+				received++
+			}
 		case <-deadline:
 			t.Fatalf("fast sub only got %d/%d after slow saturation", received, n)
+		}
+	}
+}
+
+func TestBus_LagSentinel_AfterDrops(t *testing.T) {
+	bus := NewBus()
+	defer bus.Close()
+
+	sub := bus.Subscribe()
+	defer bus.Unsubscribe(sub)
+
+	const overflow = 50
+	for i := 0; i < subBuffer+overflow; i++ {
+		bus.Publish(Event{Kind: "msg"})
+	}
+	for len(sub) > 0 {
+		<-sub
+	}
+
+	bus.Publish(Event{Kind: "msg"})
+
+	deadline := time.After(500 * time.Millisecond)
+	var sawLag bool
+	for {
+		select {
+		case e := <-sub:
+			if e.Kind == "lag" {
+				sawLag = true
+				if dropped, ok := e.Payload["dropped"].(int64); !ok || dropped < overflow {
+					t.Fatalf("lag payload=%v want dropped>=%d", e.Payload, overflow)
+				}
+				return
+			}
+		case <-deadline:
+			if !sawLag {
+				t.Fatal("never received lag sentinel")
+			}
+			return
 		}
 	}
 }
