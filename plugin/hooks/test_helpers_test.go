@@ -50,6 +50,7 @@ case "$1" in
   whoami)    printf '%%s\n' '%s' ;;
   workspace) printf '%%s\n' '{"current_repo":"my-repo"}' ;;
   next)      printf '%%s\n' '[{"id":"FEAT-1"},{"id":"BUG-2"}]' ;;
+  listen)    [ -n "${SQUAD_LISTEN_ECHO:-}" ] && printf 'listen %%s\n' "$*" >&2; exit 0 ;;
   *)         exit 0 ;;
 esac
 `, body)
