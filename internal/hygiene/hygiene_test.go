@@ -157,6 +157,52 @@ func TestSweep_FlagsBrokenReference(t *testing.T) {
 	}
 }
 
+func TestReclaimStale_ShortClaim(t *testing.T) {
+	db := newDB(t)
+	t0 := int64(1_000_000)
+	registerAgent(t, db, "repo-test", "agent-a", t0)
+	insertClaim(t, db, "repo-test", "BUG-200", "agent-a", t0, 0)
+
+	now := time.Unix(t0+31*60, 0)
+	sw := NewWithClock(db, "repo-test", emptyItems{}, func() time.Time { return now })
+	got, err := sw.ReclaimStale(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "BUG-200" {
+		t.Fatalf("got=%v want [BUG-200]", got)
+	}
+	var c int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-200'`).Scan(&c)
+	if c != 0 {
+		t.Fatalf("claim still present")
+	}
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claim_history WHERE item_id='BUG-200' AND outcome='reclaimed'`).Scan(&c)
+	if c != 1 {
+		t.Fatalf("history row missing")
+	}
+}
+
+func TestReclaimStale_LongClaimWaitsTwoHours(t *testing.T) {
+	db := newDB(t)
+	t0 := int64(1_000_000)
+	registerAgent(t, db, "repo-test", "agent-a", t0)
+	insertClaim(t, db, "repo-test", "BUG-201", "agent-a", t0, 1) // long=1
+
+	clock := time.Unix(t0+31*60, 0)
+	sw := NewWithClock(db, "repo-test", emptyItems{}, func() time.Time { return clock })
+	got, _ := sw.ReclaimStale(context.Background())
+	if len(got) != 0 {
+		t.Fatalf("long claim reclaimed early: %v", got)
+	}
+
+	clock = time.Unix(t0+121*60, 0)
+	got, _ = sw.ReclaimStale(context.Background())
+	if len(got) != 1 {
+		t.Fatalf("long claim not reclaimed after 2h: %v", got)
+	}
+}
+
 func TestStripLineSuffix(t *testing.T) {
 	cases := map[string]string{
 		"path/foo.go:42":  "path/foo.go",

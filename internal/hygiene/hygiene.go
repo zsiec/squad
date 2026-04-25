@@ -174,6 +174,75 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 	return findings, nil
 }
 
+// ReclaimStale removes claims that have exceeded the stale threshold,
+// records each in claim_history with outcome="reclaimed", and releases
+// any active touches the displaced agent held on the item. Returns the
+// list of item IDs reclaimed.
+func (sw *Sweeper) ReclaimStale(ctx context.Context) ([]string, error) {
+	now := sw.nowUnix()
+	tx, err := sw.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT item_id, agent_id, claimed_at, last_touch FROM claims
+		WHERE repo_id = ? AND ((long = 0 AND last_touch < ?) OR (long = 1 AND last_touch < ?))
+	`, sw.repoID, now-StaleClaimSec, now-StaleClaimLongSec)
+	if err != nil {
+		return nil, err
+	}
+	type stale struct {
+		item, agent          string
+		claimedAt, lastTouch int64
+	}
+	var stales []stale
+	for rows.Next() {
+		var s stale
+		if err := rows.Scan(&s.item, &s.agent, &s.claimedAt, &s.lastTouch); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		stales = append(stales, s)
+	}
+	rows.Close()
+
+	var ids []string
+	for _, s := range stales {
+		res, err := tx.ExecContext(ctx,
+			`DELETE FROM claims WHERE repo_id=? AND item_id=? AND agent_id=? AND last_touch=?`,
+			sw.repoID, s.item, s.agent, s.lastTouch)
+		if err != nil {
+			return nil, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, err
+		}
+		if n == 0 {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO claim_history (repo_id, item_id, agent_id, claimed_at, released_at, outcome)
+			VALUES (?, ?, ?, ?, ?, 'reclaimed')
+		`, sw.repoID, s.item, s.agent, s.claimedAt, now); err != nil {
+			return nil, err
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE touches SET released_at = ?
+			WHERE repo_id = ? AND item_id = ? AND agent_id = ? AND released_at IS NULL
+		`, now, sw.repoID, s.item, s.agent); err != nil {
+			return nil, err
+		}
+		ids = append(ids, s.item)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
 func stripLineSuffix(ref string) string {
 	if idx := strings.LastIndex(ref, ":"); idx > 0 {
 		tail := ref[idx+1:]
