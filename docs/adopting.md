@@ -120,15 +120,14 @@ Then claim, work, test, review, done — same loop.
 squad install-hooks
 ```
 
-Interactive: asks about each of five hooks. Recommended for solo:
+Interactive: asks about each hook. Recommended for solo:
 
 - `session-start` — Y (default; auto-register + tick on Claude Code launch)
-- `pre-commit-tick` — n (interrupts solo flow)
 - `pre-commit-pm-traces` — Y if you tend to leak ticket IDs into commits
 - `pre-edit-touch-check` — n (no peers)
 - `stop-handoff` — n (you'll just close Claude when done)
 
-For multi-agent, install `pre-edit-touch-check` and `pre-commit-tick` too. See [reference/hooks.md](reference/hooks.md).
+For multi-agent, install `pre-edit-touch-check` too. See [reference/hooks.md](reference/hooks.md).
 
 ## Day 2 — multi-agent (if applicable)
 

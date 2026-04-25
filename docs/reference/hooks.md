@@ -1,6 +1,6 @@
 # Hooks reference
 
-Squad ships seven Claude Code hooks. They are **opt-in per hook** via `squad install-hooks`. `session-start`, `user-prompt-tick`, and `pre-compact` are on by default.
+Squad's Claude Code hooks are **opt-in per hook** via `squad install-hooks`. `session-start`, `user-prompt-tick`, and `pre-compact` are on by default.
 
 ## Quick reference
 
@@ -9,7 +9,6 @@ Squad ships seven Claude Code hooks. They are **opt-in per hook** via `squad ins
 | `session-start` | ON | `SessionStart` | Auto `squad register` + `squad tick`; injects one-line context block. |
 | `user-prompt-tick` | ON | `UserPromptSubmit` | Auto-tick before every prompt; injects pending mentions/knocks/handoffs as `additionalContext`. |
 | `pre-compact` | ON | `PreCompact` | Inject the agent's current claim + intent + recent chat lines so identity survives compaction. |
-| `pre-commit-tick` | OFF | `PreToolUse:Bash` matching `git commit` | Blocks commit if last tick > 5 min ago. |
 | `pre-commit-pm-traces` | OFF | `PreToolUse:Bash` matching `git commit` | Blocks commit if backlog IDs in diff or message. |
 | `pre-edit-touch-check` | OFF | `PreToolUse:Edit\|Write` | Warns (does not block) if peer agent is touching the same file. |
 | `stop-handoff` | OFF | `Stop` | Auto-handoff if open claim with no recent activity (>30 min). |

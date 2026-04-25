@@ -36,7 +36,7 @@ func TestInstallHooksCmd_YesDefaultsSessionAndUserPrompt(t *testing.T) {
 	mustContain(t, body, "session-start@v1")
 	mustContain(t, body, "user-prompt-tick@v1")
 	mustContain(t, body, "pre-compact@v1")
-	mustNotContain(t, body, "pre-commit-tick@v1")
+	mustNotContain(t, body, "pre-commit-pm-traces@v1")
 }
 
 func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
@@ -44,8 +44,7 @@ func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
 	t.Setenv("HOME", home)
 	args := []string{"--yes",
 		"--session-start=on",
-		"--pre-commit-tick=on",
-		"--pre-commit-pm-traces=off",
+		"--pre-commit-pm-traces=on",
 		"--pre-edit-touch-check=on",
 		"--stop-handoff=off",
 	}
@@ -54,9 +53,8 @@ func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
 	}
 	body, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
 	mustContain(t, body, "session-start@v1")
-	mustContain(t, body, "pre-commit-tick@v1")
+	mustContain(t, body, "pre-commit-pm-traces@v1")
 	mustContain(t, body, "pre-edit-touch-check@v1")
-	mustNotContain(t, body, "pre-commit-pm-traces@v1")
 	mustNotContain(t, body, "stop-handoff@v1")
 }
 
@@ -72,7 +70,7 @@ func TestInstallHooksCmd_Status(t *testing.T) {
 	}
 	mustContain(t, stdout.Bytes(), "session-start")
 	mustContain(t, stdout.Bytes(), "ON")
-	mustContain(t, stdout.Bytes(), "pre-commit-tick")
+	mustContain(t, stdout.Bytes(), "pre-commit-pm-traces")
 	mustContain(t, stdout.Bytes(), "OFF")
 }
 

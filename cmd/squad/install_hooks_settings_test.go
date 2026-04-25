@@ -40,7 +40,7 @@ func TestMergeSettings_PreservesNonSquadHooks(t *testing.T) {
 	if err := os.WriteFile(p, []byte(original), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-tick": true}); err != nil {
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-pm-traces": true}); err != nil {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(p)
@@ -57,8 +57,8 @@ func TestMergeSettings_PreservesNonSquadHooks(t *testing.T) {
 	if !strings.Contains(string(body), "session-start@v1") {
 		t.Fatalf("session-start missing; got %s", body)
 	}
-	if !strings.Contains(string(body), "pre-commit-tick@v1") {
-		t.Fatalf("pre-commit-tick missing; got %s", body)
+	if !strings.Contains(string(body), "pre-commit-pm-traces@v1") {
+		t.Fatalf("pre-commit-pm-traces missing; got %s", body)
 	}
 }
 
@@ -89,7 +89,7 @@ func TestMergeSettings_UninstallRemovesOnlySquadEntries(t *testing.T) {
 	if err := os.WriteFile(p, []byte(original), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-tick": true}); err != nil {
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-pm-traces": true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := uninstallSquadHooks(p); err != nil {
@@ -107,15 +107,15 @@ func TestMergeSettings_UninstallRemovesOnlySquadEntries(t *testing.T) {
 func TestMergeSettings_DisableRemovesEnabled(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	p := filepath.Join(t.TempDir(), "settings.json")
-	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-tick": true}); err != nil {
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-pm-traces": true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := mergeSquadHooks(p, map[string]bool{"session-start": true}); err != nil {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(p)
-	if strings.Contains(string(body), "pre-commit-tick@v1") {
-		t.Fatalf("expected pre-commit-tick removed; got %s", body)
+	if strings.Contains(string(body), "pre-commit-pm-traces@v1") {
+		t.Fatalf("expected pre-commit-pm-traces removed; got %s", body)
 	}
 	if !strings.Contains(string(body), "session-start@v1") {
 		t.Fatalf("session-start missing; got %s", body)

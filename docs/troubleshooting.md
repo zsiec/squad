@@ -35,7 +35,7 @@ squad install-plugin                             # re-installs idempotently
 
 ## Hook not firing
 
-**Symptom:** SessionStart doesn't auto-register, or pre-commit-tick doesn't block stale commits.
+**Symptom:** SessionStart doesn't auto-register, or pre-commit-pm-traces doesn't block PM-trace commits.
 
 **Cause:** `~/.claude/settings.json` hooks block missing or malformed.
 

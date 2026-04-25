@@ -378,7 +378,7 @@ Install or update squad's Claude Code hooks in `~/.claude/settings.json`.
 ```bash
 squad install-hooks                               # interactive
 squad install-hooks --yes                         # use defaults (only session-start ON)
-squad install-hooks --yes --pre-commit-tick=on    # tune individually
+squad install-hooks --yes --pre-commit-pm-traces=on    # tune individually
 squad install-hooks --status                      # what is installed
 squad install-hooks --uninstall                   # remove all squad-managed entries
 ```
