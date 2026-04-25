@@ -151,6 +151,34 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Phantom claim: claim row points at an item id no item file backs.
+		known := make(map[string]struct{}, len(refs))
+		for _, r := range refs {
+			known[r.ID] = struct{}{}
+		}
+		phantomRows, err := sw.db.QueryContext(ctx,
+			`SELECT item_id, agent_id FROM claims WHERE repo_id = ?`, sw.repoID)
+		if err != nil {
+			return nil, err
+		}
+		for phantomRows.Next() {
+			var item, agent string
+			if err := phantomRows.Scan(&item, &agent); err != nil {
+				phantomRows.Close()
+				return nil, err
+			}
+			if _, ok := known[item]; !ok {
+				findings = append(findings, Finding{
+					Severity: SeverityWarn,
+					Code:     "phantom_claim",
+					Message:  "phantom claim: " + item + " held by " + agent + " but no item file exists",
+					Fix:      "squad force-release " + item + " --reason \"item file missing\"",
+				})
+			}
+		}
+		phantomRows.Close()
+
 		for _, r := range refs {
 			if r.Status == "in_progress" && strings.Contains(r.Path, "/done/") {
 				findings = append(findings, Finding{

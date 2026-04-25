@@ -112,6 +112,40 @@ func TestSweep_FlagsOrphanTouch(t *testing.T) {
 	}
 }
 
+func TestSweep_FlagsPhantomClaim(t *testing.T) {
+	db := newDB(t)
+	t0 := int64(1_000_000)
+	registerAgent(t, db, "repo-test", "agent-a", t0)
+	if _, err := db.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, ?, ?, ?, ?, ?, 0)
+	`, "repo-test", "GONE-1", "agent-a", t0, t0, "claim against deleted item"); err != nil {
+		t.Fatal(err)
+	}
+
+	sw := NewWithClock(db, "repo-test", emptyItems{}, func() time.Time { return time.Unix(t0, 0) })
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var phantom *Finding
+	for i := range findings {
+		if findings[i].Code == "phantom_claim" {
+			phantom = &findings[i]
+			break
+		}
+	}
+	if phantom == nil {
+		t.Fatalf("phantom_claim not flagged: %v", findings)
+	}
+	if !strings.Contains(phantom.Message, "GONE-1") {
+		t.Fatalf("phantom finding missing item id: %v", phantom)
+	}
+	if !strings.Contains(phantom.Message, "agent-a") {
+		t.Fatalf("phantom finding missing holder: %v", phantom)
+	}
+}
+
 func TestSweep_CleanIntegrityProducesNoFinding(t *testing.T) {
 	db := newDB(t)
 	sw := NewWithClock(db, "repo-test", emptyItems{}, time.Now)
