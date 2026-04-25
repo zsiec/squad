@@ -78,6 +78,38 @@ Emit `STATUS.md` from current DB and items state.
 squad dump-status > STATUS.md
 ```
 
+## Specs and epics
+
+### `squad analyze`
+
+Decompose an epic's items into parallel streams. Reads the epic frontmatter, walks the items that reference it, and writes `.squad/epics/<epic>-analysis.md` containing the stream list, file globs, dependency edges, and a parallelism factor.
+
+```bash
+squad analyze auth-rework
+```
+
+Prints the absolute path to the analysis file on success. Decomposition is deterministic: same inputs produce the same streams.
+
+### `squad epic-new`
+
+Create an epic scaffold under `.squad/epics/<name>.md` with `spec`, `status`, and `parallelism` frontmatter. The `--spec` flag is required and must reference an existing spec slug; the command fails if the spec file does not exist.
+
+```bash
+squad epic-new auth-rework --spec auth
+```
+
+Prints the absolute path to the created file on success. Names must be kebab-case.
+
+### `squad spec-new`
+
+Create a spec scaffold under `.squad/specs/<name>.md` with `title`, `motivation`, `acceptance`, `non_goals`, and `integration` frontmatter ready to fill in.
+
+```bash
+squad spec-new auth "rebuild authentication around OIDC"
+```
+
+Prints the absolute path to the created file on success. Names must be kebab-case; titles are free-form.
+
 ## Claims
 
 ### `squad claim`

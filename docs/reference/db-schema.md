@@ -156,10 +156,51 @@ Denormalized index of items present on disk. Refreshed by the hygiene sweep and 
 | `archived` | INTEGER NOT NULL DEFAULT 0 | 1 = file moved to `.squad/done/` |
 | `path` | TEXT NOT NULL | absolute path to the .md file |
 | `updated_at` | INTEGER NOT NULL | last sync from disk |
+| `epic_id` | TEXT | nullable; name of the owning epic when the item was scaffolded under one |
+| `parallel` | INTEGER NOT NULL DEFAULT 0 | 1 = item is safe to run in parallel with its siblings |
+| `conflicts_with` | TEXT NOT NULL DEFAULT '[]' | JSON array of item IDs that must not be claimed concurrently |
 
 PK: `(repo_id, item_id)`. Strict mode (`STRICT`).
 
-Index: `idx_items_repo_status ON items(repo_id, status)`.
+Indexes:
+- `idx_items_repo_status ON items(repo_id, status)`
+- `idx_items_epic ON items(repo_id, epic_id)` — for `squad analyze` and epic rollups
+
+### `specs`
+
+One row per spec markdown file under `.squad/specs/`. A spec captures the why-and-what for a body of work: title, motivation, acceptance criteria, non-goals, and integration surface area.
+
+| Column | Type | Notes |
+|---|---|---|
+| `repo_id` | TEXT NOT NULL | |
+| `name` | TEXT NOT NULL | kebab-case slug; matches the filename without extension |
+| `title` | TEXT NOT NULL | human-readable title |
+| `motivation` | TEXT NOT NULL DEFAULT '' | why this spec exists |
+| `acceptance` | TEXT NOT NULL DEFAULT '' | acceptance criteria (rendered list) |
+| `non_goals` | TEXT NOT NULL DEFAULT '' | explicit non-goals |
+| `integration` | TEXT NOT NULL DEFAULT '' | areas of the codebase this spec touches |
+| `path` | TEXT NOT NULL | absolute path to the .md file |
+| `updated_at` | INTEGER NOT NULL | last sync from disk |
+
+PK: `(repo_id, name)`. Strict mode (`STRICT`).
+
+### `epics`
+
+One row per epic markdown file under `.squad/epics/`. An epic groups items that deliver a slice of a spec; `squad analyze` reads this table together with `items` to produce a stream decomposition.
+
+| Column | Type | Notes |
+|---|---|---|
+| `repo_id` | TEXT NOT NULL | |
+| `name` | TEXT NOT NULL | kebab-case slug; matches the filename without extension |
+| `spec` | TEXT NOT NULL DEFAULT '' | name of the spec this epic belongs to |
+| `status` | TEXT NOT NULL DEFAULT 'open' | `open` \| `closed` |
+| `parallelism` | TEXT NOT NULL DEFAULT '' | free-form parallelism notes; populated by `squad analyze` |
+| `path` | TEXT NOT NULL | absolute path to the .md file |
+| `updated_at` | INTEGER NOT NULL | last sync from disk |
+
+PK: `(repo_id, name)`. Strict mode (`STRICT`).
+
+Index: `idx_epics_spec ON epics(repo_id, spec)`.
 
 ## Why no migrations directory yet
 
