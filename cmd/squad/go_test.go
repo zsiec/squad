@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -30,5 +32,70 @@ func TestGoCmd_HelpMentionsOrchestration(t *testing.T) {
 		if !strings.Contains(strings.ToLower(body), want) {
 			t.Errorf("help should mention %q, got: %s", want, body)
 		}
+	}
+}
+
+func TestGoCmd_InitsWhenSquadDirAbsent(t *testing.T) {
+	repo := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-init-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repo)
+	t.Chdir(repo)
+
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"go"})
+	_ = root.Execute()
+
+	for _, rel := range []string{
+		".squad/config.yaml",
+		".squad/STATUS.md",
+		".squad/items/EXAMPLE-001-try-the-loop.md",
+		"AGENTS.md",
+	} {
+		if _, err := os.Stat(filepath.Join(repo, rel)); err != nil {
+			t.Errorf("squad go did not init %s: %v", rel, err)
+		}
+	}
+}
+
+func TestGoCmd_DoesNotReinitWhenSquadDirPresent(t *testing.T) {
+	repo := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-init-2")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repo)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repo})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgPath := filepath.Join(repo, ".squad", "config.yaml")
+	mtimeBefore, err := os.Stat(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Chdir(repo)
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"go"})
+	_ = root.Execute()
+
+	mtimeAfter, err := os.Stat(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !mtimeAfter.ModTime().Equal(mtimeBefore.ModTime()) {
+		t.Fatal("squad go re-wrote .squad/config.yaml on second run")
 	}
 }

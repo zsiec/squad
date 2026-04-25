@@ -1,6 +1,12 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 )
 
@@ -27,5 +33,23 @@ the mailbox.`,
 }
 
 func runGo(cmd *cobra.Command) error {
+	out := cmd.OutOrStdout()
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if err := ensureSquadInit(wd, out); err != nil {
+		return err
+	}
 	return nil
+}
+
+func ensureSquadInit(wd string, out io.Writer) error {
+	if _, err := os.Stat(filepath.Join(wd, ".squad", "config.yaml")); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	fmt.Fprintln(out, "no .squad/ found — running squad init --yes")
+	return runInit(&cobra.Command{}, initOptions{Yes: true, Dir: wd})
 }
