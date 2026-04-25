@@ -22,11 +22,41 @@ func RewriteStatus(path, newStatus string, now time.Time) error {
 	if err != nil {
 		return fmt.Errorf("rewrite frontmatter for %s: %w", path, err)
 	}
-	tmp := path + ".squad.tmp"
-	if err := os.WriteFile(tmp, rewritten, 0o644); err != nil {
+	return atomicWrite(path, rewritten)
+}
+
+// atomicWrite stages content into a sibling temp file (CreateTemp's
+// random-suffix pattern bounds the name length regardless of the target's
+// basename — the original `path + ".squad.tmp"` overflowed the 255-byte
+// FS limit when basenames pushed past ~245 bytes, see QA r6-H #1) and
+// renames into place once the bytes are flushed.
+func atomicWrite(path string, content []byte) error {
+	dir := filepath.Dir(path)
+	f, err := os.CreateTemp(dir, ".squad-tmp-*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	tmp := f.Name()
+	cleanup := func() { _ = os.Remove(tmp) }
+	if _, err := f.Write(content); err != nil {
+		f.Close()
+		cleanup()
+		return err
+	}
+	if err := f.Chmod(0o644); err != nil {
+		f.Close()
+		cleanup()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		cleanup()
+		return err
+	}
+	return nil
 }
 
 func rewriteFrontmatter(raw []byte, updates map[string]string) ([]byte, error) {
@@ -116,11 +146,7 @@ func EnsureBlockerSection(path, reason string) error {
 		raw = append(raw, '\n')
 	}
 	appended := append(raw, []byte("\n## Blocker\n"+reason+"\n")...)
-	tmp := path + ".squad.tmp"
-	if err := os.WriteFile(tmp, appended, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return atomicWrite(path, appended)
 }
 
 func MoveToDone(srcPath, doneDir string) (string, error) {
