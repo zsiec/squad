@@ -42,6 +42,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTickCmd())
 	root.AddCommand(newWhoCmd())
 	root.AddCommand(newTailCmd())
+	root.AddCommand(newHistoryCmd())
 	return root
 }
 
