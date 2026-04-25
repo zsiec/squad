@@ -67,12 +67,45 @@ func (s *Store) Claim(ctx context.Context, itemID, agentID, intent string, touch
 			return err
 		}
 	}
+	var conflictPaths []string
+	if co.preflightItemsDir != "" {
+		if paths, err := conflictsWithPaths(co.preflightItemsDir, itemID); err == nil {
+			conflictPaths = paths
+		}
+	}
 	now := s.nowUnix()
 	longVal := 0
 	if long {
 		longVal = 1
 	}
 	return s.withTx(ctx, func(tx *sql.Tx) error {
+		if len(conflictPaths) > 0 {
+			placeholders := make([]string, 0, len(conflictPaths))
+			args := []any{s.repoID, itemID}
+			for _, p := range conflictPaths {
+				placeholders = append(placeholders, "?")
+				args = append(args, p)
+			}
+			q := `
+SELECT c.item_id
+FROM claims c
+JOIN items i ON i.repo_id = c.repo_id AND i.item_id = c.item_id
+WHERE c.repo_id = ? AND c.item_id != ?
+  AND EXISTS (
+    SELECT 1 FROM json_each(i.conflicts_with) je
+    WHERE je.value IN (` + strings.Join(placeholders, ",") + `)
+  )
+LIMIT 1`
+			var other string
+			err := tx.QueryRowContext(ctx, q, args...).Scan(&other)
+			if err == nil {
+				return fmt.Errorf("%w: %s overlaps with active claim on %s",
+					ErrConflictsWithActive, itemID, other)
+			}
+			if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("conflicts_with check: %w", err)
+			}
+		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
 			VALUES (?, ?, ?, ?, ?, ?, ?)

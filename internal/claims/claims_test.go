@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/store"
 )
 
 func TestClaim_FirstCallerWins(t *testing.T) {
@@ -137,5 +140,61 @@ blocked-by: [FEAT-002]
 
 	if err := s.Claim(ctx, "BUG-071", "agent-a", "go", nil, false, ClaimWithPreflight(itemsDir, doneDir)); err != nil {
 		t.Fatalf("claim should succeed: %v", err)
+	}
+}
+
+func TestClaim_ConflictsWithBlocksOverlap(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	itemsDir := filepath.Join(dir, ".squad", "items")
+	doneDir := filepath.Join(dir, ".squad", "done")
+	for _, p := range []string{itemsDir, doneDir} {
+		if err := os.MkdirAll(p, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(id string, conflicts []string) {
+		yl := ""
+		for _, c := range conflicts {
+			yl += "  - " + c + "\n"
+		}
+		b := "---\nid: " + id + "\ntitle: t\ntype: feature\npriority: P1\n" +
+			"area: core\nstatus: open\nestimate: 1h\nrisk: low\n" +
+			"created: 2026-04-25\nupdated: 2026-04-25\nconflicts_with:\n" + yl + "---\n"
+		if err := os.WriteFile(filepath.Join(itemsDir, id+".md"), []byte(b), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("FEAT-700", []string{"a.go", "shared.go"})
+	write("FEAT-701", []string{"b.go", "shared.go"})
+	write("FEAT-702", []string{"c.go", "d.go"})
+
+	ctx := context.Background()
+	w, err := items.Walk(filepath.Join(dir, ".squad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := items.Mirror(ctx, db, "repo-1", w); err != nil {
+		t.Fatal(err)
+	}
+	s := New(db, "repo-1", nil)
+
+	if err := s.Claim(ctx, "FEAT-700", "agent-A", "x", nil, false,
+		ClaimWithPreflight(itemsDir, doneDir)); err != nil {
+		t.Fatalf("first claim: %v", err)
+	}
+	err = s.Claim(ctx, "FEAT-701", "agent-B", "x", nil, false,
+		ClaimWithPreflight(itemsDir, doneDir))
+	if !errors.Is(err, ErrConflictsWithActive) {
+		t.Fatalf("expected ErrConflictsWithActive, got %v", err)
+	}
+	if err := s.Claim(ctx, "FEAT-702", "agent-C", "x", nil, false,
+		ClaimWithPreflight(itemsDir, doneDir)); err != nil {
+		t.Fatalf("disjoint claim: %v", err)
 	}
 }

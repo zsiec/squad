@@ -10,4 +10,6 @@ var (
 	ErrBlockedByOpen   = errors.New("claims: item has unresolved blockers")
 	ErrItemNotFound    = errors.New("claims: no item file matches the given id")
 	ErrItemAlreadyDone = errors.New("claims: item is already done")
+
+	ErrConflictsWithActive = errors.New("claims: conflicts_with overlaps an active claim")
 )

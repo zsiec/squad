@@ -66,6 +66,18 @@ func findItemFile(dir, itemID string) (string, error) {
 	return "", fmt.Errorf("item %s not found in %s", itemID, dir)
 }
 
+func conflictsWithPaths(itemsDir, itemID string) ([]string, error) {
+	p, err := findItemFile(itemsDir, itemID)
+	if err != nil {
+		return nil, err
+	}
+	it, err := items.Parse(p)
+	if err != nil {
+		return nil, err
+	}
+	return it.ConflictsWith, nil
+}
+
 func blockerInDoneDir(doneDir, blockerID string) bool {
 	entries, err := os.ReadDir(doneDir)
 	if err != nil {
