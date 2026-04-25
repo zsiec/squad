@@ -90,6 +90,8 @@ func Walk(squadDir string) ([]Epic, []Broken, error) {
 		if ent.IsDir() || !strings.HasSuffix(ent.Name(), ".md") {
 			continue
 		}
+		// squad analyze writes <epic>-analysis.md siblings into this dir;
+		// they aren't epics and parsing them as such would yield broken-spec.
 		if strings.HasSuffix(ent.Name(), "-analysis.md") {
 			continue
 		}

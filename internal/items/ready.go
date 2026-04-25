@@ -55,6 +55,7 @@ func scoreOf(p string) int {
 
 func hasOpenBlocker(it Item, statusByID map[string]string) bool {
 	for _, bid := range it.BlockedBy {
+		bid = strings.TrimSpace(bid)
 		if bid == "" {
 			continue
 		}
