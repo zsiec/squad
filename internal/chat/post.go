@@ -81,5 +81,6 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 			"body":     req.Body,
 		},
 	})
+	c.fireNotify(ctx)
 	return nil
 }

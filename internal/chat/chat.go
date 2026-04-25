@@ -1,9 +1,16 @@
 package chat
 
 import (
+	"context"
 	"database/sql"
+	"sync"
 	"time"
 )
+
+// Notifier is a hook invoked after each successful Post, scoped to the
+// chat's repo. The chat package does not import notify; production code
+// wires notify.Wake from the binary edge to keep the package boundary clean.
+type Notifier func(ctx context.Context, repoID string)
 
 // Chat is the package's top-level service. It writes against the global
 // SQLite DB and publishes events on a non-blocking bus.
@@ -16,6 +23,9 @@ type Chat struct {
 	repoID string
 	bus    *Bus
 	now    func() time.Time
+
+	mu     sync.RWMutex
+	notify Notifier
 }
 
 func New(db *sql.DB, repoID string) *Chat {
@@ -24,6 +34,21 @@ func New(db *sql.DB, repoID string) *Chat {
 
 func NewWithClock(db *sql.DB, repoID string, clock func() time.Time) *Chat {
 	return &Chat{db: db, repoID: repoID, bus: NewBus(), now: clock}
+}
+
+func (c *Chat) SetNotifier(n Notifier) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.notify = n
+}
+
+func (c *Chat) fireNotify(ctx context.Context) {
+	c.mu.RLock()
+	n := c.notify
+	c.mu.RUnlock()
+	if n != nil {
+		n(ctx, c.repoID)
+	}
 }
 
 func (c *Chat) Bus() *Bus      { return c.bus }

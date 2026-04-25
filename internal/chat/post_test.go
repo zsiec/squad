@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -113,5 +114,37 @@ func TestPost_BumpsHeartbeat(t *testing.T) {
 	_ = db.QueryRowContext(ctx, `SELECT last_tick_at FROM agents WHERE id='agent-a'`).Scan(&after)
 	if after <= before {
 		t.Fatalf("heartbeat not bumped: before=%d after=%d", before, after)
+	}
+}
+
+func TestPost_FiresNotifyWake(t *testing.T) {
+	c, _ := newTestChat(t)
+	var fired atomic.Int64
+	var lastRepo atomic.Value
+	c.SetNotifier(func(ctx context.Context, repoID string) {
+		fired.Add(1)
+		lastRepo.Store(repoID)
+	})
+
+	if err := c.Post(context.Background(), PostRequest{
+		AgentID: "agent-a", Thread: ThreadGlobal, Kind: KindSay, Body: "hi",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if fired.Load() != 1 {
+		t.Fatalf("notifier should fire exactly once, got %d", fired.Load())
+	}
+	if got, _ := lastRepo.Load().(string); got != "repo-test" {
+		t.Fatalf("notifier called with repo=%q want repo-test", got)
+	}
+}
+
+func TestPost_NotifierAbsentIsNoOp(t *testing.T) {
+	c, _ := newTestChat(t)
+	if err := c.Post(context.Background(), PostRequest{
+		AgentID: "agent-a", Thread: ThreadGlobal, Kind: KindSay, Body: "hi",
+	}); err != nil {
+		t.Fatalf("post must succeed without a notifier: %v", err)
 	}
 }

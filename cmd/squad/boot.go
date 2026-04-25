@@ -6,11 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/zsiec/squad/internal/chat"
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/notify"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
 )
@@ -50,9 +52,14 @@ func bootClaimContext(_ context.Context) (*claimContext, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	chatSvc := chat.New(db, repoID)
+	registry := notify.NewRegistry(db)
+	chatSvc.SetNotifier(func(ctx context.Context, repoID string) {
+		_ = notify.Wake(ctx, registry, repoID, 100*time.Millisecond)
+	})
 	return &claimContext{
 		store:    claims.New(db, repoID, nil),
-		chat:     chat.New(db, repoID),
+		chat:     chatSvc,
 		db:       db,
 		repoID:   repoID,
 		itemsDir: filepath.Join(root, ".squad", "items"),
