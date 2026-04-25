@@ -68,3 +68,30 @@ func TestMailbox_FormatJSON_NotifyShape(t *testing.T) {
 		t.Errorf("expected reason field, got %s", js)
 	}
 }
+
+func TestMailbox_MarkReadAdvancesCursors(t *testing.T) {
+	c, db := newTestChat(t)
+	ctx := context.Background()
+	_ = registerTestAgent(ctx, db, "repo-test", "peer", "Peer", 1700000000)
+	_ = c.Post(ctx, PostRequest{AgentID: "peer", Thread: ThreadGlobal, Kind: KindSay, Body: "@agent-a one"})
+	_ = c.Post(ctx, PostRequest{AgentID: "peer", Thread: ThreadGlobal, Kind: KindSay, Body: "@agent-a two"})
+
+	m, err := c.Mailbox(ctx, "agent-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Empty() {
+		t.Fatal("expected unread")
+	}
+	if err := c.MarkMailboxRead(ctx, "agent-a", m); err != nil {
+		t.Fatal(err)
+	}
+
+	again, err := c.Mailbox(ctx, "agent-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !again.Empty() {
+		t.Fatalf("expected empty after MarkMailboxRead, got %+v", again)
+	}
+}

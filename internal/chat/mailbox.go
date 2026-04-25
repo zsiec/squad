@@ -79,3 +79,32 @@ func (c *Chat) Mailbox(ctx context.Context, agentID string) (Mailbox, error) {
 		Global:      dg.Global,
 	}, nil
 }
+
+// MarkMailboxRead advances the per-thread read cursor for agentID up to
+// the highest message id in m. Used by the listen/post-tool hooks to
+// "consume" the mailbox after injecting it as additionalContext.
+func (c *Chat) MarkMailboxRead(ctx context.Context, agentID string, m Mailbox) error {
+	maxByThread := map[string]int64{}
+	consider := func(msgs []DigestMessage) {
+		for _, msg := range msgs {
+			if msg.ID > maxByThread[msg.Thread] {
+				maxByThread[msg.Thread] = msg.ID
+			}
+		}
+	}
+	consider(m.Knocks)
+	consider(m.Mentions)
+	consider(m.YourThreads)
+	consider(m.Handoffs)
+	consider(m.Global)
+	for thread, maxID := range maxByThread {
+		if _, err := c.db.ExecContext(ctx, `
+			INSERT INTO reads (agent_id, thread, last_msg_id) VALUES (?, ?, ?)
+			ON CONFLICT(agent_id, thread) DO UPDATE SET last_msg_id = excluded.last_msg_id
+			WHERE excluded.last_msg_id > reads.last_msg_id
+		`, agentID, thread, maxID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
