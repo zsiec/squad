@@ -425,3 +425,57 @@ func TestGoCmd_IdempotentTwoRunsOneClaim(t *testing.T) {
 		t.Fatalf("want exactly 1 claim across two squad-go runs, got %d", n)
 	}
 }
+
+func TestGoCmd_IdentityStableAcrossRuns(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "stable-session-id")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	collectAgents := func() []string {
+		dbPath, _ := store.DBPath()
+		db, err := store.Open(dbPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		rows, err := db.QueryContext(context.Background(),
+			`SELECT id FROM agents ORDER BY id`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var got []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, s)
+		}
+		return got
+	}
+
+	t.Chdir(repoDir)
+	for i := 0; i < 3; i++ {
+		root := newRootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs([]string{"go"})
+		_ = root.Execute()
+	}
+
+	got := collectAgents()
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 agent across 3 runs of the same session, got %v", got)
+	}
+}
