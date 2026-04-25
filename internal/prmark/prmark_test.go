@@ -16,7 +16,10 @@ func TestExtract(t *testing.T) {
 		{"two markers — first wins", "<!-- squad-item: BUG-1 --> and later <!-- squad-item: BUG-2 -->", "BUG-1"},
 		{"missing closing", "<!-- squad-item: BUG-3", ""},
 		{"wrong key", "<!-- squad item: BUG-4 -->", ""},
-		{"lowercase id is preserved verbatim", "<!-- squad-item: bug-9 -->", "bug-9"},
+		{"lowercase id rejected (case-strict)", "<!-- squad-item: bug-9 -->", ""},
+		{"non-prefix garbage rejected", "<!-- squad-item: <script> -->", ""},
+		{"shell-injection-shaped rejected", "<!-- squad-item: BUG-1; rm -rf / -->", ""},
+		{"trailing space ok", "<!-- squad-item: BUG-1 -->", "BUG-1"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
