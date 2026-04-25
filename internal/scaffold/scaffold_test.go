@@ -78,3 +78,96 @@ func TestTemplatesEmbed_HasEntries(t *testing.T) {
 		t.Fatal("expected at least one entry under templates/")
 	}
 }
+
+func TestStatusTemplate_RendersWithProject(t *testing.T) {
+	raw, err := Templates.ReadFile("templates/status.md.tmpl")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got, err := Render(string(raw), Data{ProjectName: "octopus"})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{"# octopus — backlog board", "## In Progress", "## Ready", "## Blocked", "## Recent Done"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("status template missing %q", want)
+		}
+	}
+}
+
+func TestExampleItem_HasFrontmatterAndBody(t *testing.T) {
+	raw, err := Templates.ReadFile("templates/items/EXAMPLE-001-try-the-loop.md.tmpl")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got, err := Render(string(raw), Data{ProjectName: "octopus"})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		"id: EXAMPLE-001",
+		"title:",
+		"status: open",
+		"priority: P3",
+		"## Problem",
+		"## Acceptance criteria",
+		"squad claim EXAMPLE-001",
+		"squad done EXAMPLE-001",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("example item missing %q", want)
+		}
+	}
+}
+
+func TestConfigTemplate_RendersAllKnobs(t *testing.T) {
+	raw, err := Templates.ReadFile("templates/config.yaml.tmpl")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got, err := Render(string(raw), Data{
+		ProjectName:     "octopus",
+		IDPrefixes:      []string{"BUG", "FEAT", "TASK", "CHORE"},
+		PrimaryLanguage: "go",
+	})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		"project_name: octopus",
+		"id_prefixes:",
+		"- BUG",
+		"- FEAT",
+		"risk:",
+		"verification:",
+		"chat:",
+		"hygiene:",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("config template missing %q", want)
+		}
+	}
+}
+
+func TestClaudeFragment_HasMarkersAndPointers(t *testing.T) {
+	raw, err := Templates.ReadFile("templates/claude.md.fragment.tmpl")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got, err := Render(string(raw), Data{ProjectName: "octopus"})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		"<!-- squad-managed:start -->",
+		"<!-- squad-managed:end -->",
+		"AGENTS.md",
+		".squad/items/",
+		"squad register",
+		"squad tick",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("claude fragment missing %q", want)
+		}
+	}
+}
