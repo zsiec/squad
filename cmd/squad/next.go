@@ -19,14 +19,15 @@ import (
 
 func newNextCmd() *cobra.Command {
 	var (
-		asJSON bool
-		limit  int
+		asJSON          bool
+		limit           int
+		includeClaimed  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "next",
-		Short: "List ready items in priority order",
+		Short: "List ready items in priority order (excludes items already claimed)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if code := runNext(args, cmd.OutOrStdout(), asJSON, limit); code != 0 {
+			if code := runNext(args, cmd.OutOrStdout(), asJSON, limit, includeClaimed); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -34,10 +35,11 @@ func newNextCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit ready items as a JSON array")
 	cmd.Flags().IntVar(&limit, "limit", 0, "cap rows printed (0 = print all)")
+	cmd.Flags().BoolVar(&includeClaimed, "include-claimed", false, "include items currently held by some agent")
 	return cmd
 }
 
-func runNext(_ []string, stdout io.Writer, asJSON bool, limit int) int {
+func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaimed bool) int {
 	wd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "getwd: %v\n", err)
@@ -55,14 +57,35 @@ func runNext(_ []string, stdout io.Writer, asJSON bool, limit int) int {
 		return 4
 	}
 
+	claimed := make(map[string]struct{})
 	if db, derr := store.OpenDefault(); derr == nil {
 		defer db.Close()
 		if repoID, rerr := repo.IDFor(root); rerr == nil {
 			_ = items.Mirror(context.Background(), db, repoID, w)
+			rows, qerr := db.QueryContext(context.Background(),
+				`SELECT item_id FROM claims WHERE repo_id = ?`, repoID)
+			if qerr == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var id string
+					if err := rows.Scan(&id); err == nil {
+						claimed[id] = struct{}{}
+					}
+				}
+			}
 		}
 	}
 
 	ready := items.Ready(w, time.Now().UTC())
+	if !includeClaimed {
+		filtered := ready[:0]
+		for _, it := range ready {
+			if _, held := claimed[it.ID]; !held {
+				filtered = append(filtered, it)
+			}
+		}
+		ready = filtered
+	}
 	if len(ready) == 0 {
 		if asJSON {
 			fmt.Fprintln(stdout, "[]")

@@ -193,11 +193,13 @@ squad review-request FEAT-001 --reviewer agent-bob
 
 ### `squad progress`
 
-Report progress on a held item.
+Report progress on a held item. The percentage is positional (0–100); the note is optional. Only the agent currently holding the claim can report progress on it.
 
 ```bash
-squad progress FEAT-001 --pct 60 --note "AC 2 of 4 done"
+squad progress FEAT-001 60 --note "AC 2 of 4 done"
 ```
+
+The report is written to both the `progress` table (source of truth for "latest pct") and the `messages` table (so it shows up in `squad tail` and `squad history`).
 
 ### `squad tail`
 

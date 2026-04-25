@@ -279,6 +279,12 @@ func renderStatus(w io.Writer, rows []workspace.StatusRow) {
 }
 
 func renderNext(w io.Writer, rows []workspace.NextRow, currentAgent string) {
+	if len(rows) == 0 {
+		fmt.Fprintln(w, "no P0/P1 items across known repos.")
+		fmt.Fprintln(w, "  (workspace next filters to P0/P1 only;")
+		fmt.Fprintln(w, "   for the full ready stack of one repo, run `squad next` from that repo.)")
+		return
+	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	defer tw.Flush()
 	fmt.Fprintln(tw, "REPO\tID\tPRI\tEST\tCLAIM\tTITLE")

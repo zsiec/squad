@@ -105,7 +105,8 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	}
 
 	if ans.InstallPlugin {
-		fmt.Fprintln(cmd.OutOrStdout(), "Plugin install: see Phase 10 — wire up via `squad install-plugin` once that lands.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.")
+		fmt.Fprintln(cmd.OutOrStdout(), "  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).")
 	}
 
 	printSuccess(cmd.OutOrStdout(), info, ans, reg)
