@@ -31,3 +31,21 @@ func writeFile(t *testing.T, path, body string) {
 		t.Fatal(err)
 	}
 }
+
+func TestParse_NoFrontmatterIsError(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "broken.md")
+	writeFile(t, p, "no frontmatter here\n")
+	if _, err := Parse(p); err == nil {
+		t.Fatal("expected error for missing frontmatter")
+	}
+}
+
+func TestParse_MalformedFrontmatterIsError(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "broken.md")
+	writeFile(t, p, "---\nid: [oops\n---\n\nbody\n")
+	if _, err := Parse(p); err == nil {
+		t.Fatal("expected error for malformed yaml frontmatter")
+	}
+}
