@@ -82,6 +82,9 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	if err := scaffold.WriteAgents(info.GitRoot, data); err != nil {
 		return err
 	}
+	if err := scaffold.WriteAgentsDeep(info.GitRoot, data); err != nil {
+		return err
+	}
 
 	choice, err := resolveCLAUDEChoice(info.GitRoot, opts.Yes, cmd.InOrStdin(), cmd.OutOrStdout())
 	if err != nil {

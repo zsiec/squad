@@ -28,6 +28,10 @@ func WriteAgents(repoRoot string, d Data) error {
 	return writeIfAbsent(filepath.Join(repoRoot, "AGENTS.md"), "templates/AGENTS.md.tmpl", d)
 }
 
+func WriteAgentsDeep(repoRoot string, d Data) error {
+	return writeIfAbsent(filepath.Join(repoRoot, "docs", "agents-deep.md"), "templates/agents-deep.md.tmpl", d)
+}
+
 func writeIfAbsent(dest, tmplPath string, d Data) error {
 	if _, err := os.Stat(dest); err == nil {
 		return nil

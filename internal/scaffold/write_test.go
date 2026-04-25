@@ -126,3 +126,48 @@ func TestWriteAgents_SkipsIfPresent(t *testing.T) {
 		t.Fatalf("clobbered AGENTS.md; got %q", got)
 	}
 }
+
+func TestWriteAgentsDeep_WritesAtDocsAgentsDeepMd(t *testing.T) {
+	repo := t.TempDir()
+	d := Data{ProjectName: "Test", IDPrefixes: []string{"BUG", "FEAT"}}
+	if err := WriteAgentsDeep(repo, d); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(repo, "docs", "agents-deep.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Multi-agent dispatch",
+		"Handoff",
+		"Chat cadence",
+		"Time-boxing",
+		"Anchor checkpoints",
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("docs/agents-deep.md missing section %q", want)
+		}
+	}
+}
+
+func TestWriteAgentsDeep_Idempotent(t *testing.T) {
+	repo := t.TempDir()
+	d := Data{ProjectName: "Test", IDPrefixes: []string{"BUG"}}
+	if err := WriteAgentsDeep(repo, d); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(filepath.Join(repo, "docs", "agents-deep.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteAgentsDeep(repo, d); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(filepath.Join(repo, "docs", "agents-deep.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatal("WriteAgentsDeep should be idempotent")
+	}
+}

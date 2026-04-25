@@ -126,6 +126,22 @@ func (failingReader) Read(p []byte) (int, error) {
 	return 0, fmt.Errorf("stdin should not be read in --yes mode")
 }
 
+func TestRunInit_WritesDocsAgentsDeep(t *testing.T) {
+	repo := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	gitInitDir(t, repo)
+
+	cmd := newInitCmd()
+	cmd.SetArgs([]string{"--yes", "--dir", repo})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, "docs", "agents-deep.md")); err != nil {
+		t.Fatalf("expected docs/agents-deep.md after init: %v", err)
+	}
+}
+
 func snapshotDir(t *testing.T, root string) map[string]string {
 	t.Helper()
 	out := make(map[string]string)
