@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
@@ -308,5 +309,72 @@ estimate: 1h
 		if !strings.Contains(body, want) {
 			t.Errorf("AC line %q missing from output:\n%s", want, body)
 		}
+	}
+}
+
+func TestGoCmd_FlushesMailboxAtEnd(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-flush-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(filepath.Join(repoDir, ".squad", "items", "EXAMPLE-001-try-the-loop.md"))
+	writeItemFile(t, repoDir, "FEAT-100-flush.md",
+		"---\nid: FEAT-100\ntitle: flush\ntype: feature\npriority: P0\nstatus: open\nestimate: 1h\n---\n\n## Acceptance criteria\n- [ ] x\n")
+
+	t.Chdir(repoDir)
+
+	first2 := newRootCmd()
+	var out1 bytes.Buffer
+	first2.SetOut(&out1)
+	first2.SetErr(&out1)
+	first2.SetArgs([]string{"go"})
+	if err := first2.Execute(); err != nil {
+		t.Fatalf("first run: %v\n%s", err, out1.String())
+	}
+
+	dbPath, _ := store.DBPath()
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var repoID string
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT id FROM repos LIMIT 1`).Scan(&repoID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(context.Background(), `
+		INSERT INTO agents (id, repo_id, display_name, started_at, last_tick_at, status)
+		VALUES (?, ?, ?, ?, ?, 'active')
+		ON CONFLICT(id) DO NOTHING`,
+		"agent-other", repoID, "Other", 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(context.Background(), `
+		INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
+		VALUES (?, ?, ?, 'global', 'fyi', 'hello-from-other', '', 'normal')`,
+		repoID, time.Now().Unix(), "agent-other"); err != nil {
+		t.Fatal(err)
+	}
+
+	second := newRootCmd()
+	var out2 bytes.Buffer
+	second.SetOut(&out2)
+	second.SetErr(&out2)
+	second.SetArgs([]string{"go"})
+	if err := second.Execute(); err != nil {
+		t.Fatalf("second run: %v\n%s", err, out2.String())
+	}
+
+	if !strings.Contains(out2.String(), "hello-from-other") {
+		t.Fatalf("squad go did not flush mailbox; output=%s", out2.String())
 	}
 }

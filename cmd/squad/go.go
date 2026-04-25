@@ -53,7 +53,22 @@ func runGo(cmd *cobra.Command) error {
 	if err := ensureRegistered(out); err != nil {
 		return err
 	}
-	return ensureClaim(out)
+	if err := ensureClaim(out); err != nil {
+		return err
+	}
+	return flushMailbox(out)
+}
+
+func flushMailbox(out io.Writer) error {
+	bc, err := bootClaimContext(context.Background())
+	if err != nil {
+		return err
+	}
+	defer bc.Close()
+	if code := runTickBody(context.Background(), bc.chat, bc.agentID, false, out); code != 0 {
+		return fmt.Errorf("mailbox flush returned exit code %d", code)
+	}
+	return nil
 }
 
 func ensureClaim(out io.Writer) error {
