@@ -31,6 +31,10 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newSayCmd())
 	root.AddCommand(newAskCmd())
 	root.AddCommand(newAnswerCmd())
+	root.AddCommand(newChattyCmd(thinkingVerb))
+	root.AddCommand(newChattyCmd(stuckVerb))
+	root.AddCommand(newChattyCmd(milestoneVerb))
+	root.AddCommand(newChattyCmd(fyiVerb))
 	return root
 }
 
