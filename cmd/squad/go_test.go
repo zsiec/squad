@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 func TestGoCmd_Exists(t *testing.T) {
@@ -97,5 +100,69 @@ func TestGoCmd_DoesNotReinitWhenSquadDirPresent(t *testing.T) {
 	}
 	if !mtimeAfter.ModTime().Equal(mtimeBefore.ModTime()) {
 		t.Fatal("squad go re-wrote .squad/config.yaml on second run")
+	}
+}
+
+func TestGoCmd_RegistersAgentWhenAbsent(t *testing.T) {
+	repo := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-reg-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repo)
+	t.Chdir(repo)
+
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"go"})
+	_ = root.Execute()
+
+	db, err := store.Open(filepath.Join(state, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var n int
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM agents WHERE id LIKE 'agent-%'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("want 1 agent row, got %d", n)
+	}
+}
+
+func TestGoCmd_DoesNotReregisterOnSecondRun(t *testing.T) {
+	repo := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-reg-2")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repo)
+	t.Chdir(repo)
+
+	for i := 0; i < 2; i++ {
+		root := newRootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs([]string{"go"})
+		_ = root.Execute()
+	}
+
+	db, err := store.Open(filepath.Join(state, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var n int
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM agents`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("want exactly 1 agent row across two runs, got %d", n)
 	}
 }

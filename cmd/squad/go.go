@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zsiec/squad/internal/identity"
+	"github.com/zsiec/squad/internal/store"
 )
 
 func newGoCmd() *cobra.Command {
@@ -41,6 +45,9 @@ func runGo(cmd *cobra.Command) error {
 	if err := ensureSquadInit(wd, out); err != nil {
 		return err
 	}
+	if err := ensureRegistered(out); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -52,4 +59,40 @@ func ensureSquadInit(wd string, out io.Writer) error {
 	}
 	fmt.Fprintln(out, "no .squad/ found — running squad init --yes")
 	return runInit(&cobra.Command{}, initOptions{Yes: true, Dir: wd})
+}
+
+func ensureRegistered(out io.Writer) error {
+	id, err := identity.DerivedAgentID(identity.DetectWorktree())
+	if err != nil {
+		return err
+	}
+	known, err := agentExists(id)
+	if err != nil {
+		return err
+	}
+	if known {
+		return nil
+	}
+	return runRegisterWithOpts(out, "", "", false, false)
+}
+
+func agentExists(id string) (bool, error) {
+	if err := store.EnsureHome(); err != nil {
+		return false, err
+	}
+	dbPath, err := store.DBPath()
+	if err != nil {
+		return false, err
+	}
+	db, err := store.Open(dbPath)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+	var n int
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM agents WHERE id = ?`, id).Scan(&n); err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
