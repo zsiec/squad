@@ -100,7 +100,57 @@ func runPRLink(cmd *cobra.Command, args []string) error {
 }
 
 func runPRClose(cmd *cobra.Command, args []string) error {
-	return errPRNotImplemented
+	prNum := args[0]
+
+	if _, err := exec.LookPath("gh"); err != nil {
+		return fmt.Errorf("gh CLI not found in PATH (required for pr-close)")
+	}
+	out, err := exec.Command("gh", "pr", "view", prNum, "--json", "body", "-q", ".body").Output()
+	if err != nil {
+		return fmt.Errorf("gh pr view %s: %w", prNum, err)
+	}
+
+	itemID := prmark.Extract(string(out))
+	if itemID == "" {
+		fmt.Fprintln(cmd.ErrOrStderr(), "no squad-item marker in PR #"+prNum+" — skipping.")
+		return nil
+	}
+
+	wd, _ := os.Getwd()
+	repoRoot, err := repo.Discover(wd)
+	if err != nil {
+		repoRoot = wd
+	}
+	squadDir := filepath.Join(repoRoot, ".squad")
+
+	itemPath, inDone, err := items.FindByID(squadDir, itemID)
+	if err != nil {
+		if errors.Is(err, items.ErrItemNotFound) {
+			fmt.Fprintf(cmd.OutOrStdout(), "item %s not found — nothing to archive.\n", itemID)
+			return nil
+		}
+		return fmt.Errorf("find item %s: %w", itemID, err)
+	}
+	if inDone {
+		fmt.Fprintf(cmd.OutOrStdout(), "item %s already done — nothing to do.\n", itemID)
+		return nil
+	}
+
+	if err := items.RewriteStatus(itemPath, "done", time.Now().UTC()); err != nil {
+		return fmt.Errorf("rewrite status: %w", err)
+	}
+	doneDir := filepath.Join(squadDir, "done")
+	if _, err := items.MoveToDone(itemPath, doneDir); err != nil {
+		return fmt.Errorf("move to done/: %w", err)
+	}
+
+	pendingPath := filepath.Join(squadDir, "pending-prs.json")
+	if err := prmark.RemovePending(pendingPath, itemID); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: failed to clear pending-prs entry: %v\n", err)
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "archived %s (PR #%s)\n", itemID, prNum)
+	return nil
 }
 
 func currentBranch(repoRoot string) string {
