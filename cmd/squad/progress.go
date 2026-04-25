@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -24,7 +26,7 @@ func newProgressCmd() *cobra.Command {
 				return err
 			}
 			defer bc.Close()
-			if code := runProgressBody(ctx, bc.chat, bc.agentID, args[0], args[1], note); code != 0 {
+			if code := runProgressBody(ctx, bc.db, bc.repoID, bc.chat, bc.agentID, args[0], args[1], note, cmd.OutOrStdout()); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -34,7 +36,7 @@ func newProgressCmd() *cobra.Command {
 	return cmd
 }
 
-func runProgressBody(ctx context.Context, c *chat.Chat, agentID, itemID, pctStr, note string) int {
+func runProgressBody(ctx context.Context, db *sql.DB, repoID string, c *chat.Chat, agentID, itemID, pctStr, note string, stdout io.Writer) int {
 	if itemID == "" {
 		fmt.Fprintln(os.Stderr, "usage: squad progress <ITEM-ID> <pct 0..100> [--note ...]")
 		return 4
@@ -44,9 +46,36 @@ func runProgressBody(ctx context.Context, c *chat.Chat, agentID, itemID, pctStr,
 		fmt.Fprintf(os.Stderr, "invalid pct: %v\n", err)
 		return 4
 	}
+
+	var holder string
+	row := db.QueryRowContext(ctx,
+		`SELECT agent_id FROM claims WHERE item_id = ? AND repo_id = ?`, itemID, repoID)
+	switch err := row.Scan(&holder); err {
+	case nil:
+		if holder != agentID {
+			fmt.Fprintf(os.Stderr, "%s is held by %s; only the holder can report progress\n", itemID, holder)
+			return 1
+		}
+	case sql.ErrNoRows:
+		fmt.Fprintf(os.Stderr, "%s is not claimed; claim it first with `squad claim %s`\n", itemID, itemID)
+		return 1
+	default:
+		fmt.Fprintln(os.Stderr, err)
+		return 4
+	}
+
 	if err := c.ReportProgress(ctx, agentID, itemID, pct, note); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 4
 	}
+	if err := c.PostProgress(ctx, agentID, itemID, pct, note); err != nil {
+		// Non-fatal: the progress row is durable; the chat post is a courtesy.
+		fmt.Fprintf(os.Stderr, "warning: progress chat post failed: %v\n", err)
+	}
+	suffix := ""
+	if note != "" {
+		suffix = ": " + note
+	}
+	fmt.Fprintf(stdout, "[progress -> #%s] %d%%%s\n", itemID, pct, suffix)
 	return 0
 }

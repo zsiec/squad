@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -24,7 +25,7 @@ func newAskCmd() *cobra.Command {
 				return err
 			}
 			defer bc.Close()
-			if code := runAskBody(ctx, bc.chat, bc.agentID, to, args); code != 0 {
+			if code := runAskBody(ctx, bc.chat, bc.agentID, to, args, cmd.OutOrStdout()); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -34,7 +35,7 @@ func newAskCmd() *cobra.Command {
 	return cmd
 }
 
-func runAskBody(ctx context.Context, c *chat.Chat, agentID, to string, args []string) int {
+func runAskBody(ctx context.Context, c *chat.Chat, agentID, to string, args []string, stdout io.Writer) int {
 	if len(args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: squad ask @<agent> [--to ITEM|global] <message>")
 		return 4
@@ -52,5 +53,10 @@ func runAskBody(ctx context.Context, c *chat.Chat, agentID, to string, args []st
 		fmt.Fprintln(os.Stderr, err)
 		return 4
 	}
+	thread := to
+	if thread == chat.ThreadGlobal {
+		thread = "global"
+	}
+	fmt.Fprintf(stdout, "[ask -> #%s] @%s %s\n", thread, target, body)
 	return 0
 }

@@ -6,6 +6,7 @@ type CountReport struct {
 	InProgress int
 	Ready      int
 	Blocked    int
+	Done       int
 }
 
 func Counts(w WalkResult, now time.Time) CountReport {
@@ -29,5 +30,6 @@ func Counts(w WalkResult, now time.Time) CountReport {
 			c.Ready++
 		}
 	}
+	c.Done = len(w.Done)
 	return c
 }

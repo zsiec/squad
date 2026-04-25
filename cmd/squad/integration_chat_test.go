@@ -39,7 +39,13 @@ func TestChatIntegration_TwoAgentsConverse(t *testing.T) {
 	}
 
 	// agent-b reports progress on BUG-1.
-	if code := runProgressBody(ctx, f.chat, agentB, "BUG-1", "40", "almost there"); code != 0 {
+	if _, err := f.db.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, 'BUG-1', ?, 0, 0, '', 0)
+	`, f.repoID, agentB); err != nil {
+		t.Fatal(err)
+	}
+	if code := runProgressBody(ctx, f.db, f.repoID, f.chat, agentB, "BUG-1", "40", "almost there", &bytes.Buffer{}); code != 0 {
 		t.Fatalf("progress exit=%d", code)
 	}
 	pct, note := f.chat.LatestProgress(ctx, "BUG-1")

@@ -54,7 +54,7 @@ func runStatus(_ []string, stdout io.Writer) int {
 	}
 
 	c := items.Counts(w, time.Now().UTC())
-	fmt.Fprintf(stdout, "in_progress: %d\nready: %d\nblocked: %d\n",
-		c.InProgress, c.Ready, c.Blocked)
+	fmt.Fprintf(stdout, "in_progress: %d\nready: %d\nblocked: %d\ndone: %d\n",
+		c.InProgress, c.Ready, c.Blocked, c.Done)
 	return 0
 }

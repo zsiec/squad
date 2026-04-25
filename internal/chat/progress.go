@@ -38,6 +38,23 @@ func (c *Chat) ReportProgress(ctx context.Context, agentID, itemID string, pct i
 	return nil
 }
 
+// PostProgress writes a progress message into the messages table so the report
+// shows up in tail/history alongside chat. The `progress` table is still the
+// source of truth for the latest percentage; this duplication is for visibility
+// (and for SSE, since the messages-pump replays from this table).
+func (c *Chat) PostProgress(ctx context.Context, agentID, itemID string, pct int, note string) error {
+	body := fmt.Sprintf("%d%%", pct)
+	if note != "" {
+		body = body + " — " + note
+	}
+	now := c.nowUnix()
+	_, err := c.db.ExecContext(ctx, `
+		INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
+		VALUES (?, ?, ?, ?, 'progress', ?, '', 'normal')
+	`, c.repoID, now, agentID, itemID, body)
+	return err
+}
+
 func (c *Chat) LatestProgress(ctx context.Context, itemID string) (int, string) {
 	var pct int
 	var note string
