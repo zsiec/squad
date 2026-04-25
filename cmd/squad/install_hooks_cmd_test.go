@@ -149,3 +149,15 @@ func TestResolveEnabled_ExplicitOptInBypassesProbeWithWarning(t *testing.T) {
 		t.Fatalf("expected warning, got %q", stderr.String())
 	}
 }
+
+func TestResolveEnabled_RejectsBothStopHooks(t *testing.T) {
+	probe := func() bool { return true }
+	_, err := resolveEnabledWithProbe(io.Discard, io.Discard, true,
+		map[string]string{"stop-listen": "on", "stop-handoff": "on"}, probe)
+	if err == nil {
+		t.Fatal("expected error when both Stop-event hooks enabled")
+	}
+	if !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("error should mention mutual exclusion, got %v", err)
+	}
+}
