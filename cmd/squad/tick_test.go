@@ -53,6 +53,30 @@ func TestRunTick_JSONFormat(t *testing.T) {
 	}
 }
 
+func TestRunTick_BannerWhenStopListenInstalled(t *testing.T) {
+	f := newChatFixture(t)
+	t.Setenv("SQUAD_TICK_DEPRECATION_BANNER", "1")
+	var stdout, stderr bytes.Buffer
+
+	code := runTickBodyWithStderr(context.Background(), f.chat, f.agentID, false, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit=%d", code)
+	}
+	if !strings.Contains(stderr.String(), "stop-listen") {
+		t.Fatalf("expected deprecation banner referencing stop-listen, got %q", stderr.String())
+	}
+}
+
+func TestRunTick_NoBannerWhenEnvUnset(t *testing.T) {
+	f := newChatFixture(t)
+	t.Setenv("SQUAD_TICK_DEPRECATION_BANNER", "")
+	var stdout, stderr bytes.Buffer
+	_ = runTickBodyWithStderr(context.Background(), f.chat, f.agentID, false, &stdout, &stderr)
+	if strings.Contains(stderr.String(), "stop-listen") {
+		t.Fatalf("banner should be gated; got %q", stderr.String())
+	}
+}
+
 func registerTestAgentInFixture(t *testing.T, f *chatFixture, id, name string) error {
 	t.Helper()
 	_, err := f.db.Exec(`

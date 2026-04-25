@@ -36,18 +36,25 @@ func newTickCmd() *cobra.Command {
 }
 
 func runTickBody(ctx context.Context, c *chat.Chat, agentID string, jsonOut bool, w io.Writer) int {
+	return runTickBodyWithStderr(ctx, c, agentID, jsonOut, w, os.Stderr)
+}
+
+func runTickBodyWithStderr(ctx context.Context, c *chat.Chat, agentID string, jsonOut bool, stdout, stderr io.Writer) int {
 	dg, err := c.Tick(ctx, agentID)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(stderr, err)
 		return 4
 	}
+	if os.Getenv("SQUAD_TICK_DEPRECATION_BANNER") == "1" {
+		fmt.Fprintln(stderr, "squad: note: `tick` is the fallback sync path; with stop-listen installed, peer messages arrive automatically. Run `squad install-hooks --status` to verify.")
+	}
 	if jsonOut {
-		enc := json.NewEncoder(w)
+		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(dg)
 		return 0
 	}
-	emitDigest(w, dg)
+	emitDigest(stdout, dg)
 	return 0
 }
 
