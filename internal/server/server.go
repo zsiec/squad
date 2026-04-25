@@ -62,6 +62,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/messages", s.handleMessagesPost)
 	mux.HandleFunc("GET /api/repos", s.handleRepos)
 	mux.HandleFunc("GET /api/workspace/status", s.handleWorkspaceStatus)
+	mux.HandleFunc("GET /api/events", s.handleEvents)
 	return s.authMiddleware(mux)
 }
 
