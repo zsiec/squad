@@ -242,11 +242,36 @@ func newWorkspaceListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			rewriteCurrentRepoPath(rows, ws.currentID)
 			renderList(cmd.OutOrStdout(), rows)
 			return nil
 		},
 	}
 	return cmd
+}
+
+// rewriteCurrentRepoPath substitutes the row matching the CWD's repo_id
+// with the canonical CWD path. Same git remote on two checkouts share a
+// repo_id; the DB row records whichever clone last ran init/register, which
+// surprises users working from the *other* clone. By preferring the CWD at
+// display time, each user sees a path they can recognize.
+func rewriteCurrentRepoPath(rows []workspace.ListRow, currentID string) {
+	if currentID == "" {
+		return
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	root, err := repo.Discover(wd)
+	if err != nil {
+		return
+	}
+	for i := range rows {
+		if rows[i].RepoID == currentID && rows[i].RootPath != root {
+			rows[i].RootPath = root
+		}
+	}
 }
 
 func newWorkspaceForgetCmd() *cobra.Command {
