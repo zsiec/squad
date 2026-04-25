@@ -34,10 +34,10 @@ type Finding struct {
 }
 
 type ItemRef struct {
-	ID, Path, Status   string
-	Created, Updated   string
-	References         []string
-	BlockedBy          []string
+	ID, Path, Status string
+	Created, Updated string
+	References       []string
+	BlockedBy        []string
 }
 
 type BrokenRef struct {
@@ -214,15 +214,15 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 			if r.Created != "" && !isValidDateField(r.Created) {
 				findings = append(findings, Finding{
 					Severity: SeverityInfo, Code: "malformed_date",
-					Message:  "item " + r.ID + " has malformed `created: " + r.Created + "` (expected YYYY-MM-DD)",
-					Fix:      "edit " + r.Path + " — set created to ISO 8601 date",
+					Message: "item " + r.ID + " has malformed `created: " + r.Created + "` (expected YYYY-MM-DD)",
+					Fix:     "edit " + r.Path + " — set created to ISO 8601 date",
 				})
 			}
 			if r.Updated != "" && !isValidDateField(r.Updated) {
 				findings = append(findings, Finding{
 					Severity: SeverityInfo, Code: "malformed_date",
-					Message:  "item " + r.ID + " has malformed `updated: " + r.Updated + "` (expected YYYY-MM-DD)",
-					Fix:      "edit " + r.Path + " — set updated to ISO 8601 date",
+					Message: "item " + r.ID + " has malformed `updated: " + r.Updated + "` (expected YYYY-MM-DD)",
+					Fix:     "edit " + r.Path + " — set updated to ISO 8601 date",
 				})
 			}
 			for _, ref := range r.References {
