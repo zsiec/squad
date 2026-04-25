@@ -35,7 +35,7 @@ Persist that in your shell rc.
 ## Day 0 — initialize a repo
 
 ```bash
-cd ~/dev/your-project           # must be a git repo with at least one commit
+cd ~/dev/your-project           # must be a git repo (any state — even zero commits)
 squad init
 ```
 

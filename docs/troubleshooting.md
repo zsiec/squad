@@ -113,10 +113,10 @@ Make sure exactly one start and one end exist, in that order. Delete the entire 
 **Fix:**
 
 ```bash
-squad doctor                                     # lists orphan touches; auto-releases them
+squad doctor                                     # lists orphan touches with the suggested squad untouch <path> command
 ```
 
-If doctor doesn't auto-release a touch (because it's still attached to an active claim), the issue is the upstream stale claim; force-release per "Stale claim" above.
+Doctor flags orphan touches with a `Fix:` recommendation; you decide whether to follow it. If a touch is still attached to an active claim that itself has gone stale, the upstream stale claim is the real issue; force-release per "Stale claim" above and the orphan disappears.
 
 ## Workspace next ignores a repo
 

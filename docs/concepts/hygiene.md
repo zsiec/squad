@@ -25,7 +25,7 @@ Errors are silently swallowed by design — hygiene is a maintenance concern, no
 
 - **Stale claims** — agents with no `last_tick_at` past `hygiene.stale_claim_minutes`. Doctor lists them; you pick whether to `squad force-release`.
 - **Ghost agents** — registered agents with no recent activity at all. Cosmetic; they age out of `squad who` over time.
-- **Orphan touches** — file-touch records whose claim has already closed. Doctor releases these automatically.
+- **Orphan touches** — file-touch records whose claim has already closed. Doctor flags them with a suggested `squad untouch <path>` command; release is user-initiated.
 - **Broken refs** — claim rows pointing at item IDs that don't exist on disk (file got deleted or renamed in a peer's branch). Doctor lists; you decide.
 - **DB integrity** — `PRAGMA integrity_check` against `~/.squad/global.db`. Should always be `ok`; if not, restore from a backup before continuing.
 
@@ -37,7 +37,8 @@ Exit code 0 means clean. Non-zero means at least one issue was reported.
 $ squad doctor
 stale claims: 1
   BUG-042  agent-blue   last_tick 2h17m ago    → squad force-release BUG-042 --reason "agent-blue gone"
-orphan touches: 3 (auto-released)
+orphan touches: 3
+  internal/cache/flusher.go    by agent-blue → squad untouch internal/cache/flusher.go
 broken refs: 1
   FEAT-099  no item file in .squad/items/ or .squad/done/
 db integrity: ok
