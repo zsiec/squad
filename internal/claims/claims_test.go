@@ -59,8 +59,8 @@ func TestClaim_EmitsBothGlobalAndItemThreadMessages(t *testing.T) {
 	}
 
 	var g, i int
-	db.QueryRow(`SELECT COUNT(*) FROM messages WHERE kind='claim' AND thread='global'`).Scan(&g)
-	db.QueryRow(`SELECT COUNT(*) FROM messages WHERE kind='claim' AND thread='BUG-003'`).Scan(&i)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE kind='claim' AND thread='global'`).Scan(&g)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE kind='claim' AND thread='BUG-003'`).Scan(&i)
 	if g != 1 || i != 1 {
 		t.Fatalf("messages: global=%d item=%d (want 1/1)", g, i)
 	}
@@ -76,7 +76,7 @@ func TestClaim_TouchesPersistedAsActiveRows(t *testing.T) {
 	}
 
 	var n int
-	db.QueryRow(`SELECT COUNT(*) FROM touches WHERE agent_id='agent-a' AND item_id='BUG-004' AND released_at IS NULL`).Scan(&n)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM touches WHERE agent_id='agent-a' AND item_id='BUG-004' AND released_at IS NULL`).Scan(&n)
 	if n != 2 {
 		t.Fatalf("active touches=%d want 2", n)
 	}

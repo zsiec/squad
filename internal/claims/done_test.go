@@ -18,12 +18,12 @@ func TestDone_PostsMessageReleasesAndRecordsOutcome(t *testing.T) {
 	}
 
 	var msgCount int
-	db.QueryRow(`SELECT COUNT(*) FROM messages WHERE kind='done' AND thread='BUG-020'`).Scan(&msgCount)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE kind='done' AND thread='BUG-020'`).Scan(&msgCount)
 	if msgCount != 1 {
 		t.Fatalf("done message count=%d want 1", msgCount)
 	}
 	var outcome string
-	db.QueryRow(`SELECT outcome FROM claim_history WHERE item_id='BUG-020'`).Scan(&outcome)
+	_ = db.QueryRow(`SELECT outcome FROM claim_history WHERE item_id='BUG-020'`).Scan(&outcome)
 	if outcome != "done" {
 		t.Fatalf("outcome=%q want done", outcome)
 	}
@@ -37,7 +37,7 @@ func TestDone_AtomicWhenReleaseFails(t *testing.T) {
 		t.Fatal("expected Done to fail on unclaimed item")
 	}
 	var n int
-	db.QueryRow(`SELECT COUNT(*) FROM messages WHERE thread='BUG-021'`).Scan(&n)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE thread='BUG-021'`).Scan(&n)
 	if n != 0 {
 		t.Fatalf("messages leaked despite failure: %d", n)
 	}

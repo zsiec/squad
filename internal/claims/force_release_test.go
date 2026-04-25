@@ -32,18 +32,18 @@ func TestForceRelease_RemovesClaimRecordsHistoryWithReason(t *testing.T) {
 	}
 
 	var live int
-	db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-041'`).Scan(&live)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-041'`).Scan(&live)
 	if live != 0 {
 		t.Fatalf("claim still active")
 	}
 	var outcome string
-	db.QueryRow(`SELECT outcome FROM claim_history WHERE item_id='BUG-041'`).Scan(&outcome)
+	_ = db.QueryRow(`SELECT outcome FROM claim_history WHERE item_id='BUG-041'`).Scan(&outcome)
 	if outcome != "force_released" {
 		t.Fatalf("outcome=%q want force_released", outcome)
 	}
 
 	var body, mentions string
-	db.QueryRow(`SELECT body, mentions FROM messages WHERE kind='system' AND thread='global' ORDER BY id DESC LIMIT 1`).Scan(&body, &mentions)
+	_ = db.QueryRow(`SELECT body, mentions FROM messages WHERE kind='system' AND thread='global' ORDER BY id DESC LIMIT 1`).Scan(&body, &mentions)
 	if !strings.Contains(body, "force-released") || !strings.Contains(body, "agent-a went silent") {
 		t.Fatalf("audit message missing reason: %q", body)
 	}

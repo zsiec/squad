@@ -20,7 +20,7 @@ func TestReassign_ReleasesAndPostsDirective(t *testing.T) {
 	}
 
 	var body, mentions string
-	db.QueryRow(`SELECT body, mentions FROM messages WHERE kind='say' AND thread='global' ORDER BY id DESC LIMIT 1`).Scan(&body, &mentions)
+	_ = db.QueryRow(`SELECT body, mentions FROM messages WHERE kind='say' AND thread='global' ORDER BY id DESC LIMIT 1`).Scan(&body, &mentions)
 	if !strings.Contains(body, "@agent-b") || !strings.Contains(body, "BUG-050") {
 		t.Fatalf("directive body missing target or item: %q", body)
 	}
@@ -38,7 +38,7 @@ func TestReassign_FailsAtomicallyIfNotYourClaim(t *testing.T) {
 		t.Fatal("reassign by non-holder should error")
 	}
 	var live int
-	db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-051' AND agent_id='agent-a'`).Scan(&live)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-051' AND agent_id='agent-a'`).Scan(&live)
 	if live != 1 {
 		t.Fatalf("agent-a's claim disappeared: count=%d", live)
 	}

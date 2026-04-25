@@ -18,12 +18,12 @@ func TestRelease_MovesActiveClaimToHistory(t *testing.T) {
 	}
 
 	var live int
-	db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-010'`).Scan(&live)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-010'`).Scan(&live)
 	if live != 0 {
 		t.Fatalf("claim still active, count=%d", live)
 	}
 	var outcome string
-	db.QueryRow(`SELECT outcome FROM claim_history WHERE item_id='BUG-010'`).Scan(&outcome)
+	_ = db.QueryRow(`SELECT outcome FROM claim_history WHERE item_id='BUG-010'`).Scan(&outcome)
 	if outcome != "released" {
 		t.Fatalf("outcome=%q want released", outcome)
 	}
@@ -58,7 +58,7 @@ func TestRelease_MarksAllItemTouchesReleased(t *testing.T) {
 		t.Fatal(err)
 	}
 	var active int
-	db.QueryRow(`SELECT COUNT(*) FROM touches WHERE item_id='BUG-012' AND released_at IS NULL`).Scan(&active)
+	_ = db.QueryRow(`SELECT COUNT(*) FROM touches WHERE item_id='BUG-012' AND released_at IS NULL`).Scan(&active)
 	if active != 0 {
 		t.Fatalf("active touches=%d want 0", active)
 	}
