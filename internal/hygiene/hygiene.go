@@ -227,16 +227,16 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 				if b == r.ID {
 					findings = append(findings, Finding{
 						Severity: SeverityWarn, Code: "blocked_by_self",
-						Message:  "item " + r.ID + " is blocked-by itself (unbreakable)",
-						Fix:      "edit " + r.Path + " — remove " + b + " from blocked-by",
+						Message: "item " + r.ID + " is blocked-by itself (unbreakable)",
+						Fix:     "edit " + r.Path + " — remove " + b + " from blocked-by",
 					})
 					continue
 				}
 				if _, exists := idCount[b]; !exists {
 					findings = append(findings, Finding{
 						Severity: SeverityWarn, Code: "blocked_by_unknown",
-						Message:  "item " + r.ID + " is blocked-by " + b + " — no item with that id exists",
-						Fix:      "edit " + r.Path + " — fix or remove blocked-by " + b,
+						Message: "item " + r.ID + " is blocked-by " + b + " — no item with that id exists",
+						Fix:     "edit " + r.Path + " — fix or remove blocked-by " + b,
 					})
 				}
 			}
@@ -250,8 +250,8 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 			for _, b := range broken {
 				findings = append(findings, Finding{
 					Severity: SeverityWarn, Code: "malformed_item",
-					Message:  "could not parse " + b.Path + ": " + b.Error,
-					Fix:      "open the file and check the YAML frontmatter; CRLF and UTF-8 BOM are now tolerated, but YAML syntax errors and missing/non-string `id:` are not",
+					Message: "could not parse " + b.Path + ": " + b.Error,
+					Fix:     "open the file and check the YAML frontmatter; CRLF and UTF-8 BOM are now tolerated, but YAML syntax errors and missing/non-string `id:` are not",
 				})
 			}
 		}
