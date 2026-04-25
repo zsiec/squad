@@ -21,6 +21,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newWhoamiCmd())
 	root.AddCommand(newNewCmd())
 	root.AddCommand(newNextCmd())
+	root.AddCommand(newStatusCmd())
 	return root
 }
 
