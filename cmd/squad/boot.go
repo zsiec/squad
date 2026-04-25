@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/zsiec/squad/internal/chat"
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
@@ -16,6 +17,7 @@ import (
 
 type claimContext struct {
 	store    *claims.Store
+	chat     *chat.Chat
 	db       *sql.DB
 	repoID   string
 	itemsDir string
@@ -50,6 +52,7 @@ func bootClaimContext(_ context.Context) (*claimContext, error) {
 	}
 	return &claimContext{
 		store:    claims.New(db, repoID, nil),
+		chat:     chat.New(db, repoID),
 		db:       db,
 		repoID:   repoID,
 		itemsDir: filepath.Join(root, ".squad", "items"),
