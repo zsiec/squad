@@ -11,7 +11,6 @@ Squad's Claude Code hooks are **opt-in per hook** via `squad install-hooks`. `se
 | `pre-compact` | ON | `PreCompact` | Inject the agent's current claim + intent + recent chat lines so identity survives compaction. |
 | `pre-commit-pm-traces` | OFF | `PreToolUse:Bash` matching `git commit` | Blocks commit if backlog IDs in diff or message. |
 | `pre-edit-touch-check` | OFF | `PreToolUse:Edit\|Write` | Warns (does not block) if peer agent is touching the same file. |
-| `stop-handoff` | OFF | `Stop` | Auto-handoff if open claim with no recent activity (>30 min). |
 
 ## Install
 

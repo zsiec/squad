@@ -125,7 +125,6 @@ Interactive: asks about each hook. Recommended for solo:
 - `session-start` — Y (default; auto-register + tick on Claude Code launch)
 - `pre-commit-pm-traces` — Y if you tend to leak ticket IDs into commits
 - `pre-edit-touch-check` — n (no peers)
-- `stop-handoff` — n (you'll just close Claude when done)
 
 For multi-agent, install `pre-edit-touch-check` too. See [reference/hooks.md](reference/hooks.md).
 

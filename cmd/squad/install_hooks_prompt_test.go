@@ -20,7 +20,7 @@ func TestPromptHook_DefaultY(t *testing.T) {
 }
 
 func TestPromptHook_DefaultN(t *testing.T) {
-	h := hooks.Hook{Name: "stop-handoff", DefaultOn: false, Description: "x", TradeOff: "y"}
+	h := hooks.Hook{Name: "async-rewake", DefaultOn: false, Description: "x", TradeOff: "y"}
 	got, err := promptHookWithIO(&bytes.Buffer{}, strings.NewReader("\n"), h)
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestPromptHook_DefaultN(t *testing.T) {
 }
 
 func TestPromptHook_ExplicitYes(t *testing.T) {
-	h := hooks.Hook{Name: "stop-handoff", DefaultOn: false, Description: "x", TradeOff: "y"}
+	h := hooks.Hook{Name: "async-rewake", DefaultOn: false, Description: "x", TradeOff: "y"}
 	got, err := promptHookWithIO(&bytes.Buffer{}, strings.NewReader("y\n"), h)
 	if err != nil {
 		t.Fatal(err)

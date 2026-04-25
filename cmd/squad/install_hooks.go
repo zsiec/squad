@@ -137,9 +137,6 @@ func resolveEnabledWithProbe(stdout, stderr io.Writer, yes bool, perHook map[str
 			enabled["async-rewake"] = false
 		}
 	}
-	if enabled["stop-listen"] && enabled["stop-handoff"] {
-		return nil, fmt.Errorf("stop-listen and stop-handoff are mutually exclusive (both bind the Stop event); pick one")
-	}
 	return enabled, nil
 }
 

@@ -46,7 +46,7 @@ func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
 		"--session-start=on",
 		"--pre-commit-pm-traces=on",
 		"--pre-edit-touch-check=on",
-		"--stop-handoff=off",
+		"--async-rewake=off",
 	}
 	if err := runInstallHooks(args, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
 	mustContain(t, body, "session-start@v1")
 	mustContain(t, body, "pre-commit-pm-traces@v1")
 	mustContain(t, body, "pre-edit-touch-check@v1")
-	mustNotContain(t, body, "stop-handoff@v1")
+	mustNotContain(t, body, "async-rewake@v1")
 }
 
 func TestInstallHooksCmd_Status(t *testing.T) {
@@ -148,14 +148,3 @@ func TestResolveEnabled_ExplicitOptInBypassesProbeWithWarning(t *testing.T) {
 	}
 }
 
-func TestResolveEnabled_RejectsBothStopHooks(t *testing.T) {
-	probe := func() bool { return true }
-	_, err := resolveEnabledWithProbe(io.Discard, io.Discard, true,
-		map[string]string{"stop-listen": "on", "stop-handoff": "on"}, probe)
-	if err == nil {
-		t.Fatal("expected error when both Stop-event hooks enabled")
-	}
-	if !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Fatalf("error should mention mutual exclusion, got %v", err)
-	}
-}
