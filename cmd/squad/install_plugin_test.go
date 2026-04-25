@@ -40,3 +40,45 @@ func TestInstallPlugin_Idempotent(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallPlugin_Uninstall(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+
+	cmd := newInstallPluginCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	pluginDir := filepath.Join(tmp, "plugins", "squad")
+	if _, err := os.Stat(pluginDir); err != nil {
+		t.Fatalf("plugin dir should exist after install: %v", err)
+	}
+
+	cmd2 := newInstallPluginCmd()
+	cmd2.SetOut(&bytes.Buffer{})
+	cmd2.SetErr(&bytes.Buffer{})
+	cmd2.SetArgs([]string{"--uninstall"})
+	if err := cmd2.Execute(); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	if _, err := os.Stat(pluginDir); !os.IsNotExist(err) {
+		t.Fatalf("plugin dir should be gone after uninstall, err=%v", err)
+	}
+}
+
+func TestInstallPlugin_UninstallIdempotent(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+
+	cmd := newInstallPluginCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{"--uninstall"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("uninstall on absent should not error: %v", err)
+	}
+}

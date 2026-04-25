@@ -12,6 +12,7 @@ import (
 )
 
 func newInstallPluginCmd() *cobra.Command {
+	var uninstall bool
 	cmd := &cobra.Command{
 		Use:   "install-plugin",
 		Short: "Install the squad Claude Code plugin to ~/.claude/plugins/squad/",
@@ -21,6 +22,15 @@ func newInstallPluginCmd() *cobra.Command {
 				return err
 			}
 			pluginDir := filepath.Join(dst, "squad")
+
+			if uninstall {
+				if err := installer.Uninstall(pluginDir); err != nil {
+					return fmt.Errorf("uninstall plugin at %s: %w", pluginDir, err)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "uninstalled squad plugin from %s\n", pluginDir)
+				return nil
+			}
+
 			assets, err := squad.PluginFS()
 			if err != nil {
 				return fmt.Errorf("load embedded plugin assets: %w", err)
@@ -32,6 +42,7 @@ func newInstallPluginCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "remove the squad plugin instead of installing")
 	return cmd
 }
 
