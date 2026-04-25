@@ -3,6 +3,7 @@ package identity
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -90,5 +91,53 @@ func TestAgentID_ErrorWhenNoSignals(t *testing.T) {
 	t.Setenv("SQUAD_HOME", dir)
 	if _, err := AgentID(""); err == nil {
 		t.Fatal("expected error when SQUAD_AGENT unset and worktree empty")
+	}
+}
+
+func TestSessionSuffix_StableForSameSession(t *testing.T) {
+	clearSessionEnv(t)
+	t.Setenv("TERM_SESSION_ID", "iterm-abc-123")
+	a := SessionSuffix()
+	b := SessionSuffix()
+	if a != b {
+		t.Fatalf("suffix not stable: %q vs %q", a, b)
+	}
+	if len(a) != 4 {
+		t.Fatalf("want 4-char suffix, got %q", a)
+	}
+}
+
+func TestSessionSuffix_DiffersAcrossSessions(t *testing.T) {
+	clearSessionEnv(t)
+	t.Setenv("TERM_SESSION_ID", "session-A")
+	a := SessionSuffix()
+	t.Setenv("TERM_SESSION_ID", "session-B")
+	b := SessionSuffix()
+	if a == b {
+		t.Fatalf("two distinct sessions produced same suffix %q", a)
+	}
+}
+
+func TestSessionSuffix_FallbackWhenNoSignals(t *testing.T) {
+	clearSessionEnv(t)
+	if got := SessionSuffix(); got == "" {
+		t.Fatal("SessionSuffix should never return empty")
+	}
+}
+
+func TestDerivedAgentID_PrefersSessionSuffix(t *testing.T) {
+	clearSessionEnv(t)
+	t.Setenv("TERM_SESSION_ID", "iterm-xyz")
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	id, err := DerivedAgentID("/tmp/projects/myrepo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(id, "agent-") {
+		t.Fatalf("want agent- prefix, got %q", id)
+	}
+	if len(id) != len("agent-")+4 {
+		t.Fatalf("want agent-XXXX format, got %q", id)
 	}
 }

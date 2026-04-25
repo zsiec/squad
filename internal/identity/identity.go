@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,6 +84,35 @@ func sessionKey() string {
 		}
 	}
 	return ""
+}
+
+// SessionSuffix returns a stable 4-hex-char suffix derived from the session
+// key. Same session => same suffix. Two sessions in one worktree => two
+// distinct suffixes. Falls back to a hash of pid+worktree when no session
+// env signals are present so callers never see an empty value.
+func SessionSuffix() string {
+	key := sessionKey()
+	if key == "" {
+		wd, _ := os.Getwd()
+		key = fmt.Sprintf("pid:%d:wd:%s", os.Getpid(), wd)
+	}
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:2])
+}
+
+// DerivedAgentID returns "agent-XXXX" where XXXX is SessionSuffix(). Honors
+// the same precedence as AgentID for SQUAD_AGENT and persisted ids — only
+// derives a fresh value when neither is set. The worktree argument is kept
+// for symmetry with AgentID; it's used only when both env and persisted
+// state are empty.
+func DerivedAgentID(worktree string) (string, error) {
+	if env := strings.TrimSpace(os.Getenv("SQUAD_AGENT")); env != "" {
+		return env, nil
+	}
+	if persisted := readPersistedAgentID(); persisted != "" {
+		return persisted, nil
+	}
+	return "agent-" + SessionSuffix(), nil
 }
 
 func DetectWorktree() string {
