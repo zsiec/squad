@@ -49,3 +49,33 @@ func TestParse_MalformedFrontmatterIsError(t *testing.T) {
 		t.Fatal("expected error for malformed yaml frontmatter")
 	}
 }
+
+func TestWalk_ReadsActiveAndDone(t *testing.T) {
+	got, err := Walk("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Active) != 3 {
+		t.Fatalf("active=%d want 3", len(got.Active))
+	}
+	if len(got.Done) != 1 {
+		t.Fatalf("done=%d want 1", len(got.Done))
+	}
+	if got.Done[0].ID != "BUG-000" {
+		t.Fatalf("done[0]=%s want BUG-000", got.Done[0].ID)
+	}
+}
+
+func TestWalk_MissingDoneDirIsOk(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Walk(filepath.Join(dir, ".squad"))
+	if err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	if len(got.Active) != 0 || len(got.Done) != 0 {
+		t.Fatalf("got %+v", got)
+	}
+}
