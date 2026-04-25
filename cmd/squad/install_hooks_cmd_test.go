@@ -34,6 +34,7 @@ func TestInstallHooksCmd_YesDefaultsSessionAndUserPrompt(t *testing.T) {
 	}
 	mustContain(t, body, "session-start@v1")
 	mustContain(t, body, "user-prompt-tick@v1")
+	mustContain(t, body, "pre-compact@v1")
 	mustNotContain(t, body, "pre-commit-tick@v1")
 }
 
