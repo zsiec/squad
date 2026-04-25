@@ -51,6 +51,13 @@ func newServeCmd() *cobra.Command {
 }
 
 func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, out interface{ Write([]byte) (int, error) }) int {
+	if !isLoopbackBind(bind) && token == "" {
+		fmt.Fprintf(os.Stderr,
+			"squad serve: refusing to bind %s without --token (or $SQUAD_DASHBOARD_TOKEN).\n"+
+				"  unauthenticated POST /api/messages would let any host on the network impersonate any agent.\n"+
+				"  pass --token <random-string> or bind to a loopback address.\n", bind)
+		return 4
+	}
 	db, err := store.OpenDefault()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -96,4 +103,21 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 		return 4
 	}
 	return 0
+}
+
+// isLoopbackBind reports whether the user's --bind value targets only the
+// local host. The unauthenticated-impersonation gate uses this to decide
+// whether to require a token. We accept the canonical loopback addresses
+// (IPv4 + IPv6) and "localhost"; anything else (0.0.0.0, an interface IP,
+// or a hostname) is treated as network-exposed.
+func isLoopbackBind(bind string) bool {
+	switch bind {
+	case "127.0.0.1", "::1", "localhost":
+		return true
+	}
+	ip := net.ParseIP(bind)
+	if ip != nil && ip.IsLoopback() {
+		return true
+	}
+	return false
 }

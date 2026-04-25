@@ -66,3 +66,58 @@ func TestMessages_PostEmptyBodyRejected(t *testing.T) {
 		t.Fatalf("code=%d", rec.Code)
 	}
 }
+
+func TestMessages_PostOversizedBodyRejected(t *testing.T) {
+	db := newTestDB(t)
+	registerAgent(t, db, "agent-aaaa", "Alice")
+	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	huge := make([]byte, MaxMessageBodyBytes+1)
+	for i := range huge {
+		huge[i] = 'x'
+	}
+	body, _ := json.Marshal(map[string]any{"thread": "global", "body": string(huge)})
+	req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Squad-Agent", "agent-aaaa")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge && rec.Code != http.StatusBadRequest {
+		// MaxBytesReader can short-circuit before the explicit check fires;
+		// either status reads as "we refused, server still alive."
+		t.Fatalf("oversized body got code=%d, want 4xx", rec.Code)
+	}
+}
+
+func TestMessages_PostInvalidThreadRejected(t *testing.T) {
+	db := newTestDB(t)
+	registerAgent(t, db, "agent-aaaa", "Alice")
+	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	for _, bad := range []string{"../../etc/passwd", "; DROP TABLE messages;--", "notvalid", "lower-case"} {
+		body, _ := json.Marshal(map[string]any{"thread": bad, "body": "ok"})
+		req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Squad-Agent", "agent-aaaa")
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("thread %q: code=%d, want 400", bad, rec.Code)
+		}
+	}
+}
+
+func TestMessages_PostValidThreads(t *testing.T) {
+	db := newTestDB(t)
+	registerAgent(t, db, "agent-aaaa", "Alice")
+	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	for _, good := range []string{"global", "FEAT-001", "BUG-42"} {
+		body, _ := json.Marshal(map[string]any{"thread": good, "body": "ok"})
+		req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Squad-Agent", "agent-aaaa")
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("thread %q rejected: code=%d", good, rec.Code)
+		}
+	}
+}

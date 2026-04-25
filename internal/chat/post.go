@@ -15,6 +15,11 @@ type PostRequest struct {
 	Priority string
 }
 
+// MaxPostBodyBytes caps stored message bodies. Mirrors the server-side cap
+// in internal/server/messages.go so a CLI write of a 1MB body fails the
+// same way an HTTP POST of one would.
+const MaxPostBodyBytes = 64 * 1024
+
 func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 	if req.AgentID == "" {
 		return fmt.Errorf("post: agent id required")
@@ -24,6 +29,9 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 	}
 	if req.Kind == "" {
 		return fmt.Errorf("post: kind required")
+	}
+	if len(req.Body) > MaxPostBodyBytes {
+		return fmt.Errorf("post: body too large (%d bytes, max %d)", len(req.Body), MaxPostBodyBytes)
 	}
 	if req.Priority == "" {
 		req.Priority = PriorityNormal

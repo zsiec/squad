@@ -3,12 +3,25 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zsiec/squad/internal/chat"
 )
+
+// MaxMessageBodyBytes caps the payload of a single chat message. QA r5 G-2
+// landed a 1.5MB body via the API and watched every dashboard page-load
+// re-fetch it. 64 KiB is well above any legitimate paste-in and far below
+// the threshold where the GET /api/messages response becomes painful.
+const MaxMessageBodyBytes = 64 * 1024
+
+// validThread accepts the special "global" channel and any well-formed item
+// id (PREFIX-NUMBER). Anything else (path traversal, control chars, SQL-shaped
+// strings) is rejected at the boundary so downstream renderers don't have to
+// worry about exotic thread names.
+var validThread = regexp.MustCompile(`^(global|[A-Z][A-Z0-9]*-\d+)$`)
 
 func (s *Server) handleMessagesList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -92,6 +105,7 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 		Body     string   `json:"body"`
 		Mentions []string `json:"mentions"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, MaxMessageBodyBytes+1024) // +1KB for envelope
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -99,8 +113,17 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 	if req.Thread == "" {
 		req.Thread = "global"
 	}
+	if !validThread.MatchString(req.Thread) {
+		writeErr(w, http.StatusBadRequest, "thread must be 'global' or a PREFIX-NUMBER item id")
+		return
+	}
 	if strings.TrimSpace(req.Body) == "" {
 		writeErr(w, http.StatusBadRequest, "body required")
+		return
+	}
+	if len(req.Body) > MaxMessageBodyBytes {
+		writeErr(w, http.StatusRequestEntityTooLarge,
+			"body exceeds limit (got "+strconv.Itoa(len(req.Body))+" bytes, max "+strconv.Itoa(MaxMessageBodyBytes)+")")
 		return
 	}
 	mentions := req.Mentions
