@@ -1,10 +1,13 @@
 package repo
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 func TestDeriveRepoID_StableForSameRemote(t *testing.T) {
@@ -80,5 +83,40 @@ func TestDiscover_ErrorWithHelpfulMessage(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "squad init") {
 		t.Fatalf("error should mention `squad init`: %v", err)
+	}
+}
+
+func TestRegisterRepo_InsertsThenIsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	if err := store.EnsureHome(); err != nil {
+		t.Fatal(err)
+	}
+	dbPath, _ := store.DBPath()
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	id, err := RegisterRepo(context.Background(), db, "/tmp/myproj", "git@github.com:foo/bar.git", "myproj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty repo id")
+	}
+	id2, err := RegisterRepo(context.Background(), db, "/tmp/myproj", "git@github.com:foo/bar.git", "myproj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != id2 {
+		t.Fatalf("idempotent register changed id: %q -> %q", id, id2)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT count(*) FROM repos WHERE id=?`, id).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("got %d rows, want 1", count)
 	}
 }
