@@ -103,3 +103,13 @@ CREATE TABLE IF NOT EXISTS items (
   PRIMARY KEY (repo_id, item_id)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_items_repo_status ON items(repo_id, status);
+
+CREATE TABLE IF NOT EXISTS notify_endpoints (
+  instance    TEXT NOT NULL,
+  repo_id     TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  port        INTEGER NOT NULL,
+  started_at  INTEGER NOT NULL,
+  PRIMARY KEY (instance, kind)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_notify_endpoints_repo ON notify_endpoints(repo_id);

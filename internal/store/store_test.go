@@ -85,3 +85,44 @@ func TestBeginImmediate_CommitsWrite(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestSchema_NotifyEndpointsTableExists(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "global.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO notify_endpoints (instance, repo_id, kind, port, started_at)
+		VALUES ('inst-1', 'repo-x', 'listen', 51234, 1700000000)
+	`); err != nil {
+		t.Fatalf("insert into notify_endpoints: %v", err)
+	}
+
+	var port int
+	if err := db.QueryRow(
+		`SELECT port FROM notify_endpoints WHERE instance='inst-1'`,
+	).Scan(&port); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if port != 51234 {
+		t.Fatalf("port=%d", port)
+	}
+}
+
+func TestSchema_NotifyEndpoints_PrimaryKeyOnInstanceKind(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "global.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(`INSERT INTO notify_endpoints (instance, repo_id, kind, port, started_at) VALUES ('inst-1','repo-x','listen',9001,1)`); err != nil {
+		t.Fatalf("insert 1: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO notify_endpoints (instance, repo_id, kind, port, started_at) VALUES ('inst-1','repo-x','listen',9002,2)`)
+	if err == nil {
+		t.Fatalf("expected unique-constraint failure on (instance, kind), got nil")
+	}
+}
