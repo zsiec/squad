@@ -55,13 +55,6 @@ func (f *chatFixture) firstMessage(t *testing.T) (thread, kind, body, mentions, 
 	return
 }
 
-func (f *chatFixture) messageCount(t *testing.T) int {
-	t.Helper()
-	var n int
-	_ = f.db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM messages`).Scan(&n)
-	return n
-}
-
 func (f *chatFixture) insertClaim(t *testing.T, itemID string) {
 	t.Helper()
 	if _, err := f.db.Exec(`

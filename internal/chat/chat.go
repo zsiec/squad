@@ -26,7 +26,7 @@ func NewWithClock(db *sql.DB, repoID string, clock func() time.Time) *Chat {
 	return &Chat{db: db, repoID: repoID, bus: NewBus(), now: clock}
 }
 
-func (c *Chat) Bus() *Bus     { return c.bus }
-func (c *Chat) DB() *sql.DB   { return c.db }
+func (c *Chat) Bus() *Bus      { return c.bus }
+func (c *Chat) DB() *sql.DB    { return c.db }
 func (c *Chat) RepoID() string { return c.repoID }
 func (c *Chat) nowUnix() int64 { return c.now().Unix() }
