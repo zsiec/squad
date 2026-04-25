@@ -34,6 +34,23 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-ping.C:
+			// Surface any drops that the publish-side lag injection missed
+			// (e.g., a burst-then-quiesce pattern where no later Publish
+			// carries the sentinel). PullDropped atomically claims the
+			// current counter; a positive value means the client should
+			// refetch from MAX(id) to recover state.
+			if n := s.Bus().PullDropped(ch); n > 0 {
+				if _, err := w.Write([]byte("event: lag\ndata: ")); err != nil {
+					return
+				}
+				payload, _ := json.Marshal(map[string]any{"dropped": n})
+				if _, err := w.Write(payload); err != nil {
+					return
+				}
+				if _, err := w.Write([]byte("\n\n")); err != nil {
+					return
+				}
+			}
 			if _, err := w.Write([]byte(": ping\n\n")); err != nil {
 				return
 			}

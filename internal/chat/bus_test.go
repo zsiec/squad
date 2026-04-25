@@ -94,6 +94,43 @@ func TestBus_DoesNotBlockOnSlowSubscriber(t *testing.T) {
 	}
 }
 
+// QA r6 G-1 reproducer: publisher bursts past the buffer, then stops.
+// The publish-side lag injection only fires on the NEXT publish — if no
+// more come, drops stay invisible to the subscriber. PullDropped lets a
+// consumer (the SSE ping tick) surface the count without depending on
+// future publishes.
+func TestBus_PullDropped_VisibleWithoutFurtherPublish(t *testing.T) {
+	bus := NewBus()
+	defer bus.Close()
+
+	sub := bus.Subscribe()
+	defer bus.Unsubscribe(sub)
+
+	const overflow = 200
+	for i := 0; i < subBuffer+overflow; i++ {
+		bus.Publish(Event{Kind: "msg"})
+	}
+	// Publisher quiesces. Consumer drains nothing yet.
+	got := bus.PullDropped(sub)
+	if got < overflow {
+		t.Fatalf("PullDropped=%d want >=%d (drops should be visible without further publishes)", got, overflow)
+	}
+	// Counter must be reset by the swap.
+	if again := bus.PullDropped(sub); again != 0 {
+		t.Fatalf("PullDropped not reset: %d", again)
+	}
+}
+
+func TestBus_PullDropped_UnknownChannelReturnsZero(t *testing.T) {
+	bus := NewBus()
+	defer bus.Close()
+
+	stranger := make(chan Event)
+	if got := bus.PullDropped(stranger); got != 0 {
+		t.Fatalf("PullDropped on unknown channel = %d, want 0", got)
+	}
+}
+
 func TestBus_LagSentinel_AfterDrops(t *testing.T) {
 	bus := NewBus()
 	defer bus.Close()

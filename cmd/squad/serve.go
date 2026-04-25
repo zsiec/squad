@@ -37,8 +37,12 @@ func newServeCmd() *cobra.Command {
 			if tok == "" {
 				tok = os.Getenv("SQUAD_DASHBOARD_TOKEN")
 			}
+			// runServeCtx returns the intended exit code (4 for startup
+			// failures, including the bind/token security refusal). Cobra's
+			// default error path would replace any non-zero with 2, so call
+			// os.Exit directly to preserve the signal scripts can key on.
 			if code := runServeCtx(ctx, port, bind, squadDir, tok, cmd.OutOrStdout()); code != 0 {
-				return fmt.Errorf("serve exited with code %d", code)
+				os.Exit(code)
 			}
 			return nil
 		},

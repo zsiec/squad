@@ -82,6 +82,21 @@ func (b *Bus) Publish(e Event) {
 	}
 }
 
+// PullDropped atomically claims and resets the dropped counter for the
+// subscriber identified by ch. Returns 0 if ch is not subscribed. Used by
+// the SSE handler on its periodic ping tick: the publish-side lag-sentinel
+// only fires when a *later* publish lands, so a burst-then-quiesce pattern
+// could leave drops invisible. PullDropped lets the consumer surface them
+// even when no more publishes are coming.
+func (b *Bus) PullDropped(ch chan Event) int64 {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if s, ok := b.subs[ch]; ok {
+		return s.dropped.Swap(0)
+	}
+	return 0
+}
+
 func (b *Bus) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
