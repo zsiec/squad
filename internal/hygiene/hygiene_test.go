@@ -13,11 +13,16 @@ import (
 
 type emptyItems struct{}
 
-func (emptyItems) List(context.Context) ([]ItemRef, error) { return nil, nil }
+func (emptyItems) List(context.Context) ([]ItemRef, error)     { return nil, nil }
+func (emptyItems) Broken(context.Context) ([]BrokenRef, error) { return nil, nil }
 
-type fakeItems struct{ refs []ItemRef }
+type fakeItems struct {
+	refs   []ItemRef
+	broken []BrokenRef
+}
 
-func (f fakeItems) List(context.Context) ([]ItemRef, error) { return f.refs, nil }
+func (f fakeItems) List(context.Context) ([]ItemRef, error)     { return f.refs, nil }
+func (f fakeItems) Broken(context.Context) ([]BrokenRef, error) { return f.broken, nil }
 
 func newDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -188,6 +193,71 @@ func TestSweep_FlagsBrokenReference(t *testing.T) {
 	}
 	if !strings.Contains(joinFindings(findings), "/nonexistent/file.go") {
 		t.Fatalf("broken ref not flagged: %v", findings)
+	}
+}
+
+func TestSweep_FlagsDuplicateID(t *testing.T) {
+	db := newDB(t)
+	items := fakeItems{refs: []ItemRef{
+		{ID: "FEAT-1", Path: ".squad/items/a.md", Status: "open"},
+		{ID: "FEAT-1", Path: ".squad/items/b.md", Status: "open"},
+	}}
+	sw := NewWithClock(db, "repo-test", items, time.Now)
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := joinFindings(findings)
+	if !strings.Contains(got, "duplicate item id FEAT-1") {
+		t.Fatalf("duplicate_id not flagged: %v", findings)
+	}
+}
+
+func TestSweep_FlagsBlockedBySelf(t *testing.T) {
+	db := newDB(t)
+	items := fakeItems{refs: []ItemRef{
+		{ID: "FEAT-1", Path: ".squad/items/a.md", Status: "open", BlockedBy: []string{"FEAT-1"}},
+	}}
+	sw := NewWithClock(db, "repo-test", items, time.Now)
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := joinFindings(findings)
+	if !strings.Contains(got, "blocked-by itself") {
+		t.Fatalf("blocked_by_self not flagged: %v", findings)
+	}
+}
+
+func TestSweep_FlagsBlockedByUnknown(t *testing.T) {
+	db := newDB(t)
+	items := fakeItems{refs: []ItemRef{
+		{ID: "FEAT-1", Path: ".squad/items/a.md", Status: "open", BlockedBy: []string{"GHOST-999"}},
+	}}
+	sw := NewWithClock(db, "repo-test", items, time.Now)
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := joinFindings(findings)
+	if !strings.Contains(got, "blocked-by GHOST-999") {
+		t.Fatalf("blocked_by_unknown not flagged: %v", findings)
+	}
+}
+
+func TestSweep_FlagsMalformedItem(t *testing.T) {
+	db := newDB(t)
+	items := fakeItems{
+		broken: []BrokenRef{{Path: ".squad/items/crlf.md", Error: "no frontmatter"}},
+	}
+	sw := NewWithClock(db, "repo-test", items, time.Now)
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := joinFindings(findings)
+	if !strings.Contains(got, "could not parse .squad/items/crlf.md") {
+		t.Fatalf("malformed_item not flagged: %v", findings)
 	}
 }
 

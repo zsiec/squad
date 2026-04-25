@@ -46,11 +46,20 @@ func (it Item) ProgressPct() int {
 }
 
 var (
-	frontmatterRe = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n`)
+	// Tolerate CR\n line endings (Windows) and LF\n. UTF-8 BOM is stripped
+	// before this regex runs (see Parse). Many editors prepend a BOM by
+	// default; without the strip those files would be invisible to every
+	// squad command.
+	frontmatterRe = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---\r?\n`)
 	acHeaderRe    = regexp.MustCompile(`(?m)^##\s+Acceptance\s+criteria\s*$`)
 	nextHeaderRe  = regexp.MustCompile(`(?m)^##\s+`)
 	checkboxRe    = regexp.MustCompile(`^\s*[-*]\s*\[([ xX])\]\s+`)
 	subBulletRe   = regexp.MustCompile(`^\s{2,}[-*]\s+`)
+	// idShape constrains item IDs to PREFIX-NUMBER form. Items whose YAML
+	// `id` is a non-string scalar (int, bool) or violates this shape are
+	// rejected at Parse time so they don't propagate to next/status as garbage.
+	idShape = regexp.MustCompile(`^[A-Z][A-Z0-9]*-\d+$`)
+	utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 )
 
 func Parse(path string) (Item, error) {
@@ -58,13 +67,22 @@ func Parse(path string) (Item, error) {
 	if err != nil {
 		return Item{}, err
 	}
+	if len(data) >= len(utf8BOM) && string(data[:len(utf8BOM)]) == string(utf8BOM) {
+		data = data[len(utf8BOM):]
+	}
 	match := frontmatterRe.FindSubmatch(data)
 	if match == nil {
-		return Item{}, fmt.Errorf("no frontmatter in %s", path)
+		return Item{}, fmt.Errorf("no frontmatter in %s (expected '---' fenced YAML at file start; CRLF and UTF-8 BOM are tolerated)", path)
 	}
 	var it Item
 	if err := yaml.Unmarshal(match[1], &it); err != nil {
 		return Item{}, fmt.Errorf("parse frontmatter in %s: %w", path, err)
+	}
+	if strings.TrimSpace(it.ID) == "" {
+		return Item{}, fmt.Errorf("frontmatter in %s has no `id:` (or yaml coerced it to empty)", path)
+	}
+	if !idShape.MatchString(it.ID) {
+		return Item{}, fmt.Errorf("frontmatter in %s has malformed id %q (expected PREFIX-NUMBER like FEAT-001)", path, it.ID)
 	}
 	it.Path = path
 	rest := data[len(match[0]):]

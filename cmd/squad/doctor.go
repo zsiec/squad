@@ -31,8 +31,21 @@ func (a itemsHygieneAdapter) List(ctx context.Context) ([]hygiene.ItemRef, error
 				Path:       it.Path,
 				Status:     it.Status,
 				References: it.References,
+				BlockedBy:  it.BlockedBy,
 			})
 		}
+	}
+	return out, nil
+}
+
+func (a itemsHygieneAdapter) Broken(ctx context.Context) ([]hygiene.BrokenRef, error) {
+	w, err := items.Walk(a.squadDir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]hygiene.BrokenRef, 0, len(w.Broken))
+	for _, b := range w.Broken {
+		out = append(out, hygiene.BrokenRef{Path: b.Path, Error: b.Error})
 	}
 	return out, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -64,6 +65,16 @@ func runPRLink(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("item %s not found in %s: %w", itemID, squadDir, err)
 	}
 
+	// If --pr was passed, validate gh is available BEFORE we touch any files.
+	// Otherwise pr-link --pr 42 with no gh installed would write the pending
+	// entry, then fail — leaving an entry that doesn't correspond to a real PR.
+	pr, _ := cmd.Flags().GetInt("pr")
+	if pr > 0 {
+		if _, err := exec.LookPath("gh"); err != nil {
+			return fmt.Errorf("--pr requires gh CLI on PATH")
+		}
+	}
+
 	branch := currentBranch(repoRoot)
 
 	pendingPath := filepath.Join(squadDir, "pending-prs.json")
@@ -88,7 +99,7 @@ func runPRLink(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if pr, _ := cmd.Flags().GetInt("pr"); pr > 0 {
+	if pr > 0 {
 		if err := appendMarkerToPR(pr, marker); err != nil {
 			return fmt.Errorf("append to PR #%d: %w", pr, err)
 		}
@@ -97,14 +108,23 @@ func runPRLink(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// ghTimeout caps any `gh` subprocess call. Without it, a hung gh (auth prompt,
+// stalled network, server error mid-stream) would block pr-close indefinitely.
+const ghTimeout = 30 * time.Second
+
 func runPRClose(cmd *cobra.Command, args []string) error {
 	prNum := args[0]
 
 	if _, err := exec.LookPath("gh"); err != nil {
 		return fmt.Errorf("gh CLI not found in PATH (required for pr-close)")
 	}
-	out, err := exec.Command("gh", "pr", "view", prNum, "--json", "body", "-q", ".body").Output()
+	ctx, cancel := context.WithTimeout(cmd.Context(), ghTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "gh", "pr", "view", prNum, "--json", "body", "-q", ".body").Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("gh pr view %s timed out after %s", prNum, ghTimeout)
+		}
 		return fmt.Errorf("gh pr view %s: %w", prNum, err)
 	}
 
@@ -163,15 +183,25 @@ func appendMarkerToPR(prNum int, marker string) error {
 	if _, err := exec.LookPath("gh"); err != nil {
 		return fmt.Errorf("gh CLI not found in PATH")
 	}
-	current, err := exec.Command("gh", "pr", "view", fmt.Sprint(prNum), "--json", "body", "-q", ".body").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer cancel()
+	current, err := exec.CommandContext(ctx, "gh", "pr", "view", fmt.Sprint(prNum), "--json", "body", "-q", ".body").Output()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("gh pr view %d timed out after %s", prNum, ghTimeout)
+		}
 		return fmt.Errorf("read PR body: %w", err)
 	}
 	body := strings.TrimRight(string(current), "\n") + "\n\n" + marker + "\n"
-	c := exec.Command("gh", "pr", "edit", fmt.Sprint(prNum), "--body-file", "-")
+	editCtx, editCancel := context.WithTimeout(context.Background(), ghTimeout)
+	defer editCancel()
+	c := exec.CommandContext(editCtx, "gh", "pr", "edit", fmt.Sprint(prNum), "--body-file", "-")
 	c.Stdin = strings.NewReader(body)
 	out, err := c.CombinedOutput()
 	if err != nil {
+		if editCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("gh pr edit %d timed out after %s", prNum, ghTimeout)
+		}
 		return fmt.Errorf("gh pr edit: %w (%s)", err, out)
 	}
 	return nil

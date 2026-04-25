@@ -36,10 +36,17 @@ type Finding struct {
 type ItemRef struct {
 	ID, Path, Status string
 	References       []string
+	BlockedBy        []string
+}
+
+type BrokenRef struct {
+	Path  string
+	Error string
 }
 
 type Items interface {
 	List(ctx context.Context) ([]ItemRef, error)
+	Broken(ctx context.Context) ([]BrokenRef, error)
 }
 
 type Sweeper struct {
@@ -179,6 +186,22 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 		}
 		phantomRows.Close()
 
+		// Build the id index once; re-used by duplicate-id and blocked-by checks.
+		idCount := make(map[string][]string, len(refs))
+		for _, r := range refs {
+			idCount[r.ID] = append(idCount[r.ID], r.Path)
+		}
+		for id, paths := range idCount {
+			if len(paths) > 1 {
+				findings = append(findings, Finding{
+					Severity: SeverityWarn,
+					Code:     "duplicate_id",
+					Message:  "duplicate item id " + id + " in " + strings.Join(paths, ", "),
+					Fix:      "rename one of the conflicting files (or fix its frontmatter `id:`); ids must be unique repo-wide",
+				})
+			}
+		}
+
 		for _, r := range refs {
 			if r.Status == "in_progress" && strings.Contains(r.Path, "/done/") {
 				findings = append(findings, Finding{
@@ -195,6 +218,41 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 						Fix:     "edit " + r.Path + " — fix or remove the reference",
 					})
 				}
+			}
+			for _, b := range r.BlockedBy {
+				b = strings.TrimSpace(b)
+				if b == "" {
+					continue
+				}
+				if b == r.ID {
+					findings = append(findings, Finding{
+						Severity: SeverityWarn, Code: "blocked_by_self",
+						Message:  "item " + r.ID + " is blocked-by itself (unbreakable)",
+						Fix:      "edit " + r.Path + " — remove " + b + " from blocked-by",
+					})
+					continue
+				}
+				if _, exists := idCount[b]; !exists {
+					findings = append(findings, Finding{
+						Severity: SeverityWarn, Code: "blocked_by_unknown",
+						Message:  "item " + r.ID + " is blocked-by " + b + " — no item with that id exists",
+						Fix:      "edit " + r.Path + " — fix or remove blocked-by " + b,
+					})
+				}
+			}
+		}
+
+		// Surface files that filesystem-walk could see but Parse rejected
+		// (CRLF, BOM, malformed YAML, etc.). Without this they are entirely
+		// invisible to next/status/workspace status.
+		broken, err := sw.items.Broken(ctx)
+		if err == nil {
+			for _, b := range broken {
+				findings = append(findings, Finding{
+					Severity: SeverityWarn, Code: "malformed_item",
+					Message:  "could not parse " + b.Path + ": " + b.Error,
+					Fix:      "open the file and check the YAML frontmatter; CRLF and UTF-8 BOM are now tolerated, but YAML syntax errors and missing/non-string `id:` are not",
+				})
 			}
 		}
 	}
