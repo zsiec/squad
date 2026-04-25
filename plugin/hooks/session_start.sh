@@ -45,20 +45,7 @@ _json_num() {
     fi
 }
 
-# Derive a stable per-session suffix so re-running the hook in the same
-# Claude Code session resolves to the SAME agent_id (no DB pollution).
-SESSION_KEY="${SQUAD_SESSION_ID:-${TERM_SESSION_ID:-${ITERM_SESSION_ID:-${TMUX_PANE:-${WT_SESSION:-}}}}}"
-if [ -n "$SESSION_KEY" ]; then
-    SUFFIX=$(printf '%s' "$SESSION_KEY" | shasum 2>/dev/null | cut -c1-4)
-    [ -z "$SUFFIX" ] && SUFFIX=$(printf '%s' "$SESSION_KEY" | cut -c1-4)
-else
-    SUFFIX=$(openssl rand -hex 2 2>/dev/null || printf '%s' "$$" | cut -c1-4)
-fi
-AGENT_ID="agent-$SUFFIX"
-AGENT_NAME="claude-$AGENT_ID"
-
-_squad_run register --as "$AGENT_ID" --name "$AGENT_NAME" --no-repo-check >/dev/null 2>&1 || true
-_squad_run tick >/dev/null 2>&1 || true
+_squad_run register --no-repo-check >/dev/null 2>&1 || true
 
 WHOAMI_ID=$(_squad_run whoami --json 2>/dev/null | _json_str id)
 REPO_NAME=$(_squad_run workspace status --json 2>/dev/null | _json_str current_repo)
