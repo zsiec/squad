@@ -3,6 +3,7 @@ package items
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -108,5 +109,31 @@ func TestWalk_DoesNotRecurseIntoSubdirs(t *testing.T) {
 	}
 	if len(got.Broken) != 0 {
 		t.Fatalf("nested item should be ignored, not flagged broken: %v", got.Broken)
+	}
+}
+
+func TestParse_BackwardCompatNoR3Fields(t *testing.T) {
+	it, err := Parse("testdata/items/FEAT-002-example.md")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if it.Epic != "" || len(it.DependsOn) != 0 || it.Parallel || len(it.ConflictsWith) != 0 {
+		t.Errorf("legacy item: epic=%q deps=%v par=%v conf=%v",
+			it.Epic, it.DependsOn, it.Parallel, it.ConflictsWith)
+	}
+}
+
+func TestParse_R3FieldsRoundTrip(t *testing.T) {
+	it, err := Parse("testdata/items/r3/FEAT-100-with-r3-fields.md")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	wantDeps := []string{"FEAT-099", "FEAT-098"}
+	wantPaths := []string{"internal/auth/login.go", "internal/auth/session.go"}
+	if it.Epic != "auth-rework" || !it.Parallel ||
+		!reflect.DeepEqual(it.DependsOn, wantDeps) ||
+		!reflect.DeepEqual(it.ConflictsWith, wantPaths) {
+		t.Errorf("got epic=%q par=%v deps=%v conf=%v",
+			it.Epic, it.Parallel, it.DependsOn, it.ConflictsWith)
 	}
 }
