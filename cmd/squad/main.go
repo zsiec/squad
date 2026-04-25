@@ -38,6 +38,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newKnockCmd())
 	root.AddCommand(newHandoffCmd())
 	root.AddCommand(newReviewRequestCmd())
+	root.AddCommand(newProgressCmd())
 	return root
 }
 
