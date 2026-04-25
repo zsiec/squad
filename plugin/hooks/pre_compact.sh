@@ -38,11 +38,11 @@ fi
 
 if command -v jq >/dev/null 2>&1; then
     AGENT=$(printf '%s' "$WHOAMI" | jq -r '.id // empty' 2>/dev/null)
-    CLAIM=$(printf '%s' "$WHOAMI" | jq -r '.claim // empty' 2>/dev/null)
+    CLAIM=$(printf '%s' "$WHOAMI" | jq -r '.item_id // empty' 2>/dev/null)
     INTENT=$(printf '%s' "$WHOAMI" | jq -r '.intent // empty' 2>/dev/null)
 else
     AGENT=$(printf '%s' "$WHOAMI" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-    CLAIM=$(printf '%s' "$WHOAMI" | sed -n 's/.*"claim"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+    CLAIM=$(printf '%s' "$WHOAMI" | sed -n 's/.*"item_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
     INTENT=$(printf '%s' "$WHOAMI" | sed -n 's/.*"intent"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 fi
 

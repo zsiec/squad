@@ -48,7 +48,7 @@ func TestPreCompact_EmitsClaimAndRecentChat(t *testing.T) {
 	stub := filepath.Join(dir, "squad")
 	body := `#!/bin/sh
 case "$1 $2" in
-  "whoami --json") printf '%s\n' '{"id":"agent-blue","claim":"FEAT-007","intent":"wire export"}' ;;
+  "whoami --json") printf '%s\n' '{"id":"agent-blue","item_id":"FEAT-007","intent":"wire export"}' ;;
   "tail --since")  printf '%s\n' '14:02 agent-blue (milestone, #FEAT-007): AC1 green' ;;
   *)               exit 0 ;;
 esac

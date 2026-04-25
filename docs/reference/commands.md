@@ -233,6 +233,18 @@ Print all messages for an item, in time order.
 squad history FEAT-001
 ```
 
+### `squad standup`
+
+Per-agent digest over a lookback window: what shipped, what was lost (reclaimed or force-released), the currently-open claim (with age + intent), stuck signals you posted, asks you sent that nobody answered, and the file touches you still hold. Defaults to a 24-hour window.
+
+```bash
+squad standup                   # last 24h, human-readable
+squad standup --since 1w        # custom window
+squad standup --json            # machine-readable for scripting / dashboards
+```
+
+The digest is read-only; it doesn't mutate the DB.
+
 ### `squad archive`
 
 Roll old chat messages into a per-month archive DB.
