@@ -42,6 +42,17 @@ func newDoneCmd() *cobra.Command {
 			}
 
 			itemPath := findItemPath(bc.itemsDir, itemID)
+			if itemPath == "" {
+				// QA r6 H #6: Done() previously accepted an empty ItemPath and
+				// committed a release without rewriting/moving the file —
+				// users saw 'done <ID>' on stdout but the file stayed in
+				// items/ untouched. Refuse upfront so the user knows to fix
+				// the underlying parse error first (or the missing file).
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"%s: no parseable item file found in %s. Fix the file (squad doctor will list malformed_item findings) or move it back from done/, then re-run squad done.\n",
+					itemID, bc.itemsDir)
+				os.Exit(1)
+			}
 			err = bc.store.Done(ctx, itemID, bc.agentID, claims.DoneOpts{
 				Summary:  summary,
 				ItemPath: itemPath,

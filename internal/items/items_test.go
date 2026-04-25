@@ -79,3 +79,34 @@ func TestWalk_MissingDoneDirIsOk(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+// QA r6 H #5: Walk used to recurse with filepath.WalkDir while every
+// downstream lookup (findItemPath, findItemFile, blockerInDoneDir) used
+// flat os.ReadDir. Items in subdirs showed up in `next` but `claim` said
+// "not found". Lock the now-flat behaviour in.
+func TestWalk_DoesNotRecurseIntoSubdirs(t *testing.T) {
+	dir := t.TempDir()
+	itemsDir := filepath.Join(dir, ".squad", "items")
+	subDir := filepath.Join(itemsDir, "nested")
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(itemsDir, "FEAT-001-top.md"),
+		[]byte("---\nid: FEAT-001\ntitle: top\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "FEAT-002-buried.md"),
+		[]byte("---\nid: FEAT-002\ntitle: buried\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Walk(filepath.Join(dir, ".squad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Active) != 1 || got.Active[0].ID != "FEAT-001" {
+		t.Fatalf("Active=%v want only FEAT-001", got.Active)
+	}
+	if len(got.Broken) != 0 {
+		t.Fatalf("nested item should be ignored, not flagged broken: %v", got.Broken)
+	}
+}

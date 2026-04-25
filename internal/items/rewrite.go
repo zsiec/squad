@@ -30,17 +30,35 @@ func RewriteStatus(path, newStatus string, now time.Time) error {
 }
 
 func rewriteFrontmatter(raw []byte, updates map[string]string) ([]byte, error) {
-	open := bytes.Index(raw, []byte("---\n"))
-	if open != 0 {
+	// Match Parse's tolerance: strip a leading UTF-8 BOM and accept CRLF.
+	// Without this, a CRLF/BOM-prefixed file that Parse() happily reads
+	// fails the "begins with frontmatter" check here, so squad done leaves
+	// the file behind even though the DB transaction commits (QA r6 H #2/#4).
+	if len(raw) >= len(utf8BOM) && bytes.Equal(raw[:len(utf8BOM)], utf8BOM) {
+		raw = raw[len(utf8BOM):]
+	}
+	openMarker := []byte("---\n")
+	openMarkerCRLF := []byte("---\r\n")
+	closeMarker := []byte("\n---\n")
+	closeMarkerCRLF := []byte("\r\n---\r\n")
+	openLen := len(openMarker)
+	closeLen := len(closeMarker)
+	if bytes.HasPrefix(raw, openMarkerCRLF) {
+		openLen = len(openMarkerCRLF)
+	} else if !bytes.HasPrefix(raw, openMarker) {
 		return nil, fmt.Errorf("file does not begin with frontmatter")
 	}
-	rest := raw[4:]
-	closeIdx := bytes.Index(rest, []byte("\n---\n"))
+	rest := raw[openLen:]
+	closeIdx := bytes.Index(rest, closeMarker)
+	if idx := bytes.Index(rest, closeMarkerCRLF); idx >= 0 && (closeIdx < 0 || idx < closeIdx) {
+		closeIdx = idx
+		closeLen = len(closeMarkerCRLF)
+	}
 	if closeIdx < 0 {
 		return nil, fmt.Errorf("no closing --- marker for frontmatter")
 	}
 	frontmatter := rest[:closeIdx]
-	body := rest[closeIdx+5:]
+	body := rest[closeIdx+closeLen:]
 
 	var doc yaml.Node
 	if err := yaml.Unmarshal(frontmatter, &doc); err != nil {

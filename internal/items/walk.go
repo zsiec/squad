@@ -1,7 +1,6 @@
 package items
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,26 +35,33 @@ func Walk(squadDir string) (WalkResult, error) {
 	return WalkResult{Active: active, Done: done, Broken: append(brokenA, brokenD...)}, nil
 }
 
+// walkOne enumerates only the immediate .md children of dir. Items must live
+// directly under .squad/items/ and .squad/done/ — the lookup helpers in
+// claims and the CLI use flat os.ReadDir, so making Walk recursive would
+// list items in subdirs that no other code path can claim/move/done. QA
+// round-6 H #5 surfaced the divergence; tightening Walk keeps the surface
+// consistent.
 func walkOne(dir string) ([]Item, []BrokenItem, error) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return nil, nil, nil
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, nil
+		}
+		return nil, nil, err
 	}
 	var out []Item
 	var broken []BrokenItem
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
 		}
-		if entry.IsDir() || !strings.HasSuffix(path, ".md") {
-			return nil
-		}
+		path := filepath.Join(dir, e.Name())
 		it, perr := Parse(path)
 		if perr != nil {
 			broken = append(broken, BrokenItem{Path: path, Error: perr.Error()})
-			return nil
+			continue
 		}
 		out = append(out, it)
-		return nil
-	})
-	return out, broken, err
+	}
+	return out, broken, nil
 }
