@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 var typeByPrefix = map[string]string{
@@ -18,6 +20,9 @@ var typeByPrefix = map[string]string{
 	"BET":   "bet",
 }
 
+// stubTemplate uses %s for the title placeholder; we feed yaml-quoted output
+// (`"foo: bar"` etc.) so titles containing colons, newlines, leading dashes,
+// or other YAML-special characters can't poison the frontmatter.
 const stubTemplate = `---
 id: %s
 title: %s
@@ -83,7 +88,7 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 	risk := nonEmpty(opts.Risk, "low")
 	area := nonEmpty(opts.Area, "<fill-in>")
 	now := time.Now().UTC().Format("2006-01-02")
-	body := fmt.Sprintf(stubTemplate, id, title, t, priority, area, estimate, risk, now, now)
+	body := fmt.Sprintf(stubTemplate, id, yamlInline(title), t, priority, area, estimate, risk, now, now)
 	path := filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
@@ -99,6 +104,24 @@ func nonEmpty(v, def string) string {
 		return def
 	}
 	return v
+}
+
+// yamlInline returns a yaml-safe single-line representation of s (no trailing
+// newline). Lets the stub template interpolate any title without risking a
+// frontmatter that yaml.Unmarshal then rejects.
+func yamlInline(s string) string {
+	out, err := yaml.Marshal(s)
+	if err != nil {
+		return strconvQuote(s)
+	}
+	return strings.TrimRight(string(out), "\n")
+}
+
+// strconvQuote falls back to a Go-quoted string if yaml.Marshal somehow
+// errors. Not strictly YAML, but Parse will fail loudly rather than silently
+// produce a half-broken file.
+func strconvQuote(s string) string {
+	return fmt.Sprintf("%q", s)
 }
 
 var kebabRe = regexp.MustCompile(`[^a-z0-9]+`)
