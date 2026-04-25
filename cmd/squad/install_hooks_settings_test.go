@@ -1,0 +1,135 @@
+package main
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestMergeSettings_FreshFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	p := filepath.Join(t.TempDir(), "settings.json")
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true}); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "SessionStart") {
+		t.Fatalf("expected SessionStart, got %s", body)
+	}
+	if !strings.Contains(string(body), `"squad": "session-start@v1"`) {
+		t.Fatalf("expected squad marker, got %s", body)
+	}
+}
+
+func TestMergeSettings_PreservesNonSquadHooks(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	p := filepath.Join(t.TempDir(), "settings.json")
+	original := `{
+  "model": "sonnet",
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "/usr/local/bin/notify"}]}
+    ]
+  }
+}`
+	if err := os.WriteFile(p, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-tick": true}); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(p)
+	var parsed map[string]any
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("re-parse: %v\n%s", err, body)
+	}
+	if parsed["model"] != "sonnet" {
+		t.Fatalf("model lost; got %v", parsed["model"])
+	}
+	if !strings.Contains(string(body), "/usr/local/bin/notify") {
+		t.Fatalf("non-squad hook lost; got %s", body)
+	}
+	if !strings.Contains(string(body), "session-start@v1") {
+		t.Fatalf("session-start missing; got %s", body)
+	}
+	if !strings.Contains(string(body), "pre-commit-tick@v1") {
+		t.Fatalf("pre-commit-tick missing; got %s", body)
+	}
+}
+
+func TestMergeSettings_Idempotent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	p := filepath.Join(t.TempDir(), "settings.json")
+	for i := 0; i < 3; i++ {
+		if err := mergeSquadHooks(p, map[string]bool{"session-start": true}); err != nil {
+			t.Fatalf("iter %d: %v", i, err)
+		}
+	}
+	body, _ := os.ReadFile(p)
+	if got := strings.Count(string(body), "session-start@v1"); got != 1 {
+		t.Fatalf("expected 1 entry, got %d:\n%s", got, body)
+	}
+}
+
+func TestMergeSettings_UninstallRemovesOnlySquadEntries(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	p := filepath.Join(t.TempDir(), "settings.json")
+	original := `{
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "/usr/local/bin/notify"}]}
+    ]
+  }
+}`
+	if err := os.WriteFile(p, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-tick": true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := uninstallSquadHooks(p); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(p)
+	if strings.Contains(string(body), "squad") {
+		t.Fatalf("expected zero squad markers, got %s", body)
+	}
+	if !strings.Contains(string(body), "/usr/local/bin/notify") {
+		t.Fatalf("non-squad hook lost; got %s", body)
+	}
+}
+
+func TestMergeSettings_DisableRemovesEnabled(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	p := filepath.Join(t.TempDir(), "settings.json")
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true, "pre-commit-tick": true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true}); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(p)
+	if strings.Contains(string(body), "pre-commit-tick@v1") {
+		t.Fatalf("expected pre-commit-tick removed; got %s", body)
+	}
+	if !strings.Contains(string(body), "session-start@v1") {
+		t.Fatalf("session-start missing; got %s", body)
+	}
+}
+
+func TestMergeSettings_TwoSpaceIndent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	p := filepath.Join(t.TempDir(), "settings.json")
+	if err := mergeSquadHooks(p, map[string]bool{"session-start": true}); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(p)
+	if !strings.Contains(string(body), "\n  ") {
+		t.Fatalf("expected 2-space indent, got:\n%s", body)
+	}
+}
