@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +11,17 @@ import (
 
 	"github.com/zsiec/squad/internal/claims"
 )
+
+func lookupClaimHolder(ctx context.Context, bc *claimContext, itemID string) string {
+	var agent string
+	err := bc.db.QueryRowContext(ctx,
+		`SELECT agent_id FROM claims WHERE item_id = ? AND repo_id = ?`,
+		itemID, bc.repoID).Scan(&agent)
+	if err != nil {
+		return ""
+	}
+	return agent
+}
 
 func newClaimCmd() *cobra.Command {
 	var (
@@ -46,7 +58,12 @@ func newClaimCmd() *cobra.Command {
 				return nil
 			}
 			if errors.Is(err, claims.ErrClaimTaken) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed\n", itemID)
+				holder := lookupClaimHolder(ctx, bc, itemID)
+				if holder != "" {
+					fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed by %s\n", itemID, holder)
+				} else {
+					fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed\n", itemID)
+				}
 				os.Exit(1)
 			}
 			if errors.Is(err, claims.ErrBlockedByOpen) {
