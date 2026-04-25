@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zsiec/squad/internal/hygiene"
+	"github.com/zsiec/squad/internal/store"
 )
 
 const versionString = "0.1.0-dev"
@@ -48,7 +54,40 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newArchiveCmd())
 	root.AddCommand(newDumpStatusCmd())
+	root.PersistentPostRunE = postRunHygiene
 	return root
+}
+
+// postRunHygiene fires the hygiene runner after each successful command,
+// debounced via ~/.squad/hygiene.lock. Best-effort: any error (missing home
+// dir, no repo, write failure) is silently swallowed so user commands never
+// fail because hygiene tripped. Disable entirely with SQUAD_NO_HYGIENE=1.
+func postRunHygiene(cmd *cobra.Command, args []string) error {
+	if os.Getenv("SQUAD_NO_HYGIENE") != "" {
+		return nil
+	}
+	if err := store.EnsureHome(); err != nil {
+		return nil
+	}
+	home, err := store.Home()
+	if err != nil {
+		return nil
+	}
+	lock := filepath.Join(home, "hygiene.lock")
+	r := hygiene.NewRunner(lock, 10*time.Second)
+	_ = r.RunIfDue(context.Background(), func(ctx context.Context) error {
+		bc, err := bootClaimContext(ctx)
+		if err != nil {
+			return nil
+		}
+		defer bc.Close()
+		adapter := itemsHygieneAdapter{squadDir: filepath.Dir(bc.itemsDir)}
+		sw := hygiene.New(bc.db, bc.repoID, adapter)
+		_ = sw.MarkStaleAgents(ctx)
+		_, _ = sw.ReclaimStale(ctx)
+		return nil
+	})
+	return nil
 }
 
 func newVersionCmd() *cobra.Command {
