@@ -68,7 +68,11 @@ func (s *Store) Claim(ctx context.Context, itemID, agentID, intent string, touch
 				return fmt.Errorf("insert touch: %w", err)
 			}
 		}
-		return postSystemMessage(ctx, tx, s.repoID, now, agentID, "global", "claim", claimBody(itemID, intent), nil, "normal")
+		body := claimBody(itemID, intent)
+		if err := postSystemMessage(ctx, tx, s.repoID, now, agentID, "global", "claim", body, nil, "normal"); err != nil {
+			return err
+		}
+		return postSystemMessage(ctx, tx, s.repoID, now, agentID, itemID, "claim", body, nil, "normal")
 	})
 }
 
