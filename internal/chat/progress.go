@@ -24,6 +24,11 @@ func (c *Chat) ReportProgress(ctx context.Context, agentID, itemID string, pct i
 		now, agentID); err != nil {
 		return err
 	}
+	if _, err := c.db.ExecContext(ctx,
+		`UPDATE claims SET last_touch = ? WHERE agent_id = ? AND repo_id = ?`,
+		now, agentID, c.repoID); err != nil {
+		return err
+	}
 	c.bus.Publish(Event{
 		Kind: "progress",
 		Payload: map[string]any{
