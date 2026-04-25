@@ -60,6 +60,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newArchiveCmd())
 	root.AddCommand(newDumpStatusCmd())
 	root.AddCommand(newInitCmd())
+	root.AddCommand(newSpecNewCmd())
 	root.AddCommand(newGoCmd())
 	root.AddCommand(newWorkspaceCmd())
 	root.AddCommand(newServeCmd())
