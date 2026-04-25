@@ -53,6 +53,8 @@ func (s *Server) WithCallerAgent(id string) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/items", s.handleItemsList)
+	mux.HandleFunc("GET /api/items/{id}", s.handleItemDetail)
 	return s.authMiddleware(mux)
 }
 

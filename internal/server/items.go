@@ -1,0 +1,117 @@
+package server
+
+import (
+	"database/sql"
+	"errors"
+	"net/http"
+
+	"github.com/zsiec/squad/internal/items"
+)
+
+type itemListRow struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Type      string `json:"type"`
+	Priority  string `json:"priority"`
+	Area      string `json:"area"`
+	Status    string `json:"status"`
+	Estimate  string `json:"estimate"`
+	Risk      string `json:"risk"`
+	ACTotal   int    `json:"ac_total"`
+	ACChecked int    `json:"ac_checked"`
+	Progress  int    `json:"progress_pct"`
+}
+
+// walkAll returns all active + done items below s.cfg.SquadDir.
+func (s *Server) walkAll() ([]items.Item, error) {
+	w, err := items.Walk(s.cfg.SquadDir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]items.Item, 0, len(w.Active)+len(w.Done))
+	out = append(out, w.Active...)
+	out = append(out, w.Done...)
+	return out, nil
+}
+
+func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
+	all, err := s.walkAll()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	statusFilter := r.URL.Query().Get("status")
+	out := make([]itemListRow, 0, len(all))
+	for _, it := range all {
+		if statusFilter != "" && it.Status != statusFilter {
+			continue
+		}
+		out = append(out, itemListRow{
+			ID: it.ID, Title: it.Title, Type: it.Type, Priority: it.Priority,
+			Area: it.Area, Status: it.Status, Estimate: it.Estimate, Risk: it.Risk,
+			ACTotal: it.ACTotal, ACChecked: it.ACChecked, Progress: it.ProgressPct(),
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	all, err := s.walkAll()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var it *items.Item
+	for i := range all {
+		if all[i].ID == id {
+			it = &all[i]
+			break
+		}
+	}
+	if it == nil {
+		writeErr(w, http.StatusNotFound, "item not found: "+id)
+		return
+	}
+
+	var currentClaim any
+	row := s.db.QueryRowContext(r.Context(),
+		`SELECT agent_id, COALESCE(intent, ''), claimed_at FROM claims WHERE item_id = ? AND repo_id = ?`,
+		id, s.cfg.RepoID)
+	var cc struct {
+		AgentID   string `json:"agent_id"`
+		Intent    string `json:"intent"`
+		ClaimedAt int64  `json:"claimed_at"`
+	}
+	switch err := row.Scan(&cc.AgentID, &cc.Intent, &cc.ClaimedAt); {
+	case err == nil:
+		currentClaim = cc
+	case errors.Is(err, sql.ErrNoRows):
+	default:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if it.ACItems == nil {
+		it.ACItems = []items.ACItem{}
+	}
+	if it.BlockedBy == nil {
+		it.BlockedBy = []string{}
+	}
+	if it.RelatesTo == nil {
+		it.RelatesTo = []string{}
+	}
+	if it.References == nil {
+		it.References = []string{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id": it.ID, "title": it.Title, "type": it.Type, "priority": it.Priority,
+		"area": it.Area, "status": it.Status, "estimate": it.Estimate, "risk": it.Risk,
+		"created": it.Created, "updated": it.Updated,
+		"ac_total": it.ACTotal, "ac_checked": it.ACChecked, "progress_pct": it.ProgressPct(),
+		"body_markdown": it.Body, "ac": it.ACItems,
+		"blocked_by": it.BlockedBy, "relates_to": it.RelatesTo, "references": it.References,
+		"current_claim": currentClaim,
+	})
+}
