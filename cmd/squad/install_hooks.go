@@ -96,10 +96,6 @@ func runInstallHooksWithFlags(stdout, stderr io.Writer, yes, uninstall, status b
 	return nil
 }
 
-func promptHook(io.Writer, hooks.Hook) (bool, error) {
-	return false, nil
-}
-
 func resolveEnabled(stdout, stderr io.Writer, yes bool, perHook map[string]string) (map[string]bool, error) {
 	enabled := map[string]bool{}
 	for _, h := range hooks.All {
