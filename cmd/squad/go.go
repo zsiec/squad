@@ -2,15 +2,20 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/identity"
+	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
 )
 
@@ -48,7 +53,86 @@ func runGo(cmd *cobra.Command) error {
 	if err := ensureRegistered(out); err != nil {
 		return err
 	}
+	return ensureClaim(out)
+}
+
+func ensureClaim(out io.Writer) error {
+	bc, err := bootClaimContext(context.Background())
+	if err != nil {
+		return err
+	}
+	defer bc.Close()
+
+	if held, ok, err := agentHoldsClaim(context.Background(), bc); err != nil {
+		return err
+	} else if ok {
+		fmt.Fprintf(out, "resuming claim on %s\n", held)
+		return nil
+	}
+
+	root, err := repo.Discover(identity.DetectWorktree())
+	if err != nil {
+		return err
+	}
+	w, err := items.Walk(filepath.Join(root, ".squad"))
+	if err != nil {
+		return err
+	}
+	ready := items.Ready(w, time.Now().UTC())
+	claimedSet, err := loadClaimedSet(context.Background(), bc.db, bc.repoID)
+	if err != nil {
+		return err
+	}
+	for _, it := range ready {
+		if _, taken := claimedSet[it.ID]; taken {
+			continue
+		}
+		err := bc.store.Claim(context.Background(), it.ID, bc.agentID,
+			"squad go auto-claim", nil, false,
+			claims.ClaimWithPreflight(bc.itemsDir, bc.doneDir))
+		if err == nil {
+			fmt.Fprintf(out, "claimed %s: %s\n", it.ID, it.Title)
+			return nil
+		}
+		if errors.Is(err, claims.ErrClaimTaken) {
+			continue
+		}
+		return err
+	}
+	fmt.Fprintln(out, "no ready items — workspace is clear")
 	return nil
+}
+
+func agentHoldsClaim(ctx context.Context, bc *claimContext) (string, bool, error) {
+	var id string
+	err := bc.db.QueryRowContext(ctx,
+		`SELECT item_id FROM claims WHERE agent_id = ? AND repo_id = ? LIMIT 1`,
+		bc.agentID, bc.repoID).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return id, true, nil
+}
+
+func loadClaimedSet(ctx context.Context, db *sql.DB, repoID string) (map[string]struct{}, error) {
+	out := make(map[string]struct{})
+	rows, err := db.QueryContext(ctx,
+		`SELECT item_id FROM claims WHERE repo_id = ?`, repoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = struct{}{}
+	}
+	return out, rows.Err()
 }
 
 func ensureSquadInit(wd string, out io.Writer) error {

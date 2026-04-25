@@ -8,8 +8,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
 )
+
+func writeItemFile(t *testing.T, repoDir, name, body string) {
+	t.Helper()
+	p := filepath.Join(repoDir, ".squad", "items", name)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestGoCmd_Exists(t *testing.T) {
 	root := newRootCmd()
@@ -164,5 +177,85 @@ func TestGoCmd_DoesNotReregisterOnSecondRun(t *testing.T) {
 	}
 	if n != 1 {
 		t.Fatalf("want exactly 1 agent row across two runs, got %d", n)
+	}
+}
+
+func TestGoCmd_ClaimsTopReadyItem(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-claim-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(filepath.Join(repoDir, ".squad", "items", "EXAMPLE-001-try-the-loop.md"))
+	writeItemFile(t, repoDir, "FEAT-001-pick-me.md",
+		"---\nid: FEAT-001\ntitle: pick me\ntype: feature\npriority: P0\nstatus: open\nestimate: 1h\n---\n\n## Acceptance criteria\n- [ ] do the thing\n")
+	writeItemFile(t, repoDir, "FEAT-002-skip-me.md",
+		"---\nid: FEAT-002\ntitle: skip me\ntype: feature\npriority: P2\nstatus: open\nestimate: 1h\n---\n")
+
+	t.Chdir(repoDir)
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"go"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\nout=%s", err, out.String())
+	}
+
+	if !strings.Contains(out.String(), "FEAT-001") {
+		t.Fatalf("expected FEAT-001 to be claimed; got %s", out.String())
+	}
+
+	db, err := store.Open(filepath.Join(state, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var item string
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT item_id FROM claims`).Scan(&item); err != nil {
+		t.Fatalf("expected exactly one claim row, got: %v", err)
+	}
+	if item != "FEAT-001" {
+		t.Fatalf("want FEAT-001 claimed, got %q", item)
+	}
+	_ = items.Walk
+	_ = repo.Discover
+}
+
+func TestGoCmd_NoReadyItemsIsNotAnError(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-claim-2")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(filepath.Join(repoDir, ".squad", "items", "EXAMPLE-001-try-the-loop.md"))
+
+	t.Chdir(repoDir)
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"go"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("squad go should succeed with no items: %v\n%s",
+			err, out.String())
+	}
+	if !strings.Contains(strings.ToLower(out.String()), "no ready") {
+		t.Fatalf("expected 'no ready' message, got %s", out.String())
 	}
 }
