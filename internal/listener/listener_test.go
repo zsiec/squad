@@ -173,3 +173,50 @@ func TestListener_ConcurrentConnectsCoalesce(t *testing.T) {
 		t.Fatal("never woke")
 	}
 }
+
+func TestListener_WaitLoopReturnsOnConnectAfterMultipleFallbacks(t *testing.T) {
+	l, err := New("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	defer l.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	type result struct {
+		fallbacks int
+		err       error
+	}
+	done := make(chan result, 1)
+	onTick := func() {}
+	tickCount := 0
+	hooked := func() {
+		tickCount++
+		if tickCount == 3 {
+			go func() {
+				c, _ := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(l.Port()), 200*time.Millisecond)
+				if c != nil {
+					_ = c.Close()
+				}
+			}()
+		}
+	}
+	onTick = hooked
+	go func() {
+		fallbacks, err := l.WaitLoop(ctx, 30*time.Millisecond, onTick)
+		done <- result{fallbacks, err}
+	}()
+
+	select {
+	case r := <-done:
+		if r.err != nil {
+			t.Fatalf("wait loop err: %v", r.err)
+		}
+		if r.fallbacks < 1 {
+			t.Fatalf("expected at least one fallback before connect, got %d", r.fallbacks)
+		}
+	case <-time.After(2500 * time.Millisecond):
+		t.Fatal("WaitLoop never returned")
+	}
+}

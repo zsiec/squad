@@ -102,6 +102,32 @@ func (l *Listener) WaitWake(ctx context.Context, fallback time.Duration) (WakeRe
 	}
 }
 
+// WaitLoop blocks until a connect wakes the listener, ctx is cancelled,
+// or Close is called. The fallback timer fires every `slice` duration;
+// onFallback is invoked on each fallback tick (typically: re-check the
+// mailbox in case a sender's Wake landed before the listener was ready).
+// Returns the number of fallback ticks observed before the wake.
+func (l *Listener) WaitLoop(ctx context.Context, slice time.Duration, onFallback func()) (int, error) {
+	fallbacks := 0
+	for {
+		reason, err := l.WaitWake(ctx, slice)
+		if err != nil {
+			return fallbacks, err
+		}
+		switch reason {
+		case WakeReasonConnect:
+			return fallbacks, nil
+		case WakeReasonFallback:
+			fallbacks++
+			if onFallback != nil {
+				onFallback()
+			}
+		default:
+			return fallbacks, nil
+		}
+	}
+}
+
 func (l *Listener) Close() error {
 	l.closeOnce.Do(func() {
 		close(l.closed)
