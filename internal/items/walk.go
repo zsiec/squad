@@ -58,6 +58,12 @@ func walkOne(dir string) ([]Item, []BrokenItem, error) {
 		path := filepath.Join(dir, e.Name())
 		it, perr := Parse(path)
 		if perr != nil {
+			// A file that vanished between ReadDir and Parse is a race,
+			// not a malformed item. Swallow it; the next walk picks up
+			// the new state. (QA r6-H #8.)
+			if os.IsNotExist(perr) {
+				continue
+			}
 			broken = append(broken, BrokenItem{Path: path, Error: perr.Error()})
 			continue
 		}
