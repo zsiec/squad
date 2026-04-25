@@ -112,22 +112,17 @@ func TestBus_LagSentinel_AfterDrops(t *testing.T) {
 	bus.Publish(Event{Kind: "msg"})
 
 	deadline := time.After(500 * time.Millisecond)
-	var sawLag bool
 	for {
 		select {
 		case e := <-sub:
 			if e.Kind == "lag" {
-				sawLag = true
 				if dropped, ok := e.Payload["dropped"].(int64); !ok || dropped < overflow {
 					t.Fatalf("lag payload=%v want dropped>=%d", e.Payload, overflow)
 				}
 				return
 			}
 		case <-deadline:
-			if !sawLag {
-				t.Fatal("never received lag sentinel")
-			}
-			return
+			t.Fatal("never received lag sentinel")
 		}
 	}
 }

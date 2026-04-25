@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strconv"
 )
 
 // filenameIDRe pulls a PREFIX-NUMBER from the start of the basename of an
@@ -30,8 +31,10 @@ func NextID(prefix string, w WalkResult) (string, error) {
 		if m == nil || m[1] != prefix {
 			continue
 		}
-		var n int
-		fmt.Sscanf(m[2], "%d", &n)
+		n, err := strconv.Atoi(m[2])
+		if err != nil {
+			continue
+		}
 		if n > max {
 			max = n
 		}
