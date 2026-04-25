@@ -86,6 +86,25 @@ func rewriteFrontmatter(raw []byte, updates map[string]string) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+func EnsureBlockerSection(path, reason string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if bytes.Contains(raw, []byte("\n## Blocker")) || bytes.HasPrefix(raw, []byte("## Blocker")) {
+		return nil
+	}
+	if !bytes.HasSuffix(raw, []byte("\n")) {
+		raw = append(raw, '\n')
+	}
+	appended := append(raw, []byte("\n## Blocker\n"+reason+"\n")...)
+	tmp := path + ".squad.tmp"
+	if err := os.WriteFile(tmp, appended, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
 func MoveToDone(srcPath, doneDir string) (string, error) {
 	if err := os.MkdirAll(doneDir, 0o755); err != nil {
 		return "", err
