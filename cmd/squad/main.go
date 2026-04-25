@@ -35,6 +35,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newChattyCmd(stuckVerb))
 	root.AddCommand(newChattyCmd(milestoneVerb))
 	root.AddCommand(newChattyCmd(fyiVerb))
+	root.AddCommand(newKnockCmd())
 	return root
 }
 
