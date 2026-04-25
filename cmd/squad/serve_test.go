@@ -40,7 +40,7 @@ func TestServe_StartsAndShutsDown(t *testing.T) {
 	for time.Now().Before(deadline) {
 		resp, err = http.Get(url)
 		if err == nil && resp.StatusCode == http.StatusOK {
-			io.Copy(io.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 			break
 		}

@@ -28,7 +28,10 @@ func TestMessages_PostThenList(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	listResp, _ := srv.Client().Get(srv.URL + "/api/messages?thread=global")
+	listResp, err := srv.Client().Get(srv.URL + "/api/messages?thread=global")
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer listResp.Body.Close()
 	var out []map[string]any
 	_ = json.NewDecoder(listResp.Body).Decode(&out)
