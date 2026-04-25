@@ -149,6 +149,69 @@ func TestConfigTemplate_RendersAllKnobs(t *testing.T) {
 	}
 }
 
+func TestAgentsTemplate_HasAllSections(t *testing.T) {
+	raw, err := Templates.ReadFile("templates/AGENTS.md.tmpl")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got, err := Render(string(raw), Data{ProjectName: "octopus", IDPrefixes: []string{"BUG", "FEAT", "TASK"}})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		"# octopus — Agent Operating Manual",
+		"## §0 — The 30-second mental model",
+		"## §1 — Resume",
+		"## §2 — Pick an item",
+		"## §3 — Work the item",
+		"## §3.5 — Anchor checkpoints",
+		"## §4 — Test before claiming done",
+		"## §4.5 — Quality bar before commit",
+		"## §4.7 — Code review",
+		"## §5 — Commit",
+		"## §6 — Update item status",
+		"## §7 — Multi-agent dispatch",
+		"## §8 — Adding a new item",
+		"## §9 — Item file template",
+		"## §10 — Handoff between sessions",
+		"## §11 — Escalation",
+		"## §12 — Anti-patterns",
+		"## §12.5 — Collaborative chat cadence",
+		"## §13 — When in doubt, ask",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("AGENTS template missing %q", want)
+		}
+	}
+}
+
+func TestAllTemplates_NoSwitchframeVocabulary(t *testing.T) {
+	banned := []string{
+		"Switchframe", "switchframe", "sf-team", "MXL", "SCTE",
+		"multi-region", "make demo", "server/output/", "server/audio/",
+		"server/cmdqueue/", "server/clock/", "server/peer/",
+		"~/.switchframe-team",
+	}
+	files := []string{
+		"templates/AGENTS.md.tmpl",
+		"templates/claude.md.fragment.tmpl",
+		"templates/config.yaml.tmpl",
+		"templates/status.md.tmpl",
+		"templates/items/EXAMPLE-001-try-the-loop.md.tmpl",
+	}
+	for _, f := range files {
+		raw, err := Templates.ReadFile(f)
+		if err != nil {
+			t.Fatalf("ReadFile %s: %v", f, err)
+		}
+		for _, b := range banned {
+			if strings.Contains(string(raw), b) {
+				t.Fatalf("%s leaks Switchframe-ism %q", f, b)
+			}
+		}
+	}
+}
+
 func TestClaudeFragment_HasMarkersAndPointers(t *testing.T) {
 	raw, err := Templates.ReadFile("templates/claude.md.fragment.tmpl")
 	if err != nil {
