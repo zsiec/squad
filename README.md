@@ -35,6 +35,10 @@ Filter scope with `--repo current`, `--repo other`, or `--repo id1,id2,id3`.
 
 See `docs/adopting.md` once it lands (Phase 13).
 
+## Recipes
+
+- [Auto-archive items on PR merge (GitHub Actions)](docs/recipes/github-actions.md)
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
