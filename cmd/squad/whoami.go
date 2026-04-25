@@ -1,9 +1,12 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zsiec/squad/internal/identity"
+	"github.com/zsiec/squad/internal/store"
 )
 
 func newWhoamiCmd() *cobra.Command {
@@ -11,7 +14,15 @@ func newWhoamiCmd() *cobra.Command {
 		Use:   "whoami",
 		Short: "Print the agent id this session resolves to",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errors.New("not implemented yet")
+			if err := store.EnsureHome(); err != nil {
+				return err
+			}
+			id, err := identity.AgentID("")
+			if err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), id)
+			return nil
 		},
 	}
 }
