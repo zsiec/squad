@@ -88,9 +88,12 @@ func runRegisterWithOpts(stdout io.Writer, asFlag, nameFlag string, noRepoCheck,
 			return err
 		}
 	} else {
-		id, err = identity.AgentID(identity.DetectWorktree())
+		id, err = identity.DerivedAgentID(identity.DetectWorktree())
 		if err != nil {
 			return err
+		}
+		if perr := identity.WritePersistedAgentID(id); perr != nil {
+			return perr
 		}
 	}
 	name := nameFlag

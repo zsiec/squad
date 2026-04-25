@@ -116,6 +116,58 @@ func TestRegister_RefusesHijackingExistingAgent(t *testing.T) {
 	}
 }
 
+func TestRegister_NoFlags_AutoDerivesIdentity(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-session-derive-1")
+	t.Setenv("SQUAD_AGENT", "")
+	t.Chdir(t.TempDir())
+
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"register", "--no-repo-check"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\noutput: %s", err, out.String())
+	}
+	got := strings.TrimSpace(out.String())
+	if !strings.HasPrefix(got, "registered agent-") {
+		t.Fatalf("want `registered agent-XXXX`, got %q", got)
+	}
+}
+
+func TestRegister_ZeroArg_StableAcrossRuns(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "stable-session")
+	t.Setenv("SQUAD_AGENT", "")
+	t.Chdir(t.TempDir())
+
+	first := newRootCmd()
+	var out1 bytes.Buffer
+	first.SetOut(&out1)
+	first.SetErr(&out1)
+	first.SetArgs([]string{"register", "--no-repo-check"})
+	if err := first.Execute(); err != nil {
+		t.Fatalf("first execute: %v\n%s", err, out1.String())
+	}
+
+	second := newRootCmd()
+	var out2 bytes.Buffer
+	second.SetOut(&out2)
+	second.SetErr(&out2)
+	second.SetArgs([]string{"register", "--no-repo-check"})
+	if err := second.Execute(); err != nil {
+		t.Fatalf("second execute: %v\n%s", err, out2.String())
+	}
+
+	if strings.TrimSpace(out1.String()) != strings.TrimSpace(out2.String()) {
+		t.Fatalf("identity not stable across runs: %q vs %q",
+			out1.String(), out2.String())
+	}
+}
+
 func TestRegister_NoFlags_RequiresInit(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("SQUAD_HOME", dir)
