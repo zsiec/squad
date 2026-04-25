@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -8,6 +9,53 @@ import (
 
 	"github.com/zsiec/squad/internal/touch"
 )
+
+func newTouchesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "touches",
+		Short: "Query active file touches across the repo",
+	}
+	cmd.AddCommand(newTouchesListOthersCmd())
+	return cmd
+}
+
+func newTouchesListOthersCmd() *cobra.Command {
+	var asJSON bool
+	cmd := &cobra.Command{
+		Use:   "list-others",
+		Short: "List active file touches held by agents OTHER than the current one",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			bc, err := bootClaimContext(ctx)
+			if err != nil {
+				return err
+			}
+			defer bc.Close()
+			tr := touch.New(bc.db, bc.repoID)
+			rows, err := tr.ListOthers(ctx, bc.agentID)
+			if err != nil {
+				return err
+			}
+			if asJSON {
+				if rows == nil {
+					rows = []touch.ActiveTouch{}
+				}
+				b, err := json.Marshal(rows)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(b))
+				return nil
+			}
+			for _, r := range rows {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s  %-22s  %s\n", r.AgentID, r.ItemID, r.Path)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit as JSON array")
+	return cmd
+}
 
 func newTouchCmd() *cobra.Command {
 	return &cobra.Command{

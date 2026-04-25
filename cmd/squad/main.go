@@ -51,6 +51,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newHistoryCmd())
 	root.AddCommand(newTouchCmd())
 	root.AddCommand(newUntouchCmd())
+	root.AddCommand(newTouchesCmd())
 	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newArchiveCmd())
 	root.AddCommand(newDumpStatusCmd())

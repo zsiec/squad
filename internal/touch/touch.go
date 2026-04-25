@@ -98,6 +98,60 @@ func (t *Tracker) ReleaseAll(ctx context.Context, agentID string) (int, error) {
 	return int(n), err
 }
 
+// ActiveTouch describes a peer's still-open touch — surfaced by ListOthers
+// so hooks (and the dashboard) can show "agent X is editing path Y."
+type ActiveTouch struct {
+	AgentID string `json:"agent_id"`
+	Repo    string `json:"repo"`
+	ItemID  string `json:"item_id"`
+	Path    string `json:"path"`
+}
+
+// ListOthers returns every active touch in this repo NOT held by agentID.
+// Hooks (pre-edit) call this to see whether an Edit would conflict with a peer.
+// `Repo` is the project's friendly name when known (from repos.name), falling
+// back to the basename of root_path, finally to repo_id.
+func (t *Tracker) ListOthers(ctx context.Context, agentID string) ([]ActiveTouch, error) {
+	repoLabel := t.repoID
+	var name, root string
+	_ = t.db.QueryRowContext(ctx,
+		`SELECT COALESCE(name, ''), COALESCE(root_path, '') FROM repos WHERE id = ?`,
+		t.repoID).Scan(&name, &root)
+	switch {
+	case name != "":
+		repoLabel = name
+	case root != "":
+		// Use the directory basename (last path segment) without importing path.
+		repoLabel = root
+		for i := len(root) - 1; i >= 0; i-- {
+			if root[i] == '/' || root[i] == '\\' {
+				repoLabel = root[i+1:]
+				break
+			}
+		}
+	}
+
+	rows, err := t.db.QueryContext(ctx, `
+		SELECT agent_id, COALESCE(item_id, ''), path
+		FROM touches
+		WHERE repo_id = ? AND released_at IS NULL AND agent_id != ?
+		ORDER BY started_at
+	`, t.repoID, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ActiveTouch
+	for rows.Next() {
+		row := ActiveTouch{Repo: repoLabel}
+		if err := rows.Scan(&row.AgentID, &row.ItemID, &row.Path); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
 // Conflicts returns the agent IDs (excluding agentID) currently holding path.
 func (t *Tracker) Conflicts(ctx context.Context, agentID, path string) ([]string, error) {
 	if path == "" {

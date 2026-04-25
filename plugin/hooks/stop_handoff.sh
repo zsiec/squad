@@ -26,5 +26,5 @@ THRESHOLD=1800
 
 [ "$DELTA" -lt "$THRESHOLD" ] && exit 0
 
-"$SQUAD_BIN" handoff "session ended" >/dev/null 2>&1 || true
+"$SQUAD_BIN" handoff --in-flight "$CLAIM_ID" --note "session ended (auto-handoff after ${DELTA}s of no activity)" >/dev/null 2>&1 || true
 exit 0
