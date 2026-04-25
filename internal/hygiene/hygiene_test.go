@@ -203,6 +203,30 @@ func TestReclaimStale_LongClaimWaitsTwoHours(t *testing.T) {
 	}
 }
 
+func TestMarkStaleAgents_FlipsStatus(t *testing.T) {
+	db := newDB(t)
+	t0 := int64(1_000_000)
+	registerAgent(t, db, "repo-test", "agent-a", t0)
+	insertClaim(t, db, "repo-test", "BUG-300", "agent-a", t0, 0)
+
+	now := time.Unix(t0+25*3600, 0)
+	sw := NewWithClock(db, "repo-test", emptyItems{}, func() time.Time { return now })
+	if err := sw.MarkStaleAgents(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	var status string
+	_ = db.QueryRow(`SELECT status FROM agents WHERE id='agent-a'`).Scan(&status)
+	if status != "stale" {
+		t.Fatalf("status=%q want 'stale'", status)
+	}
+	var c int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id='BUG-300'`).Scan(&c)
+	if c != 1 {
+		t.Fatalf("claim was auto-released; should require force-release")
+	}
+}
+
 func TestStripLineSuffix(t *testing.T) {
 	cases := map[string]string{
 		"path/foo.go:42":  "path/foo.go",

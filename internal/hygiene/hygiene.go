@@ -174,6 +174,18 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 	return findings, nil
 }
 
+// MarkStaleAgents flips status to 'stale' for agents that haven't ticked
+// in over GhostAgentSec. Does NOT release their claims — force-release stays
+// user-initiated.
+func (sw *Sweeper) MarkStaleAgents(ctx context.Context) error {
+	now := sw.nowUnix()
+	_, err := sw.db.ExecContext(ctx, `
+		UPDATE agents SET status = 'stale'
+		WHERE repo_id = ? AND status = 'active' AND last_tick_at < ?
+	`, sw.repoID, now-GhostAgentSec)
+	return err
+}
+
 // ReclaimStale removes claims that have exceeded the stale threshold,
 // records each in claim_history with outcome="reclaimed", and releases
 // any active touches the displaced agent held on the item. Returns the
