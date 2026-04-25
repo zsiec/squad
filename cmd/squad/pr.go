@@ -16,8 +16,6 @@ import (
 	"github.com/zsiec/squad/internal/repo"
 )
 
-var errPRNotImplemented = errors.New("not implemented")
-
 func newPRCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pr",
