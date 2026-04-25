@@ -1,0 +1,53 @@
+---
+name: squad-code-review-mandatory
+description: Every item — even a one-line fix — gets reviewed by superpowers:code-reviewer before commit. No exceptions. The agent is cheap; production bugs are not.
+---
+
+# Code review is mandatory, not optional
+
+Self-review catches the obvious. An independent reviewer catches the rest. The structural answer to "did I miss anything" is to spawn an agent whose only job is to find what you missed.
+
+## When to use this skill
+
+Invoke this skill before every commit on a claimed item. Yes, even a one-line typo fix. Yes, even a documentation tweak. Yes, even when you are sure the change is trivial. The trivial-change exception is the most common path to production bugs — and it costs ~30 seconds of agent time to disprove the trivial assumption.
+
+## The rule
+
+Every item, before commit:
+
+1. Run `squad review-request <ID>` (or `/review <ID>`) — this records that review is in flight and posts to the item thread.
+2. Read `superpowers:requesting-code-review` to construct the briefing correctly.
+3. Spawn `superpowers:code-reviewer` as a subagent. The subagent does not see your conversation; the prompt must be self-contained.
+4. When findings come back, use `superpowers:receiving-code-review` to evaluate each one. Do not perform-agree.
+
+## What to include in the briefing
+
+The reviewer needs:
+- The item file path — the `## Acceptance criteria` section is the contract.
+- The diff to review (`git diff main...HEAD` or `git diff --staged`). Paste inline if small; give the command if large.
+- File:line references for the major changes.
+- Specific concerns you want them to focus on.
+- Output format: prioritized findings (Critical / High / Medium / Low) with file:line and a suggested fix per finding.
+- **Premise-validation latitude.** Add: "If the claimed failure seems dubious, empirically verify against the pre-fix code (revert the fix, rerun tests, observe). Report back if the bug does not reproduce so we can reclassify."
+- **Working-tree hygiene.** Add: "If you patch/revert/modify any file to verify behavior, restore it. Do not leave `.bak` files, scratch test files, or uncommitted edits behind."
+
+## Why this matters
+
+The review is a structural check on you. You wrote the code; you cannot see the bugs you wrote. The reviewer brings a fresh state of mind, no anchoring on your design choices, and the explicit instruction to find what you missed. That second pair of eyes catches: off-by-one in loop bounds, missing nil checks, race conditions in concurrent code, error paths you forgot, edge cases the tests do not cover, premature abstraction, and — sometimes — that the bug you "fixed" did not exist in the first place.
+
+The review costs less than a minute of wall-clock. A production incident costs hours of debugging plus a customer-facing failure. The math is not close.
+
+## How to handle findings
+
+- **If correct:** fix the code, re-run the verification gates, paste the new green output, then proceed to commit.
+- **If wrong or based on a misreading:** push back with evidence. Cite the actual code, the test that covers it, or the documentation. Do not silently rewrite to placate.
+- **If real but out of scope:** file a new BUG/DEBT item, link via `relates-to`, address only the in-scope portion in this commit.
+- **If the reviewer found the bug does not reproduce:** reclassify the item per `squad-premise-validation` and the squad-loop close-out.
+
+## Anti-patterns to avoid
+
+- "It is just a one-line fix, no review needed." That assumption ships the most bugs.
+- Performative agreement: "good catch, fixing now" without verifying the finding is correct. Produces worse code than no review at all.
+- Not pasting the diff in the briefing. Reviewers without the diff produce shallow reviews.
+- Spawning the reviewer without the item file path. Without the AC, the review is unanchored.
+- Treating "Low" findings as "ignore." Low findings still go in a follow-up item if you do not address them now.
