@@ -2,8 +2,18 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/prmark"
+	"github.com/zsiec/squad/internal/repo"
 )
 
 var errPRNotImplemented = errors.New("not implemented")
@@ -42,5 +52,79 @@ func newPRCloseCmd() *cobra.Command {
 	return cmd
 }
 
-func runPRLink(cmd *cobra.Command, args []string) error  { return errPRNotImplemented }
-func runPRClose(cmd *cobra.Command, args []string) error { return errPRNotImplemented }
+func runPRLink(cmd *cobra.Command, args []string) error {
+	itemID := args[0]
+
+	wd, _ := os.Getwd()
+	repoRoot, err := repo.Discover(wd)
+	if err != nil {
+		repoRoot = wd
+	}
+	squadDir := filepath.Join(repoRoot, ".squad")
+
+	if _, _, err := items.FindByID(squadDir, itemID); err != nil {
+		return fmt.Errorf("item %s not found in %s: %w", itemID, squadDir, err)
+	}
+
+	branch := currentBranch(repoRoot)
+
+	pendingPath := filepath.Join(squadDir, "pending-prs.json")
+	entry := prmark.Entry{
+		ItemID:    itemID,
+		Branch:    branch,
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := prmark.AppendPending(pendingPath, entry); err != nil {
+		return fmt.Errorf("write pending-prs: %w", err)
+	}
+
+	marker := prmark.Format(itemID)
+	fmt.Fprintln(cmd.OutOrStdout(), marker)
+	fmt.Fprintln(cmd.ErrOrStderr(), "Paste the line above into your PR description (anywhere in the body).")
+
+	if c, _ := cmd.Flags().GetBool("write-to-clipboard"); c {
+		if err := prmark.WriteClipboard(marker); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: clipboard write failed: %v\n", err)
+		} else {
+			fmt.Fprintln(cmd.ErrOrStderr(), "(marker copied to clipboard)")
+		}
+	}
+
+	if pr, _ := cmd.Flags().GetInt("pr"); pr > 0 {
+		if err := appendMarkerToPR(pr, marker); err != nil {
+			return fmt.Errorf("append to PR #%d: %w", pr, err)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "appended marker to PR #%d\n", pr)
+	}
+	return nil
+}
+
+func runPRClose(cmd *cobra.Command, args []string) error {
+	return errPRNotImplemented
+}
+
+func currentBranch(repoRoot string) string {
+	out, err := exec.Command("git", "-C", repoRoot, "symbolic-ref", "--quiet", "--short", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func appendMarkerToPR(prNum int, marker string) error {
+	if _, err := exec.LookPath("gh"); err != nil {
+		return fmt.Errorf("gh CLI not found in PATH")
+	}
+	current, err := exec.Command("gh", "pr", "view", fmt.Sprint(prNum), "--json", "body", "-q", ".body").Output()
+	if err != nil {
+		return fmt.Errorf("read PR body: %w", err)
+	}
+	body := strings.TrimRight(string(current), "\n") + "\n\n" + marker + "\n"
+	c := exec.Command("gh", "pr", "edit", fmt.Sprint(prNum), "--body-file", "-")
+	c.Stdin = strings.NewReader(body)
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("gh pr edit: %w (%s)", err, out)
+	}
+	return nil
+}
