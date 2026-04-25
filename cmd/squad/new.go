@@ -17,17 +17,23 @@ import (
 )
 
 func newNewCmd() *cobra.Command {
-	return &cobra.Command{
+	var opts items.Options
+	cmd := &cobra.Command{
 		Use:   "new <type> <title>",
 		Short: "Create a new item file",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if code := runNew(args, cmd.OutOrStdout()); code != 0 {
+			if code := runNew(args, cmd.OutOrStdout(), opts); code != 0 {
 				os.Exit(code)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&opts.Priority, "priority", "", "P0|P1|P2|P3 (default from config or P2)")
+	cmd.Flags().StringVar(&opts.Estimate, "estimate", "", "duration like 30m, 1h, 4h, 1d (default from config or 1h)")
+	cmd.Flags().StringVar(&opts.Risk, "risk", "", "low|medium|high (default from config or low)")
+	cmd.Flags().StringVar(&opts.Area, "area", "", "freeform area tag (default <fill-in>)")
+	return cmd
 }
 
 var typeToPrefix = map[string]string{
@@ -41,13 +47,17 @@ var typeToPrefix = map[string]string{
 	"bet":       "BET",
 }
 
-func runNew(args []string, stdout io.Writer) int {
+func runNew(args []string, stdout io.Writer, opts items.Options) int {
 	if len(args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: squad new <type> \"<title>\"")
 		return 2
 	}
 	typ := strings.ToLower(args[0])
 	title := strings.Join(args[1:], " ")
+	if strings.TrimSpace(title) == "" {
+		fmt.Fprintln(os.Stderr, "squad new: title required (got empty string)")
+		return 4
+	}
 	prefix, ok := typeToPrefix[typ]
 	if !ok {
 		prefix = strings.ToUpper(typ)
@@ -73,8 +83,24 @@ func runNew(args []string, stdout io.Writer) int {
 			typ, prefix, cfg.IDPrefixes)
 		return 4
 	}
+
+	// Flags > config > built-in default. items.NewWithOptions handles the
+	// final fallback when an option is empty.
+	if opts.Priority == "" {
+		opts.Priority = cfg.Defaults.Priority
+	}
+	if opts.Estimate == "" {
+		opts.Estimate = cfg.Defaults.Estimate
+	}
+	if opts.Risk == "" {
+		opts.Risk = cfg.Defaults.Risk
+	}
+	if opts.Area == "" {
+		opts.Area = cfg.Defaults.Area
+	}
+
 	squadDir := filepath.Join(root, ".squad")
-	path, err := items.New(squadDir, prefix, title)
+	path, err := items.NewWithOptions(squadDir, prefix, title, opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "new item: %v\n", err)
 		return 4

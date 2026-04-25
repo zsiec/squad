@@ -9,7 +9,25 @@ import (
 )
 
 type Config struct {
-	IDPrefixes []string `yaml:"id_prefixes"`
+	IDPrefixes   []string           `yaml:"id_prefixes"`
+	Defaults     Defaults           `yaml:"defaults"`
+	Verification VerificationConfig `yaml:"verification"`
+}
+
+type Defaults struct {
+	Priority string `yaml:"priority"`
+	Estimate string `yaml:"estimate"`
+	Risk     string `yaml:"risk"`
+	Area     string `yaml:"area"`
+}
+
+type VerificationConfig struct {
+	PreCommit []VerificationCmd `yaml:"pre_commit"`
+}
+
+type VerificationCmd struct {
+	Cmd      string `yaml:"cmd"`
+	Evidence string `yaml:"evidence"`
 }
 
 var defaultPrefixes = []string{"BUG", "FEAT", "TASK", "CHORE"}

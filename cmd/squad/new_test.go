@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/items"
 )
 
 func TestRunNew_WritesFileAndPrintsPath(t *testing.T) {
@@ -22,7 +24,7 @@ func TestRunNew_WritesFileAndPrintsPath(t *testing.T) {
 	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
 	t.Chdir(dir)
 	var stdout bytes.Buffer
-	code := runNew([]string{"bug", "Plug a leak"}, &stdout)
+	code := runNew([]string{"bug", "Plug a leak"}, &stdout, items.Options{})
 	if code != 0 {
 		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
 	}
@@ -50,7 +52,7 @@ func TestRunNew_RejectsUnknownPrefix(t *testing.T) {
 	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
 	t.Chdir(dir)
 	var stdout bytes.Buffer
-	code := runNew([]string{"bug", "x"}, &stdout)
+	code := runNew([]string{"bug", "x"}, &stdout, items.Options{})
 	if code == 0 {
 		t.Fatalf("expected non-zero exit; got 0 with stdout %q", stdout.String())
 	}

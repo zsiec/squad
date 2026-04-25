@@ -22,11 +22,11 @@ const stubTemplate = `---
 id: %s
 title: %s
 type: %s
-priority: P2
-area: <fill-in>
+priority: %s
+area: %s
 status: open
-estimate: 1h
-risk: low
+estimate: %s
+risk: %s
 created: %s
 updated: %s
 references: []
@@ -52,7 +52,20 @@ Optional design notes. Trade-offs considered. Pointers to related items.
 What changed, file references, anything a future maintainer needs to know.
 `
 
+// Options carries the optional knobs `squad new` exposes via flags or config.
+// Empty fields fall through to the built-in defaults (P2 / 1h / low / <fill-in>).
+type Options struct {
+	Priority string
+	Estimate string
+	Risk     string
+	Area     string
+}
+
 func New(squadDir, prefix, title string) (string, error) {
+	return NewWithOptions(squadDir, prefix, title, Options{})
+}
+
+func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error) {
 	w, err := Walk(squadDir)
 	if err != nil {
 		return "", err
@@ -65,8 +78,12 @@ func New(squadDir, prefix, title string) (string, error) {
 	if !ok {
 		t = strings.ToLower(prefix)
 	}
+	priority := nonEmpty(opts.Priority, "P2")
+	estimate := nonEmpty(opts.Estimate, "1h")
+	risk := nonEmpty(opts.Risk, "low")
+	area := nonEmpty(opts.Area, "<fill-in>")
 	now := time.Now().UTC().Format("2006-01-02")
-	body := fmt.Sprintf(stubTemplate, id, title, t, now, now)
+	body := fmt.Sprintf(stubTemplate, id, title, t, priority, area, estimate, risk, now, now)
 	path := filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
@@ -77,7 +94,16 @@ func New(squadDir, prefix, title string) (string, error) {
 	return path, nil
 }
 
+func nonEmpty(v, def string) string {
+	if strings.TrimSpace(v) == "" {
+		return def
+	}
+	return v
+}
+
 var kebabRe = regexp.MustCompile(`[^a-z0-9]+`)
+
+const maxKebabLen = 60
 
 func kebab(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
@@ -85,6 +111,12 @@ func kebab(s string) string {
 	s = strings.Trim(s, "-")
 	if s == "" {
 		s = "untitled"
+	}
+	if len(s) > maxKebabLen {
+		s = strings.TrimRight(s[:maxKebabLen], "-")
+		if s == "" {
+			s = "untitled"
+		}
 	}
 	return s
 }
