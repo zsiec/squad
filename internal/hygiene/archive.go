@@ -39,7 +39,7 @@ func Archive(ctx context.Context, src *sql.DB, repoID, dir string, beforeUnix in
 		return 0, "", err
 	}
 	type row struct {
-		TS                                          int64
+		TS                                         int64
 		Agent, Thread, Kind, Body, Mentions, Prior string
 	}
 	var batch []row
