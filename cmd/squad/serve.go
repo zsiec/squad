@@ -67,6 +67,7 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir string, out inter
 	s := server.New(db, repoID, server.Config{
 		Host: bind, Port: port, SquadDir: squadDir, RepoID: repoID,
 	})
+	defer s.Close()
 
 	addr := net.JoinHostPort(bind, strconv.Itoa(port))
 	httpSrv := &http.Server{
@@ -80,6 +81,7 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir string, out inter
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		_ = httpSrv.Shutdown(shutdownCtx)
+		s.Close()
 	}()
 
 	fmt.Fprintf(out, "Squad dashboard: http://%s\n", addr)

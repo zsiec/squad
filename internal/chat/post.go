@@ -46,12 +46,14 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 	defer func() { _ = tx.Rollback() }()
 
 	now := c.nowUnix()
-	if _, err := tx.ExecContext(ctx, `
+	res, err := tx.ExecContext(ctx, `
 		INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, c.repoID, now, req.AgentID, req.Thread, req.Kind, req.Body, string(mjson), req.Priority); err != nil {
+	`, c.repoID, now, req.AgentID, req.Thread, req.Kind, req.Body, string(mjson), req.Priority)
+	if err != nil {
 		return err
 	}
+	id, _ := res.LastInsertId()
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE agents SET last_tick_at = ?, status = 'active' WHERE id = ?`,
 		now, req.AgentID); err != nil {
@@ -64,6 +66,7 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 	c.bus.Publish(Event{
 		Kind: "message",
 		Payload: map[string]any{
+			"id":       id,
 			"thread":   req.Thread,
 			"kind":     req.Kind,
 			"agent_id": req.AgentID,

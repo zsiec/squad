@@ -24,6 +24,11 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	ping := time.NewTicker(s.cfg.pingInterval)
 	defer ping.Stop()
 
+	// Dedupe by message id: server-mediated POSTs publish via chat.Post AND
+	// the pump re-publishes from the DB on its next tick. Both paths carry
+	// the row's id in the payload; track what we've already emitted.
+	seen := make(map[float64]bool)
+
 	for {
 		select {
 		case <-r.Context().Done():
@@ -36,6 +41,21 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 		case e, ok := <-ch:
 			if !ok {
 				return
+			}
+			if v, ok := e.Payload["id"]; ok {
+				var f float64
+				switch id := v.(type) {
+				case float64:
+					f = id
+				case int64:
+					f = float64(id)
+				}
+				if f != 0 {
+					if seen[f] {
+						continue
+					}
+					seen[f] = true
+				}
 			}
 			payload, _ := json.Marshal(e)
 			if _, err := w.Write([]byte("event: " + e.Kind + "\ndata: ")); err != nil {

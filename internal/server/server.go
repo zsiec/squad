@@ -30,6 +30,7 @@ type Server struct {
 	callerAgent string
 	rlMu        sync.Mutex
 	rl          map[string][]time.Time
+	pump        *messagesPump
 }
 
 func New(db *sql.DB, repoID string, cfg Config) *Server {
@@ -40,7 +41,18 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 		cfg.pingInterval = 15 * time.Second
 	}
 	c := chat.New(db, repoID)
-	return &Server{db: db, chat: c, cfg: cfg}
+	s := &Server{db: db, chat: c, cfg: cfg}
+	s.pump = newMessagesPump(db, repoID, c.Bus())
+	s.pump.start()
+	return s
+}
+
+// Close stops background goroutines. Call from the same lifecycle that closes
+// the http.Server. Safe to call multiple times.
+func (s *Server) Close() {
+	if s.pump != nil {
+		s.pump.stop()
+	}
 }
 
 func (s *Server) Bus() *chat.Bus { return s.chat.Bus() }
