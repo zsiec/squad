@@ -31,7 +31,7 @@ SQUAD_SESSION_ID=green squad register --as agent-green --name "Green"
 SQUAD_SESSION_ID=green squad claim FEAT-002 --intent "green starts"
 ```
 
-Without a session key, every shell shares one persisted agent-id file in `~/.squad/agent-id.txt`, and the most recent `register` wins.
+Without a session key, every shell shares one persisted agent-id file (`~/.squad/agent-id.<hash>.txt`, where `<hash>` is derived from the session env vars squad recognises — falling back to a project-derived hash when none are set), and the most recent `register` wins for that hash.
 
 ## Coordination commands
 

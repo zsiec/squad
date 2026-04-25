@@ -32,7 +32,7 @@ Self-review catches the obvious. An independent reviewer catches the rest. Spawn
 
 **Triggers:** about to go silent for >20 min on a claim, or about to post to chat.
 
-Picks the right verb: `thinking` (forming a plan), `milestone` (AC done), `stuck` (need help), `fyi` (heads-up), `ask @agent` (directed). Routes to the active claim's thread by default; `--thread global` for cross-agent. Read in full in [concepts/chat-cadence.md](../concepts/chat-cadence.md).
+Picks the right verb: `thinking` (forming a plan), `milestone` (AC done), `stuck` (need help), `fyi` (heads-up), `ask @agent` (directed). Routes to the active claim's thread by default; `--to global` for cross-agent. Read in full in [concepts/chat-cadence.md](../concepts/chat-cadence.md).
 
 ## `squad-quality-bar`
 

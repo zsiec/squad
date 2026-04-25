@@ -34,7 +34,7 @@ git checkout -b fix-the-thing
 # ... edit, test, commit ...
 
 # 3. Open the PR with the marker embedded
-squad pr-link BUG-001 > /tmp/marker.txt
+squad pr-link BUG-001 | head -1 > /tmp/marker.txt   # first line is the HTML marker; trailing line is human-readable
 gh pr create \
   --title "fix: stop the thing from doing the bad" \
   --body  "$(cat <<EOF

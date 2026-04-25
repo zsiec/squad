@@ -148,21 +148,6 @@ sqlite3 ~/.squad/global.db "SELECT id, root_path, name FROM repos"
 
 If the server itself died, restart `squad serve`. Logs go to stderr; if it's exiting on startup, check for port conflicts.
 
-## "no commits yet" repo
-
-**Symptom:** `squad init` errors out on a freshly `git init`-ed repo with no commits.
-
-**Cause:** repo_id derivation needs *something* stable. Without a remote and without commits, there's nothing to hash.
-
-**Fix:**
-
-```bash
-git commit --allow-empty -m "init"
-squad init
-```
-
-Or add a remote first if the repo will eventually have one.
-
 ## When all else fails
 
 Capture the diagnostics and file an issue:

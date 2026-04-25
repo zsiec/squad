@@ -10,7 +10,8 @@ cd squad
 go build ./cmd/squad                                # confirms the build works
 go test -race ./...                                 # confirms tests pass
 
-# squad's own .squad/ scaffold is checked in; just register
+# scaffold a .squad/ if this clone doesn't have one yet, then register
+./squad init --yes                                  # idempotent if already initialised
 ./squad register --as agent-you --name "Your Name"
 ```
 
@@ -34,7 +35,8 @@ Or file something:
 ```bash
 ./squad new bug "race in the cache flusher"
 ./squad new feat "expose --json on whoami"
-./squad new debt "ItemPath helper missing for cmd/squad/done.go"
+./squad new chore "ItemPath helper missing for cmd/squad/done.go"
+# (DEBT, INFRA, etc. work too — add the prefix to .squad/config.yaml first.)
 ```
 
 ## Work the loop

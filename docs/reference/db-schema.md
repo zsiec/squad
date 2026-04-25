@@ -123,7 +123,7 @@ PK: `(agent_id, thread)`.
 
 ### `progress`
 
-Append-only log of explicit progress reports via `squad progress <ID> --pct N --note "..."`.
+Append-only log of explicit progress reports via `squad progress <ID> <pct 0..100> [--note "..."]`.
 
 | Column | Type | Notes |
 |---|---|---|

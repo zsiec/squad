@@ -52,6 +52,7 @@ What lands on disk:
 - `.squad/config.yaml` — project config; tune later.
 - `AGENTS.md` — generic agent doctrine doc.
 - `CLAUDE.md` — managed block injected (or file created).
+- `.gitignore` — squad lines appended (only the patterns it owns; existing rules are left alone).
 
 Verify and commit:
 
@@ -131,10 +132,10 @@ For multi-agent, install `pre-edit-touch-check` and `pre-commit-tick` too. See [
 
 ## Day 2 — multi-agent (if applicable)
 
-Open a second Claude Code session in the same repo. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` so each session gets a distinct ID automatically. If you skipped the hook, manually:
+Open a second Claude Code session in the same repo. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` so each session gets a distinct ID automatically. If you skipped the hook, set a unique session env var per shell first (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, etc.) — without one, both shells share the same persisted agent-id file and the second `register` overwrites the first:
 
 ```bash
-squad register --as agent-second --name "Second Session"
+SQUAD_SESSION_ID=second squad register --as agent-second --name "Second Session"
 ```
 
 Now both sessions can `claim` independently. Try claiming the same item from both — one wins, one gets a clear error. That's the lock at work. See [recipes/multi-agent-parallel-claude-sessions.md](recipes/multi-agent-parallel-claude-sessions.md) for the full guide.

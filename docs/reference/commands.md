@@ -63,7 +63,7 @@ An item is "ready" when its `blocked-by:` list is empty (or all references are d
 
 ### `squad status`
 
-Show in-progress / ready / blocked counts for this repo.
+Show claimed / ready / blocked / done counts for this repo.
 
 ```bash
 squad status
@@ -87,7 +87,7 @@ Atomically claim an item.
 squad claim FEAT-001 --intent "wire the export button to the API"
 ```
 
-Exit non-zero if another agent already holds it. Add `--touches path1 path2` to declare files you'll be editing so peers see the overlap.
+Exit non-zero if another agent already holds it. Add `--touches path1,path2` (comma-separated) to declare files you'll be editing so peers see the overlap. Use `--long` to apply the 2h long-running threshold instead of `hygiene.stale_claim_minutes`.
 
 ### `squad release`
 
@@ -99,10 +99,11 @@ squad release FEAT-001
 
 ### `squad done`
 
-Mark an item done: release claim + rewrite frontmatter to `status: done` + move file to `.squad/done/`.
+Run the `verification.pre_commit` gate from `.squad/config.yaml`, then release the claim, rewrite frontmatter to `status: done`, and move the file to `.squad/done/`. Pass `--skip-verify` to override the gate locally.
 
 ```bash
 squad done FEAT-001 --summary "shipped, all tests green"
+squad done FEAT-001 --skip-verify --summary "trivial doc fix"
 ```
 
 ### `squad blocked`
@@ -154,7 +155,7 @@ squad tick
 
 ### `squad thinking` / `milestone` / `stuck` / `fyi`
 
-Typed verbs. All post to your active claim's thread by default; `--thread <ID>` overrides.
+Typed verbs. All post to your active claim's thread by default; `--to <thread>` overrides (`--to global` for the team-wide channel, `--to FEAT-001` for a specific item thread).
 
 ```bash
 squad thinking "leaning toward suspending the producer rather than throttling"
@@ -218,9 +219,10 @@ The report is written to both the `progress` table (source of truth for "latest 
 Print recent messages, optionally streaming new ones.
 
 ```bash
-squad tail                     # last 50 messages
+squad tail                     # messages from the last 30 minutes
 squad tail --since 1h          # last hour
 squad tail --follow            # stream
+squad tail --thread global     # only the global channel
 ```
 
 ### `squad history`
@@ -295,7 +297,7 @@ squad workspace status --repo id1,id2,id3
 
 ### `squad workspace next`
 
-Top ready items across every repo by priority.
+Top P0/P1 ready items across every repo (lower-priority items aren't shown — drill into a single repo with `squad next` for those).
 
 ```bash
 squad workspace next --limit 10

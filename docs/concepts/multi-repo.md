@@ -47,7 +47,7 @@ The path-fallback case is best-effort. If you later add a remote, the ID changes
 | Command | What it shows |
 |---|---|
 | `squad workspace status` | One row per known repo: in-progress / ready / blocked counts, last activity timestamp. |
-| `squad workspace next --limit N` | Top N ready items by priority across every repo. Useful when you finished one and want to know what to work on next without `cd`-ing around. |
+| `squad workspace next --limit N` | Top N P0/P1 ready items across every repo (lower priorities aren't surfaced — drill into a single repo with `squad next` for those). |
 | `squad workspace who` | Every registered agent across every repo with current claim and last tick. |
 | `squad workspace list` | Every known repo with origin URL and last-seen-at. |
 | `squad workspace forget <repo_id>` | Remove a repo from the global DB (e.g. after deleting it locally). Items and config in the repo itself are untouched. |

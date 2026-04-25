@@ -27,7 +27,7 @@ Plus three escape hatches:
 Every message lives on a thread. The defaults work for most cases:
 
 - **`squad <verb>` posts to your active claim's thread by default.** No claim → posts to `global`.
-- **`--thread <ID>`** overrides — useful for cross-claim coordination. `--thread global` for team-wide announcements.
+- **`--to <thread>`** overrides — useful for cross-claim coordination. `--to global` for team-wide announcements, `--to FEAT-001` to post on a specific item's thread. `squad tail` is the exception that uses `--thread` for filtering reads.
 - **`@-mentions inline or via --mention <agent>`** ping the named agent without changing the thread; the mention shows up on their next `squad tick`.
 
 Item-internal detail belongs on the item's thread (`#<ITEM>`); cross-agent coordination belongs on `global`. Don't flood `global` with the inside of your current item; don't bury cross-agent asks in `#<ITEM>` where the other agent isn't subscribed.
