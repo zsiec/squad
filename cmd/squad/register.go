@@ -37,7 +37,22 @@ func newRegisterCmd() *cobra.Command {
 	return cmd
 }
 
+// MaxAgentIDLen and MaxDisplayNameLen cap the values stored in agents table
+// columns. R5/R6 fuzzing landed multi-MB inputs that round-tripped fine but
+// would inflate every dashboard render. 256 chars is more than long enough
+// for any human display name and any session-derived agent id.
+const (
+	MaxAgentIDLen     = 256
+	MaxDisplayNameLen = 256
+)
+
 func runRegister(stdout io.Writer, asFlag, nameFlag string, noRepoCheck bool) error {
+	if len(asFlag) > MaxAgentIDLen {
+		return fmt.Errorf("--as: id too long (%d bytes, max %d)", len(asFlag), MaxAgentIDLen)
+	}
+	if len(nameFlag) > MaxDisplayNameLen {
+		return fmt.Errorf("--name: too long (%d bytes, max %d)", len(nameFlag), MaxDisplayNameLen)
+	}
 	if err := store.EnsureHome(); err != nil {
 		return err
 	}

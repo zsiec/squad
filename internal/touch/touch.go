@@ -12,6 +12,13 @@ import (
 
 var ErrEmptyPath = errors.New("touch: path must not be empty")
 
+// MaxPathLen caps the bytes squad stores for a touched path. POSIX PATH_MAX
+// is 4096 on Linux; anything longer almost certainly came from a hostile
+// caller trying to inflate the touches table (QA r6-E F3).
+var ErrPathTooLong = errors.New("touch: path too long")
+
+const MaxPathLen = 4096
+
 // Tracker writes/reads against the touches table. Construction takes
 // *sql.DB + repoID directly (no store wrapper exists in Phase 1).
 type Tracker struct {
@@ -35,6 +42,9 @@ func (t *Tracker) nowUnix() int64 { return t.now().Unix() }
 func (t *Tracker) Add(ctx context.Context, agentID, itemID, path string) (conflicts []string, err error) {
 	if path == "" {
 		return nil, ErrEmptyPath
+	}
+	if len(path) > MaxPathLen {
+		return nil, ErrPathTooLong
 	}
 	tx, err := t.db.BeginTx(ctx, nil)
 	if err != nil {

@@ -86,11 +86,17 @@ func postRunHygiene(cmd *cobra.Command, args []string) error {
 	}
 	// Read config before grabbing the debounce lock so the user's explicit
 	// `sweep_on_every_command: false` doesn't get half-honored (skip the
-	// work but still touch the lockfile).
+	// work but still touch the lockfile). A parse error here used to fall
+	// through silently — overrides reverted to defaults with no signal.
+	// Surface it once per invocation so the user knows their edits aren't
+	// being read.
 	var hygieneCfg config.HygieneConfig
 	if wd, err := os.Getwd(); err == nil {
 		if root, err := repo.Discover(wd); err == nil {
-			if cfg, err := config.Load(root); err == nil {
+			cfg, lerr := config.Load(root)
+			if lerr != nil {
+				fmt.Fprintf(os.Stderr, "squad: warning: %v (using defaults)\n", lerr)
+			} else {
 				hygieneCfg = cfg.Hygiene
 			}
 		}

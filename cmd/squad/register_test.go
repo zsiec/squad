@@ -44,6 +44,34 @@ func TestRegister_NoRepoCheck_WritesAgentRow(t *testing.T) {
 	}
 }
 
+func TestRegister_RejectsOversizedAs(t *testing.T) {
+	t.Setenv("SQUAD_HOME", t.TempDir())
+	t.Setenv("SQUAD_SESSION_ID", "test-session-oversized")
+	huge := strings.Repeat("x", MaxAgentIDLen+1)
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"register", "--as", huge, "--no-repo-check"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected error for oversized --as, got nil")
+	}
+}
+
+func TestRegister_RejectsOversizedName(t *testing.T) {
+	t.Setenv("SQUAD_HOME", t.TempDir())
+	t.Setenv("SQUAD_SESSION_ID", "test-session-oversized-name")
+	huge := strings.Repeat("x", MaxDisplayNameLen+1)
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"register", "--as", "agent-ok", "--name", huge, "--no-repo-check"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected error for oversized --name, got nil")
+	}
+}
+
 func TestRegister_NoFlags_RequiresInit(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("SQUAD_HOME", dir)

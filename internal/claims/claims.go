@@ -12,6 +12,10 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
+// maxTouchPathLen mirrors touch.MaxPathLen so claim --touches and squad
+// touch enforce identical limits at every entry point.
+const maxTouchPathLen = 4096
+
 type Store struct {
 	db     *sql.DB
 	now    func() time.Time
@@ -83,6 +87,9 @@ func (s *Store) Claim(ctx context.Context, itemID, agentID, intent string, touch
 			p = strings.TrimSpace(p)
 			if p == "" {
 				continue
+			}
+			if len(p) > maxTouchPathLen {
+				return fmt.Errorf("touch path too long (%d bytes, max %d): %s...", len(p), maxTouchPathLen, p[:64])
 			}
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO touches (repo_id, agent_id, item_id, path, started_at)

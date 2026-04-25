@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -55,6 +56,19 @@ func newServeCmd() *cobra.Command {
 }
 
 func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, out interface{ Write([]byte) (int, error) }) int {
+	// Reject host:port forms early — users instinctively try
+	// `--bind 127.0.0.1:8080` and the resulting startup error would otherwise
+	// be a cryptic net.Listen failure. QA r6-D F1.
+	if strings.Contains(bind, ":") && !strings.Contains(bind, "::") && net.ParseIP(bind) == nil {
+		fmt.Fprintf(os.Stderr,
+			"squad serve: --bind takes only a host or IP, not a host:port pair (got %q).\n"+
+				"  use --port for the port; e.g. --bind 127.0.0.1 --port 8080.\n", bind)
+		return 4
+	}
+	// A whitespace-only token satisfies the gate but cannot survive an
+	// HTTP header — the operator would think they secured the server while
+	// no client could actually authenticate. QA r6-D L1.
+	token = strings.TrimSpace(token)
 	if !isLoopbackBind(bind) && token == "" {
 		fmt.Fprintf(os.Stderr,
 			"squad serve: refusing to bind %s without --token (or $SQUAD_DASHBOARD_TOKEN).\n"+
@@ -112,14 +126,16 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 // isLoopbackBind reports whether the user's --bind value targets only the
 // local host. The unauthenticated-impersonation gate uses this to decide
 // whether to require a token. We accept the canonical loopback addresses
-// (IPv4 + IPv6) and "localhost"; anything else (0.0.0.0, an interface IP,
-// or a hostname) is treated as network-exposed.
+// (IPv4 + IPv6) and "localhost" (case-insensitive, with optional trailing
+// dot); anything else (0.0.0.0, an interface IP, or a hostname) is treated
+// as network-exposed.
 func isLoopbackBind(bind string) bool {
-	switch bind {
+	normalized := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(bind)), ".")
+	switch normalized {
 	case "127.0.0.1", "::1", "localhost":
 		return true
 	}
-	ip := net.ParseIP(bind)
+	ip := net.ParseIP(normalized)
 	if ip != nil && ip.IsLoopback() {
 		return true
 	}

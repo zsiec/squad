@@ -49,6 +49,19 @@ func TestAdd_InsertsRow_NoConflicts(t *testing.T) {
 	}
 }
 
+func TestAdd_RejectsOversizedPath(t *testing.T) {
+	tr, db := newTestTracker(t)
+	registerAgent(t, db, "repo-test", "agent-a", "A", tr.nowUnix())
+
+	huge := make([]byte, MaxPathLen+1)
+	for i := range huge {
+		huge[i] = 'a'
+	}
+	if _, err := tr.Add(context.Background(), "agent-a", "", string(huge)); err != ErrPathTooLong {
+		t.Fatalf("err=%v want ErrPathTooLong", err)
+	}
+}
+
 func TestAdd_ReportsConflictWithOtherAgent(t *testing.T) {
 	tr, db := newTestTracker(t)
 	ctx := context.Background()
