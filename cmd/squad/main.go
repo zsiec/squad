@@ -3,26 +3,39 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 const versionString = "0.1.0-dev"
 
-func main() {
-	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+func newRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:           "squad",
+		Short:         "Project-management framework for AI coding agents",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
-	switch os.Args[1] {
-	case "version", "-v", "--version":
-		fmt.Println(versionString)
-	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
-		usage()
-		os.Exit(2)
+	root.AddCommand(newVersionCmd())
+	root.AddCommand(newRegisterCmd())
+	root.AddCommand(newWhoamiCmd())
+	return root
+}
+
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the squad version",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprintln(cmd.OutOrStdout(), versionString)
+			return nil
+		},
 	}
 }
 
-func usage() {
-	fmt.Fprintln(os.Stderr, "usage: squad <command> [args...]")
-	fmt.Fprintln(os.Stderr, "commands: version")
+func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 }
