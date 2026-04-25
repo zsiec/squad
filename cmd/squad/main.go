@@ -29,6 +29,8 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newForceReleaseCmd())
 	root.AddCommand(newReassignCmd())
 	root.AddCommand(newSayCmd())
+	root.AddCommand(newAskCmd())
+	root.AddCommand(newAnswerCmd())
 	return root
 }
 
