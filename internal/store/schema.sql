@@ -83,3 +83,23 @@ CREATE TABLE IF NOT EXISTS progress (
   note         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_progress_item_ts ON progress(item_id, reported_at);
+
+CREATE TABLE IF NOT EXISTS items (
+  repo_id     TEXT NOT NULL,
+  item_id     TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  type        TEXT,
+  priority    TEXT,
+  area        TEXT,
+  status      TEXT,
+  estimate    TEXT,
+  risk        TEXT,
+  not_before  TEXT,
+  ac_total    INTEGER NOT NULL DEFAULT 0,
+  ac_checked  INTEGER NOT NULL DEFAULT 0,
+  archived    INTEGER NOT NULL DEFAULT 0,
+  path        TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (repo_id, item_id)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_items_repo_status ON items(repo_id, status);
