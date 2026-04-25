@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -114,6 +115,11 @@ const ghTimeout = 30 * time.Second
 
 func runPRClose(cmd *cobra.Command, args []string) error {
 	prNum := args[0]
+	// Reject obviously-invalid PR numbers up front with a friendly error,
+	// rather than letting gh fail with an opaque message.
+	if n, err := strconv.Atoi(prNum); err != nil || n <= 0 {
+		return fmt.Errorf("pr-close: PR number must be a positive integer, got %q", prNum)
+	}
 
 	if _, err := exec.LookPath("gh"); err != nil {
 		return fmt.Errorf("gh CLI not found in PATH (required for pr-close)")
