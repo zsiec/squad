@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
@@ -88,6 +90,7 @@ func buildFilter(scope, currentID string) (workspace.Filter, error) {
 func newWorkspaceStatusCmd() *cobra.Command {
 	var scope string
 	var stale time.Duration
+	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Per-repo summary table",
@@ -106,13 +109,67 @@ func newWorkspaceStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if asJSON {
+				return renderStatusJSON(cmd.OutOrStdout(), rows, ws)
+			}
 			renderStatus(cmd.OutOrStdout(), rows)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&scope, "repo", "", "scope: all (default), current, other, or comma-list of ids")
 	cmd.Flags().DurationVar(&stale, "stale-threshold", 0, "exclude repos older than this")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit JSON with current_repo and per-repo rows")
 	return cmd
+}
+
+func renderStatusJSON(w io.Writer, rows []workspace.StatusRow, ws *wsContext) error {
+	current := ""
+	jsonRows := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		jsonRows = append(jsonRows, map[string]any{
+			"repo_id":       r.RepoID,
+			"remote_url":    r.RemoteURL,
+			"root_path":     r.RootPath,
+			"in_progress":   r.InProgress,
+			"ready":         r.Ready,
+			"blocked":       r.Blocked,
+			"last_active":   r.LastActiveAt,
+		})
+		if r.RepoID == ws.currentID && current == "" {
+			current = repoDisplayName(r.RemoteURL, r.RootPath)
+		}
+	}
+	out := map[string]any{
+		"current_repo": current,
+		"repos":        jsonRows,
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, string(b))
+	return err
+}
+
+func repoDisplayName(remoteURL, rootPath string) string {
+	if remoteURL != "" {
+		// Trim e.g. "git@github.com:foo/bar.git" or "https://.../bar.git" → "bar"
+		s := remoteURL
+		if i := strings.LastIndex(s, "/"); i >= 0 {
+			s = s[i+1:]
+		}
+		if i := strings.LastIndex(s, ":"); i >= 0 {
+			s = s[i+1:]
+		}
+		s = strings.TrimSuffix(s, ".git")
+		if s != "" {
+			return s
+		}
+	}
+	if rootPath != "" {
+		return path.Base(rootPath)
+	}
+	return ""
 }
 
 func newWorkspaceNextCmd() *cobra.Command {

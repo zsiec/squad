@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,19 +18,26 @@ import (
 )
 
 func newNextCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		asJSON bool
+		limit  int
+	)
+	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "List ready items in priority order",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if code := runNext(args, cmd.OutOrStdout()); code != 0 {
+			if code := runNext(args, cmd.OutOrStdout(), asJSON, limit); code != 0 {
 				os.Exit(code)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit ready items as a JSON array")
+	cmd.Flags().IntVar(&limit, "limit", 0, "cap rows printed (0 = print all)")
+	return cmd
 }
 
-func runNext(_ []string, stdout io.Writer) int {
+func runNext(_ []string, stdout io.Writer, asJSON bool, limit int) int {
 	wd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "getwd: %v\n", err)
@@ -55,11 +64,48 @@ func runNext(_ []string, stdout io.Writer) int {
 
 	ready := items.Ready(w, time.Now().UTC())
 	if len(ready) == 0 {
+		if asJSON {
+			fmt.Fprintln(stdout, "[]")
+			return 0
+		}
 		fmt.Fprintln(os.Stderr, "no ready items")
 		return 1
 	}
+
+	total := len(ready)
+	if limit > 0 && limit < total {
+		ready = ready[:limit]
+	}
+
+	if asJSON {
+		out := make([]map[string]any, 0, len(ready))
+		for _, it := range ready {
+			out = append(out, map[string]any{
+				"id":       it.ID,
+				"title":    it.Title,
+				"priority": it.Priority,
+				"estimate": it.Estimate,
+				"area":     it.Area,
+			})
+		}
+		b, err := json.Marshal(out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 4
+		}
+		fmt.Fprintln(stdout, string(b))
+		return 0
+	}
+
 	for _, it := range ready {
-		fmt.Fprintf(stdout, "%-12s %-3s %-8s %s\n", it.ID, it.Priority, it.Estimate, it.Title)
+		marker := ""
+		if strings.HasPrefix(it.ID, "EXAMPLE-") {
+			marker = " [tutorial]"
+		}
+		fmt.Fprintf(stdout, "%-12s %-3s %-8s %s%s\n", it.ID, it.Priority, it.Estimate, it.Title, marker)
+	}
+	if limit > 0 && total > limit {
+		fmt.Fprintf(stdout, "... and %d more (use --limit %d for all)\n", total-limit, total)
 	}
 	return 0
 }
