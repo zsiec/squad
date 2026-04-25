@@ -161,24 +161,16 @@ func TestAgentsTemplate_HasAllSections(t *testing.T) {
 	}
 	for _, want := range []string{
 		"# octopus — Agent Operating Manual",
-		"## §0 — The 30-second mental model",
-		"## §1 — Resume",
+		"## §0 — Mental model",
+		"## §1 — Resume a session",
 		"## §2 — Pick an item",
 		"## §3 — Work the item",
-		"## §3.5 — Anchor checkpoints",
 		"## §4 — Test before claiming done",
-		"## §4.5 — Quality bar before commit",
-		"## §4.7 — Code review",
-		"## §5 — Commit",
-		"## §6 — Update item status",
-		"## §7 — Multi-agent dispatch",
-		"## §8 — Adding a new item",
-		"## §9 — Item file template",
-		"## §10 — Handoff between sessions",
-		"## §11 — Escalation",
-		"## §12 — Anti-patterns",
-		"## §12.5 — Collaborative chat cadence",
-		"## §13 — When in doubt, ask",
+		"## §5 — Code review",
+		"## §6 — Commit and close",
+		"## §7 — Item file template",
+		"## §8 — Anti-patterns",
+		"## §9 — When in doubt, ask",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("AGENTS template missing %q", want)

@@ -108,7 +108,7 @@ func TestWriteAgents_CreatesFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# octopus — Agent Operating Manual", "## §1 — Resume", "## §13 — When in doubt"} {
+	for _, want := range []string{"# octopus — Agent Operating Manual", "## §1 — Resume a session", "## §9 — When in doubt, ask"} {
 		if !strings.Contains(string(got), want) {
 			t.Fatalf("missing %q", want)
 		}
