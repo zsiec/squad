@@ -35,8 +35,8 @@ func (c *Chat) TailOnce(ctx context.Context, w io.Writer, thread string, sinceUn
 		if err := rows.Scan(&id, &ts, &agent, &th, &kind, &body); err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s  %-10s  %-10s  %s  %s\n",
-			time.Unix(ts, 0).Format("15:04:05"), agent, kind, ThreadLabel(th), body)
+		fmt.Fprintf(w, "#%-5d %s  %-10s  %-10s  %s  %s\n",
+			id, time.Unix(ts, 0).Format("15:04:05"), agent, kind, ThreadLabel(th), body)
 	}
 	return nil
 }

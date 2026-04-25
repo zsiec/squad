@@ -45,8 +45,8 @@ func runHistoryBody(ctx context.Context, c *chat.Chat, itemID string, w io.Write
 	}
 	fmt.Fprintf(w, "history for %s:\n", itemID)
 	for _, e := range entries {
-		fmt.Fprintf(w, "  [%s] %s (%s): %s\n",
-			time.Unix(e.TS, 0).Format("2006-01-02 15:04"), e.Agent, e.Kind, e.Body)
+		fmt.Fprintf(w, "  #%-5d [%s] %s (%s): %s\n",
+			e.ID, time.Unix(e.TS, 0).Format("2006-01-02 15:04"), e.Agent, e.Kind, e.Body)
 	}
 	return 0
 }
