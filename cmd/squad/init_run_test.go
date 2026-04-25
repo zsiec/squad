@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,6 +82,48 @@ func TestRunInit_RerunIsIdempotent(t *testing.T) {
 			t.Fatalf("file %s changed across runs", path)
 		}
 	}
+}
+
+func TestRunInit_YesNeverReadsStdin_EvenWithExistingClaudeMD(t *testing.T) {
+	repo := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	gitInitDir(t, repo)
+	if err := os.WriteFile(
+		filepath.Join(repo, "CLAUDE.md"),
+		[]byte("# pre-existing user notes, no squad markers\n\ndo not lose this\n"),
+		0o644,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newInitCmd()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetIn(failingReader{})
+	cmd.SetArgs([]string{"--yes", "--dir", repo})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("init --yes failed: %v\nstdout=%s\nstderr=%s",
+			err, stdout.String(), stderr.String())
+	}
+
+	body, err := os.ReadFile(filepath.Join(repo, "CLAUDE.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(body, []byte("do not lose this")) {
+		t.Fatal("init --yes wiped pre-existing CLAUDE.md content")
+	}
+	if !bytes.Contains(body, []byte("squad-managed:start")) {
+		t.Fatal("init --yes did not append the managed block")
+	}
+}
+
+type failingReader struct{}
+
+func (failingReader) Read(p []byte) (int, error) {
+	return 0, fmt.Errorf("stdin should not be read in --yes mode")
 }
 
 func snapshotDir(t *testing.T, root string) map[string]string {
