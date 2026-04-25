@@ -30,6 +30,8 @@ func (a itemsHygieneAdapter) List(ctx context.Context) ([]hygiene.ItemRef, error
 				ID:         it.ID,
 				Path:       it.Path,
 				Status:     it.Status,
+				Created:    it.Created,
+				Updated:    it.Updated,
 				References: it.References,
 				BlockedBy:  it.BlockedBy,
 			})

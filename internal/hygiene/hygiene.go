@@ -34,9 +34,10 @@ type Finding struct {
 }
 
 type ItemRef struct {
-	ID, Path, Status string
-	References       []string
-	BlockedBy        []string
+	ID, Path, Status   string
+	Created, Updated   string
+	References         []string
+	BlockedBy          []string
 }
 
 type BrokenRef struct {
@@ -210,6 +211,20 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 					Fix:     "edit " + r.Path + " — set status: done",
 				})
 			}
+			if r.Created != "" && !isValidDateField(r.Created) {
+				findings = append(findings, Finding{
+					Severity: SeverityInfo, Code: "malformed_date",
+					Message:  "item " + r.ID + " has malformed `created: " + r.Created + "` (expected YYYY-MM-DD)",
+					Fix:      "edit " + r.Path + " — set created to ISO 8601 date",
+				})
+			}
+			if r.Updated != "" && !isValidDateField(r.Updated) {
+				findings = append(findings, Finding{
+					Severity: SeverityInfo, Code: "malformed_date",
+					Message:  "item " + r.ID + " has malformed `updated: " + r.Updated + "` (expected YYYY-MM-DD)",
+					Fix:      "edit " + r.Path + " — set updated to ISO 8601 date",
+				})
+			}
 			for _, ref := range r.References {
 				if _, err := os.Stat(stripLineSuffix(ref)); err != nil {
 					findings = append(findings, Finding{
@@ -339,6 +354,27 @@ func (sw *Sweeper) ReclaimStale(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	return ids, nil
+}
+
+// isValidDateField accepts the YYYY-MM-DD shape squad writes for `created`
+// and `updated`. Items imported from elsewhere may use other formats; we
+// surface those as info-level findings rather than rejecting at parse time.
+func isValidDateField(s string) bool {
+	if len(s) != 10 {
+		return false
+	}
+	if s[4] != '-' || s[7] != '-' {
+		return false
+	}
+	for i, c := range s {
+		if i == 4 || i == 7 {
+			continue
+		}
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func stripLineSuffix(ref string) string {
