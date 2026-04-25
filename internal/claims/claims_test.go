@@ -3,6 +3,8 @@ package claims
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 )
@@ -77,5 +79,63 @@ func TestClaim_TouchesPersistedAsActiveRows(t *testing.T) {
 	db.QueryRow(`SELECT COUNT(*) FROM touches WHERE agent_id='agent-a' AND item_id='BUG-004' AND released_at IS NULL`).Scan(&n)
 	if n != 2 {
 		t.Fatalf("active touches=%d want 2", n)
+	}
+}
+
+func TestClaim_RefusesWhenBlockerNotInDoneDir(t *testing.T) {
+	s, _ := newTestStore(t)
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	itemsDir := filepath.Join(tmp, "items")
+	doneDir := filepath.Join(tmp, "done")
+	_ = os.MkdirAll(itemsDir, 0o755)
+	_ = os.MkdirAll(doneDir, 0o755)
+
+	_ = os.WriteFile(filepath.Join(itemsDir, "FEAT-002-foo.md"), []byte(`---
+id: FEAT-002
+title: foo
+status: ready
+---
+`), 0o644)
+	_ = os.WriteFile(filepath.Join(itemsDir, "BUG-070-bar.md"), []byte(`---
+id: BUG-070
+title: bar
+status: ready
+blocked-by: [FEAT-002]
+---
+`), 0o644)
+
+	err := s.Claim(ctx, "BUG-070", "agent-a", "trying", nil, false, ClaimWithPreflight(itemsDir, doneDir))
+	if !errors.Is(err, ErrBlockedByOpen) {
+		t.Fatalf("want ErrBlockedByOpen, got %v", err)
+	}
+}
+
+func TestClaim_AllowedWhenBlockersAreInDoneDir(t *testing.T) {
+	s, _ := newTestStore(t)
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	itemsDir := filepath.Join(tmp, "items")
+	doneDir := filepath.Join(tmp, "done")
+	_ = os.MkdirAll(itemsDir, 0o755)
+	_ = os.MkdirAll(doneDir, 0o755)
+	_ = os.WriteFile(filepath.Join(doneDir, "FEAT-002-foo.md"), []byte(`---
+id: FEAT-002
+title: foo
+status: done
+---
+`), 0o644)
+	_ = os.WriteFile(filepath.Join(itemsDir, "BUG-071-bar.md"), []byte(`---
+id: BUG-071
+title: bar
+status: ready
+blocked-by: [FEAT-002]
+---
+`), 0o644)
+
+	if err := s.Claim(ctx, "BUG-071", "agent-a", "go", nil, false, ClaimWithPreflight(itemsDir, doneDir)); err != nil {
+		t.Fatalf("claim should succeed: %v", err)
 	}
 }

@@ -39,7 +39,30 @@ func (s *Store) withTx(ctx context.Context, fn func(*sql.Tx) error) error {
 	return tx.Commit()
 }
 
-func (s *Store) Claim(ctx context.Context, itemID, agentID, intent string, touches []string, long bool) error {
+type ClaimOption func(*claimOpts)
+
+type claimOpts struct {
+	preflightItemsDir string
+	preflightDoneDir  string
+}
+
+func ClaimWithPreflight(itemsDir, doneDir string) ClaimOption {
+	return func(o *claimOpts) {
+		o.preflightItemsDir = itemsDir
+		o.preflightDoneDir = doneDir
+	}
+}
+
+func (s *Store) Claim(ctx context.Context, itemID, agentID, intent string, touches []string, long bool, opts ...ClaimOption) error {
+	var co claimOpts
+	for _, opt := range opts {
+		opt(&co)
+	}
+	if co.preflightItemsDir != "" {
+		if err := preflightBlockers(co.preflightItemsDir, co.preflightDoneDir, itemID); err != nil {
+			return err
+		}
+	}
 	now := s.nowUnix()
 	longVal := 0
 	if long {
