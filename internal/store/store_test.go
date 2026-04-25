@@ -58,3 +58,30 @@ func TestOpen_RepoIdColumnPresent(t *testing.T) {
 		}
 	}
 }
+
+func TestBeginImmediate_CommitsWrite(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	tx, err := BeginImmediate(context.Background(), db)
+	if err != nil {
+		t.Fatalf("BeginImmediate: %v", err)
+	}
+	if _, err := tx.ExecContext(context.Background(),
+		`INSERT INTO repos (id, root_path, remote_url, name, created_at) VALUES (?, ?, ?, ?, ?)`,
+		"abc123", "/tmp/x", "git@github.com:foo/bar.git", "bar", 1700000000); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	var got string
+	if err := db.QueryRow(`SELECT id FROM repos WHERE id=?`, "abc123").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != "abc123" {
+		t.Fatalf("got %q", got)
+	}
+}
