@@ -86,6 +86,55 @@ func TestListener_ContextCancelExits(t *testing.T) {
 	}
 }
 
+func TestListener_ConcurrentCloseIsSafe(t *testing.T) {
+	l, err := New("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+
+	const n = 10
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			errs[i] = l.Close()
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i := 1; i < n; i++ {
+		if errs[i] != errs[0] {
+			t.Fatalf("Close() returned divergent errors: errs[0]=%v errs[%d]=%v", errs[0], i, errs[i])
+		}
+	}
+}
+
+func TestListener_WaitWakeAfterCloseDoesNotPanic(t *testing.T) {
+	l, err := New("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	if err := l.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	reason, err := l.WaitWake(ctx, 30*time.Second)
+	if reason != WakeReasonNone {
+		t.Fatalf("expected WakeReasonNone, got %v", reason)
+	}
+	if err == nil {
+		t.Fatal("expected non-nil error after close")
+	}
+}
+
 func TestListener_ConcurrentConnectsCoalesce(t *testing.T) {
 	l, err := New("127.0.0.1:0")
 	if err != nil {

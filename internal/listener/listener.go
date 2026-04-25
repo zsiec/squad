@@ -32,10 +32,12 @@ func (w WakeReason) String() string {
 // conn resolves WaitWake, additional conns buffer briefly and are
 // closed (either by the next WaitWake reader or by Close drain).
 type Listener struct {
-	tcp    *net.TCPListener
-	conns  chan net.Conn
-	closed chan struct{}
-	wg     sync.WaitGroup
+	tcp       *net.TCPListener
+	conns     chan net.Conn
+	closed    chan struct{}
+	wg        sync.WaitGroup
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func New(addr string) (*Listener, error) {
@@ -85,7 +87,10 @@ func (l *Listener) WaitWake(ctx context.Context, fallback time.Duration) (WakeRe
 		defer t.Stop()
 	}
 	select {
-	case c := <-l.conns:
+	case c, ok := <-l.conns:
+		if !ok {
+			return WakeReasonNone, errors.New("listener closed")
+		}
 		_ = c.Close()
 		return WakeReasonConnect, nil
 	case <-tCh:
@@ -98,21 +103,18 @@ func (l *Listener) WaitWake(ctx context.Context, fallback time.Duration) (WakeRe
 }
 
 func (l *Listener) Close() error {
-	select {
-	case <-l.closed:
-		return nil
-	default:
+	l.closeOnce.Do(func() {
 		close(l.closed)
-	}
-	// Order matters: tcp.Close unblocks Accept, then we wait for
-	// acceptLoop to fully exit before closing l.conns. Without the wait,
-	// acceptLoop could be mid-send to l.conns concurrently with the
-	// close — a data race and a send-on-closed-channel panic.
-	err := l.tcp.Close()
-	l.wg.Wait()
-	close(l.conns)
-	for c := range l.conns {
-		_ = c.Close()
-	}
-	return err
+		// Order matters: tcp.Close unblocks Accept, then we wait for
+		// acceptLoop to fully exit before closing l.conns. Without the wait,
+		// acceptLoop could be mid-send to l.conns concurrently with the
+		// close — a data race and a send-on-closed-channel panic.
+		l.closeErr = l.tcp.Close()
+		l.wg.Wait()
+		close(l.conns)
+		for c := range l.conns {
+			_ = c.Close()
+		}
+	})
+	return l.closeErr
 }
