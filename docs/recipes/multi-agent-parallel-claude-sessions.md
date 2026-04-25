@@ -20,7 +20,18 @@ squad register --as agent-green --name "Green"
 squad register --as agent-violet --name "Violet"
 ```
 
-Each pane is now a distinct agent. Open three Claude Code sessions, one per pane. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` / `TMUX_PANE` / `WT_SESSION` so the registration is automatic per pane.
+Each pane is now a distinct agent. Open three Claude Code sessions, one per pane. Squad keys the *current* agent identity off the session — first one of `SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `TMUX_PANE`, `STY`, `WT_SESSION` that's set. Terminal apps usually set one of these automatically per pane, so registration is per-pane out of the box.
+
+If you're scripting against multiple agents from a single shell (no terminal session), set `SQUAD_SESSION_ID` explicitly per process:
+
+```bash
+SQUAD_SESSION_ID=blue squad register --as agent-blue --name "Blue"
+SQUAD_SESSION_ID=blue squad claim FEAT-001 --intent "blue starts"
+SQUAD_SESSION_ID=green squad register --as agent-green --name "Green"
+SQUAD_SESSION_ID=green squad claim FEAT-002 --intent "green starts"
+```
+
+Without a session key, every shell shares one persisted agent-id file in `~/.squad/agent-id.txt`, and the most recent `register` wins.
 
 ## Coordination commands
 
@@ -33,13 +44,15 @@ squad workspace status                       # cross-repo when you have multiple
 
 ## File-touch warnings
 
-Declare files you're editing so peers see the overlap:
+Declare files you're editing on your active claim so peers see the overlap:
 
 ```bash
-squad touch internal/cache/flusher.go
+squad touch FEAT-001 internal/cache/flusher.go
 # ... edit ...
 squad untouch internal/cache/flusher.go      # release when done; or `squad untouch` for all
 ```
+
+The first arg is the item ID the touches belong to; the rest are paths.
 
 If you install the `pre-edit-touch-check` hook (Phase 11; opt-in), the warning fires automatically when you Edit/Write a file another agent is touching. The hook only warns; it does not block. The right move when warned:
 

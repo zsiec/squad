@@ -108,10 +108,10 @@ squad blocked FEAT-001 --reason "waiting on auth.proto from API team"
 
 ### `squad reassign`
 
-Transfer your claim by releasing it and @-mentioning the new owner.
+Transfer your claim by releasing it and @-mentioning the new owner. The new owner still has to run `squad claim FEAT-001` themselves — reassign is consent-based.
 
 ```bash
-squad reassign FEAT-001 @agent-bob
+squad reassign FEAT-001 --to agent-bob
 ```
 
 ### `squad force-release`
@@ -229,11 +229,13 @@ squad archive --before 2026-03-01
 
 ### `squad touch`
 
-Declare files you are editing so peers see the overlap.
+Declare files you are editing on a specific item so peers see the overlap.
 
 ```bash
-squad touch internal/cache/flusher.go internal/cache/flusher_test.go
+squad touch FEAT-001 internal/cache/flusher.go internal/cache/flusher_test.go
 ```
+
+Signature: `squad touch <ITEM-ID> <path>...`. The first argument is the item ID the touches belong to (usually your active claim); the rest are paths.
 
 ### `squad untouch`
 
