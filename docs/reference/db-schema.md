@@ -158,7 +158,7 @@ Denormalized index of items present on disk. Refreshed by the hygiene sweep and 
 | `updated_at` | INTEGER NOT NULL | last sync from disk |
 | `epic_id` | TEXT | nullable; name of the owning epic when the item was scaffolded under one |
 | `parallel` | INTEGER NOT NULL DEFAULT 0 | 1 = item is safe to run in parallel with its siblings |
-| `conflicts_with` | TEXT NOT NULL DEFAULT '[]' | JSON array of item IDs that must not be claimed concurrently |
+| `conflicts_with` | TEXT NOT NULL DEFAULT '[]' | JSON array of file paths/globs the item touches; claim preflight rejects overlap with active claims |
 
 PK: `(repo_id, item_id)`. Strict mode (`STRICT`).
 
