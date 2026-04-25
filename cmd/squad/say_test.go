@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -10,7 +12,7 @@ import (
 
 func TestRunSay_RejectsEmptyBody(t *testing.T) {
 	f := newChatFixture(t)
-	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: ""})
+	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: ""}, io.Discard)
 	if code == 0 {
 		t.Fatal("expected non-zero exit on empty body")
 	}
@@ -18,7 +20,8 @@ func TestRunSay_RejectsEmptyBody(t *testing.T) {
 
 func TestRunSay_DefaultsToGlobal(t *testing.T) {
 	f := newChatFixture(t)
-	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: "hello team"})
+	var stdout bytes.Buffer
+	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: "hello team"}, &stdout)
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
 	}
@@ -29,6 +32,9 @@ func TestRunSay_DefaultsToGlobal(t *testing.T) {
 	if kind != chat.KindSay {
 		t.Fatalf("kind=%q", kind)
 	}
+	if !strings.Contains(stdout.String(), "[say -> #global] hello team") {
+		t.Fatalf("expected stdout confirmation, got %q", stdout.String())
+	}
 }
 
 func TestRunSay_ExplicitMentions(t *testing.T) {
@@ -36,7 +42,7 @@ func TestRunSay_ExplicitMentions(t *testing.T) {
 	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{
 		Body:    "hi",
 		Mention: "@alice,@bob",
-	})
+	}, io.Discard)
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
 	}
@@ -49,7 +55,7 @@ func TestRunSay_ExplicitMentions(t *testing.T) {
 func TestRunSay_RoutesToCurrentClaim(t *testing.T) {
 	f := newChatFixture(t)
 	f.insertClaim(t, "BUG-123")
-	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: "in-flight thought"})
+	code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: "in-flight thought"}, io.Discard)
 	if code != 0 {
 		t.Fatalf("exit=%d", code)
 	}

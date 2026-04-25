@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -31,7 +32,7 @@ func newSayCmd() *cobra.Command {
 				return err
 			}
 			defer bc.Close()
-			if code := runSayBody(ctx, bc.chat, bc.agentID, a); code != 0 {
+			if code := runSayBody(ctx, bc.chat, bc.agentID, a, cmd.OutOrStdout()); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -42,7 +43,7 @@ func newSayCmd() *cobra.Command {
 	return cmd
 }
 
-func runSayBody(ctx context.Context, c *chat.Chat, agentID string, a sayArgs) int {
+func runSayBody(ctx context.Context, c *chat.Chat, agentID string, a sayArgs, stdout io.Writer) int {
 	if strings.TrimSpace(a.Body) == "" {
 		fmt.Fprintln(os.Stderr, "usage: squad say [--to ITEM|global] [--mention a,b] <message>")
 		return 4
@@ -60,6 +61,11 @@ func runSayBody(ctx context.Context, c *chat.Chat, agentID string, a sayArgs) in
 		fmt.Fprintln(os.Stderr, err)
 		return 4
 	}
+	label := thread
+	if label == chat.ThreadGlobal {
+		label = "global"
+	}
+	fmt.Fprintf(stdout, "[say -> #%s] %s\n", label, a.Body)
 	return 0
 }
 

@@ -41,11 +41,18 @@ Create a new item file under `.squad/items/`.
 ```bash
 squad new feat "add the export button"
 squad new bug "race in the cache flusher"
+squad new feat "kafka migration" --priority P0 --area infra --estimate 4h --risk high
 ```
+
+Flags (each falls back to `defaults.<key>` in `.squad/config.yaml`, finally to a built-in default):
+- `--priority P0|P1|P2|P3` (default: P2)
+- `--area <tag>` (default: `<fill-in>`)
+- `--estimate 30m|1h|4h|1d` (default: 1h)
+- `--risk low|medium|high` (default: low)
 
 ### `squad next`
 
-List ready items in priority order.
+List ready items in priority order. Excludes items already claimed unless `--include-claimed` is passed.
 
 ```bash
 squad next                    # default top of stack
@@ -124,11 +131,16 @@ squad force-release BUG-042 --reason "agent-blue offline >2h, no response"
 
 ### `squad handoff`
 
-Post a handoff brief and release any held claims.
+Post a handoff brief and release any held claims. The brief is structured: each `--shipped/--in-flight/--surprised-by/--unblocks` is repeatable.
 
 ```bash
-squad handoff "EOD; FEAT-001 in review, FEAT-002 ready"
+squad handoff \
+  --shipped FEAT-001 \
+  --in-flight FEAT-002 \
+  --note "EOD wrap-up; back tomorrow"
 ```
+
+Or pipe the note from stdin: `git log --oneline | squad handoff --stdin --shipped FEAT-001`.
 
 ## Chat
 
@@ -188,7 +200,7 @@ squad say "lunch break, back at 14:00"
 Request review on an item, optionally mentioning a reviewer.
 
 ```bash
-squad review-request FEAT-001 --reviewer agent-bob
+squad review-request FEAT-001 --mention agent-bob
 ```
 
 ### `squad progress`
@@ -224,7 +236,7 @@ squad history FEAT-001
 Roll old chat messages into a per-month archive DB.
 
 ```bash
-squad archive --before 2026-03-01
+squad archive --before 30d         # keep last 30 days; older messages roll into ~/.squad/archive/
 ```
 
 ## File touches
@@ -246,6 +258,15 @@ Release file touches; no paths releases all touches for this agent.
 ```bash
 squad untouch                                      # release all
 squad untouch internal/cache/flusher.go            # release one
+```
+
+### `squad touches list-others`
+
+List active file touches held by agents OTHER than the current one. Used by the `pre-edit-touch-check` hook to warn before edits collide.
+
+```bash
+squad touches list-others
+squad touches list-others --json
 ```
 
 ## Hygiene

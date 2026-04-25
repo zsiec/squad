@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -24,7 +25,7 @@ func newReviewRequestCmd() *cobra.Command {
 				return err
 			}
 			defer bc.Close()
-			if code := runReviewRequestBody(ctx, bc.chat, bc.agentID, args[0], mention); code != 0 {
+			if code := runReviewRequestBody(ctx, bc.chat, bc.agentID, args[0], mention, cmd.OutOrStdout()); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -34,7 +35,7 @@ func newReviewRequestCmd() *cobra.Command {
 	return cmd
 }
 
-func runReviewRequestBody(ctx context.Context, c *chat.Chat, agentID, itemID, mention string) int {
+func runReviewRequestBody(ctx context.Context, c *chat.Chat, agentID, itemID, mention string, stdout io.Writer) int {
 	if itemID == "" {
 		fmt.Fprintln(os.Stderr, "usage: squad review-request <ITEM-ID> [--mention @<agent>]")
 		return 4
@@ -44,5 +45,10 @@ func runReviewRequestBody(ctx context.Context, c *chat.Chat, agentID, itemID, me
 		fmt.Fprintln(os.Stderr, err)
 		return 4
 	}
+	suffix := ""
+	if reviewer != "" {
+		suffix = " (cc @" + reviewer + ")"
+	}
+	fmt.Fprintf(stdout, "[review-request -> #%s]%s\n", itemID, suffix)
 	return 0
 }
