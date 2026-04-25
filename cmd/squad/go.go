@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/claims"
+	"github.com/zsiec/squad/internal/epics"
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
@@ -94,6 +95,7 @@ func ensureClaim(out io.Writer) error {
 		return err
 	}
 	ready := items.Ready(w, time.Now().UTC())
+	ready = reorderByScope(ready, filepath.Join(root, ".squad"), os.Getenv("SQUAD_SPEC"))
 	claimedSet, err := loadClaimedSet(context.Background(), bc.db, bc.repoID)
 	if err != nil {
 		return err
@@ -199,6 +201,64 @@ func printItemAC(out io.Writer, itemsDir, itemID string) error {
 		fmt.Fprintf(out, "  %s %s\n", marker, ac.Text)
 	}
 	return nil
+}
+
+func pickItemForScope(squadDir, scopeSpec string) (string, error) {
+	w, err := items.Walk(squadDir)
+	if err != nil {
+		return "", err
+	}
+	ready := items.Ready(w, time.Now().UTC())
+	if scopeSpec == "" {
+		if len(ready) == 0 {
+			return "", nil
+		}
+		return ready[0].ID, nil
+	}
+	epicList, _, err := epics.Walk(squadDir)
+	if err != nil {
+		return "", err
+	}
+	scoped := map[string]bool{}
+	for _, e := range epicList {
+		if e.Spec == scopeSpec {
+			scoped[e.Name] = true
+		}
+	}
+	for _, it := range ready {
+		if scoped[it.Epic] {
+			return it.ID, nil
+		}
+	}
+	if len(ready) > 0 {
+		return ready[0].ID, nil
+	}
+	return "", nil
+}
+
+func reorderByScope(ready []items.Item, squadDir, scopeSpec string) []items.Item {
+	if scopeSpec == "" {
+		return ready
+	}
+	epicList, _, err := epics.Walk(squadDir)
+	if err != nil {
+		return ready
+	}
+	scoped := map[string]bool{}
+	for _, e := range epicList {
+		if e.Spec == scopeSpec {
+			scoped[e.Name] = true
+		}
+	}
+	in, out := []items.Item{}, []items.Item{}
+	for _, it := range ready {
+		if scoped[it.Epic] {
+			in = append(in, it)
+		} else {
+			out = append(out, it)
+		}
+	}
+	return append(in, out...)
 }
 
 func agentExists(id string) (bool, error) {

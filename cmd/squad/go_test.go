@@ -479,3 +479,59 @@ func TestGoCmd_IdentityStableAcrossRuns(t *testing.T) {
 		t.Fatalf("want exactly 1 agent across 3 runs of the same session, got %v", got)
 	}
 }
+
+func writeR3Tree(t *testing.T, dir string) {
+	t.Helper()
+	w := func(p, body string) {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w(filepath.Join(dir, ".git", "HEAD"), "")
+	for _, s := range []string{"auth", "billing"} {
+		w(filepath.Join(dir, ".squad", "specs", s+".md"),
+			"---\ntitle: "+s+"\nmotivation: x\nacceptance: [x]\n---\n")
+	}
+	w(filepath.Join(dir, ".squad", "epics", "auth-redirect.md"),
+		"---\nspec: auth\nstatus: open\n---\n")
+	w(filepath.Join(dir, ".squad", "epics", "billing-charge.md"),
+		"---\nspec: billing\nstatus: open\n---\n")
+	mk := func(id, epic string) {
+		w(filepath.Join(dir, ".squad", "items", id+".md"),
+			"---\nid: "+id+"\ntitle: t\ntype: feature\npriority: P1\narea: core\n"+
+				"status: open\nestimate: 1h\nrisk: low\ncreated: 2026-04-25\n"+
+				"updated: 2026-04-25\nepic: "+epic+"\n---\n\n## Problem\nx\n")
+	}
+	mk("FEAT-1", "auth-redirect")
+	mk("FEAT-2", "billing-charge")
+}
+
+func TestGo_PrefersItemsUnderScopedSpec(t *testing.T) {
+	dir := t.TempDir()
+	writeR3Tree(t, dir)
+	t.Chdir(dir)
+	picked, err := pickItemForScope(filepath.Join(dir, ".squad"), "auth")
+	if err != nil {
+		t.Fatalf("pick: %v", err)
+	}
+	if picked != "FEAT-1" {
+		t.Errorf("picked=%q want FEAT-1", picked)
+	}
+}
+
+func TestGo_FallsBackToGlobalNextWhenScopeEmpty(t *testing.T) {
+	dir := t.TempDir()
+	writeR3Tree(t, dir)
+	_ = os.Remove(filepath.Join(dir, ".squad", "items", "FEAT-1.md"))
+	t.Chdir(dir)
+	picked, err := pickItemForScope(filepath.Join(dir, ".squad"), "auth")
+	if err != nil {
+		t.Fatalf("pick: %v", err)
+	}
+	if picked != "FEAT-2" {
+		t.Errorf("picked=%q want FEAT-2 (fallback)", picked)
+	}
+}
