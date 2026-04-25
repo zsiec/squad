@@ -361,6 +361,16 @@ func (sw *Sweeper) ReclaimStale(ctx context.Context) ([]string, error) {
 		`, now, sw.repoID, s.item, s.agent); err != nil {
 			return nil, err
 		}
+		// Surface the auto-reclaim on the chat stream so the SSE pump
+		// notifies any connected dashboard. Without this row, a reclaimed
+		// claim only becomes visible on the next manual refetch (QA r6-G).
+		body := "auto-reclaimed stale claim on " + s.item
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
+			VALUES (?, ?, ?, 'global', 'release', ?, '[]', 'normal')
+		`, sw.repoID, now, s.agent, body); err != nil {
+			return nil, err
+		}
 		ids = append(ids, s.item)
 	}
 	if err := tx.Commit(); err != nil {

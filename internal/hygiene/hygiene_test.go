@@ -285,6 +285,15 @@ func TestReclaimStale_ShortClaim(t *testing.T) {
 	if c != 1 {
 		t.Fatalf("history row missing")
 	}
+	// QA r6-G: the auto-reclaim must surface on chat so the SSE pump
+	// can notify any connected dashboard. Without this the reclaim is
+	// silent and the dashboard shows the stale agent as still claiming
+	// until a manual refresh.
+	var msgCount int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE thread='global' AND kind='release' AND agent_id='agent-a'`).Scan(&msgCount)
+	if msgCount != 1 {
+		t.Fatalf("expected 1 release message on global, got %d", msgCount)
+	}
 }
 
 func TestReclaimStale_LongClaimWaitsTwoHours(t *testing.T) {
