@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -196,5 +197,57 @@ func TestClaim_ConflictsWithBlocksOverlap(t *testing.T) {
 	if err := s.Claim(ctx, "FEAT-702", "agent-C", "x", nil, false,
 		ClaimWithPreflight(itemsDir, doneDir)); err != nil {
 		t.Fatalf("disjoint claim: %v", err)
+	}
+}
+
+func TestClaim_RecordsConflictsWithAsTouches(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	itemsDir := filepath.Join(dir, ".squad", "items")
+	doneDir := filepath.Join(dir, ".squad", "done")
+	if err := os.MkdirAll(itemsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(doneDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	body := "---\nid: FEAT-800\ntitle: x\ntype: feature\npriority: P1\n" +
+		"area: core\nstatus: open\nestimate: 1h\nrisk: low\n" +
+		"created: 2026-04-25\nupdated: 2026-04-25\n" +
+		"conflicts_with:\n  - internal/auth/login.go\n  - internal/auth/session.go\n" +
+		"---\n\n## Problem\nx\n"
+	if err := os.WriteFile(filepath.Join(itemsDir, "FEAT-800.md"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	w, _ := items.Walk(filepath.Join(dir, ".squad"))
+	if err := items.Mirror(ctx, db, "repo-1", w); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := New(db, "repo-1", nil).Claim(ctx, "FEAT-800", "agent-A", "intent",
+		nil, false, ClaimWithPreflight(itemsDir, doneDir)); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	rows, _ := db.Query(`
+		SELECT path FROM touches
+		WHERE repo_id=? AND agent_id=? AND item_id=? AND released_at IS NULL
+		ORDER BY path`, "repo-1", "agent-A", "FEAT-800")
+	defer rows.Close()
+	var paths []string
+	for rows.Next() {
+		var p string
+		_ = rows.Scan(&p)
+		paths = append(paths, p)
+	}
+	want := []string{"internal/auth/login.go", "internal/auth/session.go"}
+	if !reflect.DeepEqual(paths, want) {
+		t.Errorf("paths=%v want %v", paths, want)
 	}
 }

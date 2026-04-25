@@ -131,6 +131,21 @@ LIMIT 1`
 				return fmt.Errorf("insert touch: %w", err)
 			}
 		}
+		for _, p := range conflictPaths {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			if len(p) > maxTouchPathLen {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO touches (repo_id, agent_id, item_id, path, started_at)
+				VALUES (?, ?, ?, ?, ?)
+			`, s.repoID, agentID, itemID, p, now); err != nil {
+				return fmt.Errorf("insert conflicts_with touch: %w", err)
+			}
+		}
 		body := claimBody(itemID, intent)
 		if err := postSystemMessage(ctx, tx, s.repoID, now, agentID, "global", "claim", body, nil, "normal"); err != nil {
 			return err
