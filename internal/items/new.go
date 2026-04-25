@@ -71,29 +71,33 @@ func New(squadDir, prefix, title string) (string, error) {
 }
 
 func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error) {
-	w, err := Walk(squadDir)
+	var path string
+	err := withItemsLock(squadDir, func() error {
+		w, err := Walk(squadDir)
+		if err != nil {
+			return err
+		}
+		id, err := NextID(prefix, w)
+		if err != nil {
+			return err
+		}
+		t, ok := typeByPrefix[prefix]
+		if !ok {
+			t = strings.ToLower(prefix)
+		}
+		priority := nonEmpty(opts.Priority, "P2")
+		estimate := nonEmpty(opts.Estimate, "1h")
+		risk := nonEmpty(opts.Risk, "low")
+		area := nonEmpty(opts.Area, "<fill-in>")
+		now := time.Now().UTC().Format("2006-01-02")
+		body := fmt.Sprintf(stubTemplate, id, yamlInline(title), t, priority, area, estimate, risk, now, now)
+		path = filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(path, []byte(body), 0o644)
+	})
 	if err != nil {
-		return "", err
-	}
-	id, err := NextID(prefix, w)
-	if err != nil {
-		return "", err
-	}
-	t, ok := typeByPrefix[prefix]
-	if !ok {
-		t = strings.ToLower(prefix)
-	}
-	priority := nonEmpty(opts.Priority, "P2")
-	estimate := nonEmpty(opts.Estimate, "1h")
-	risk := nonEmpty(opts.Risk, "low")
-	area := nonEmpty(opts.Area, "<fill-in>")
-	now := time.Now().UTC().Format("2006-01-02")
-	body := fmt.Sprintf(stubTemplate, id, yamlInline(title), t, priority, area, estimate, risk, now, now)
-	path := filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return "", err
 	}
 	return path, nil

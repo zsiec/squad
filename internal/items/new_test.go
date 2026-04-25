@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -98,6 +99,53 @@ func TestNew_HostileTitlesProduceParseableFiles(t *testing.T) {
 				t.Fatalf("title round-trip failed: want %q got %q", title, it.Title)
 			}
 		})
+	}
+}
+
+// QA r6-G + H#7: two concurrent `squad new` calls used to TOCTOU on the
+// flat NextID lookup and produce two files with the same PREFIX-NN. With
+// the items-dir flock, every parallel writer gets a distinct id.
+func TestNew_NoDuplicateIDsUnderConcurrency(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const n = 16
+	type result struct {
+		path string
+		err  error
+	}
+	results := make(chan result, n)
+	var start sync.WaitGroup
+	start.Add(1)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			start.Wait()
+			p, err := New(dir, "FEAT", "concurrent")
+			results <- result{p, err}
+			_ = i
+		}()
+	}
+	start.Done()
+	seen := map[string]bool{}
+	for i := 0; i < n; i++ {
+		r := <-results
+		if r.err != nil {
+			t.Fatalf("New error: %v", r.err)
+		}
+		base := filepath.Base(r.path)
+		// strip the slug suffix; we only care about PREFIX-NN.
+		idPart := base
+		if dash := strings.IndexFunc(base, func(r rune) bool { return r == '-' }); dash >= 0 {
+			if dash2 := strings.IndexFunc(base[dash+1:], func(r rune) bool { return r == '-' }); dash2 >= 0 {
+				idPart = base[:dash+1+dash2]
+			}
+		}
+		if seen[idPart] {
+			t.Fatalf("duplicate id %s under concurrency", idPart)
+		}
+		seen[idPart] = true
 	}
 }
 
