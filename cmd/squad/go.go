@@ -77,14 +77,7 @@ func ensureRegistered(out io.Writer) error {
 }
 
 func agentExists(id string) (bool, error) {
-	if err := store.EnsureHome(); err != nil {
-		return false, err
-	}
-	dbPath, err := store.DBPath()
-	if err != nil {
-		return false, err
-	}
-	db, err := store.Open(dbPath)
+	db, err := store.OpenDefault()
 	if err != nil {
 		return false, err
 	}
