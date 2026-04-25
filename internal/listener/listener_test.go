@@ -3,6 +3,7 @@ package listener
 import (
 	"context"
 	"net"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -219,4 +220,60 @@ func TestListener_WaitLoopReturnsOnConnectAfterMultipleFallbacks(t *testing.T) {
 	case <-time.After(2500 * time.Millisecond):
 		t.Fatal("WaitLoop never returned")
 	}
+}
+
+func TestListener_NoFDLeakUnder500Connects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("burst test")
+	}
+	l, err := New("127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	defer l.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	go func() {
+		_, _ = l.WaitLoop(ctx, 50*time.Millisecond, nil)
+	}()
+
+	for i := 0; i < 500; i++ {
+		c, err := net.DialTimeout("tcp", "127.0.0.1:"+strconv.Itoa(l.Port()), 200*time.Millisecond)
+		if err != nil {
+			continue
+		}
+		_ = c.Close()
+	}
+
+	cancel()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		runtime.GC()
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func TestListener_NoGoroutineLeakOnClose(t *testing.T) {
+	before := runtime.NumGoroutine()
+	for i := 0; i < 20; i++ {
+		l, err := New("127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() { _, _ = l.WaitLoop(ctx, 30*time.Millisecond, nil) }()
+		cancel()
+		_ = l.Close()
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if runtime.NumGoroutine() <= before+2 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("goroutine count grew: before=%d after=%d", before, runtime.NumGoroutine())
 }
