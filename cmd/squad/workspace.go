@@ -133,6 +133,7 @@ func renderStatusJSON(w io.Writer, rows []workspace.StatusRow, ws *wsContext) er
 			"in_progress": r.InProgress,
 			"ready":       r.Ready,
 			"blocked":     r.Blocked,
+			"done":        r.Done,
 			"last_active": r.LastActiveAt,
 		})
 		if r.RepoID == ws.currentID && current == "" {
@@ -296,10 +297,10 @@ func newWorkspaceForgetCmd() *cobra.Command {
 func renderStatus(w io.Writer, rows []workspace.StatusRow) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	defer tw.Flush()
-	fmt.Fprintln(tw, "REPO\tIN_PROGRESS\tREADY\tBLOCKED\tLAST_TICK")
+	fmt.Fprintln(tw, "REPO\tIN_PROGRESS\tREADY\tBLOCKED\tDONE\tLAST_TICK")
 	for _, r := range rows {
-		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\n",
-			shortRepo(r.RemoteURL, r.RepoID), r.InProgress, r.Ready, r.Blocked, ageStr(r.LastTickAge))
+		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%d\t%s\n",
+			shortRepo(r.RemoteURL, r.RepoID), r.InProgress, r.Ready, r.Blocked, r.Done, ageStr(r.LastTickAge))
 	}
 }
 

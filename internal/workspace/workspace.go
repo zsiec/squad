@@ -28,10 +28,10 @@ type Filter struct {
 }
 
 type StatusRow struct {
-	RepoID, RemoteURL, RootPath string
-	InProgress, Ready, Blocked  int
-	LastTickAge                 time.Duration
-	LastActiveAt                int64
+	RepoID, RemoteURL, RootPath      string
+	InProgress, Ready, Blocked, Done int
+	LastTickAge                      time.Duration
+	LastActiveAt                     int64
 }
 
 type ListRow struct {
@@ -145,11 +145,13 @@ func (w *Workspace) Status(ctx context.Context, f Filter) ([]StatusRow, error) {
 		if err != nil {
 			return nil, err
 		}
-		var ready, blocked int
+		var ready, blocked, done int
 		for _, it := range items {
 			switch it.Status {
 			case "blocked":
 				blocked++
+			case "done":
+				done++
 			case "", "ready", "open":
 				ready++
 			}
@@ -165,6 +167,7 @@ func (w *Workspace) Status(ctx context.Context, f Filter) ([]StatusRow, error) {
 			InProgress:   inProgress,
 			Ready:        ready,
 			Blocked:      blocked,
+			Done:         done,
 			LastTickAge:  age,
 			LastActiveAt: la,
 		})
@@ -206,6 +209,9 @@ func (w *Workspace) Next(ctx context.Context, f Filter, opts NextOptions) ([]Nex
 		rows.Close()
 		for _, it := range items {
 			if it.Priority != "P0" && it.Priority != "P1" {
+				continue
+			}
+			if it.Status == "done" || it.Status == "blocked" {
 				continue
 			}
 			out = append(out, NextRow{
