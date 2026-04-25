@@ -226,7 +226,7 @@ func renderNext(w io.Writer, rows []workspace.NextRow, currentAgent string) {
 	defer tw.Flush()
 	fmt.Fprintln(tw, "REPO\tID\tPRI\tEST\tCLAIM\tTITLE")
 	for _, r := range rows {
-		claim := "open"
+		var claim string
 		switch {
 		case r.Claimed == "":
 			claim = "open"

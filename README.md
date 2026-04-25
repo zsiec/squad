@@ -19,6 +19,20 @@ squad init
 squad next
 ```
 
+### Cross-repo views
+
+Once `squad init` has run in two or more repos, the global DB knows about all of them. From any repo:
+
+```bash
+squad workspace status            # per-repo summary table
+squad workspace next --limit 10   # top P0/P1 across every repo
+squad workspace who               # every agent in every repo, last activity
+squad workspace list              # all known repos
+squad workspace forget <repo_id>  # remove a repo (e.g. after deleting it locally)
+```
+
+Filter scope with `--repo current`, `--repo other`, or `--repo id1,id2,id3`.
+
 See `docs/adopting.md` once it lands (Phase 13).
 
 ## License
