@@ -147,4 +147,3 @@ func TestResolveEnabled_ExplicitOptInBypassesProbeWithWarning(t *testing.T) {
 		t.Fatalf("expected warning, got %q", stderr.String())
 	}
 }
-

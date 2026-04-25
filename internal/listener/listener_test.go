@@ -190,9 +190,8 @@ func TestListener_WaitLoopReturnsOnConnectAfterMultipleFallbacks(t *testing.T) {
 		err       error
 	}
 	done := make(chan result, 1)
-	onTick := func() {}
 	tickCount := 0
-	hooked := func() {
+	onTick := func() {
 		tickCount++
 		if tickCount == 3 {
 			go func() {
@@ -203,7 +202,6 @@ func TestListener_WaitLoopReturnsOnConnectAfterMultipleFallbacks(t *testing.T) {
 			}()
 		}
 	}
-	onTick = hooked
 	go func() {
 		fallbacks, err := l.WaitLoop(ctx, 30*time.Millisecond, onTick)
 		done <- result{fallbacks, err}
