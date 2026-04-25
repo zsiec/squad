@@ -19,9 +19,9 @@ import (
 
 func newNextCmd() *cobra.Command {
 	var (
-		asJSON          bool
-		limit           int
-		includeClaimed  bool
+		asJSON         bool
+		limit          int
+		includeClaimed bool
 	)
 	cmd := &cobra.Command{
 		Use:   "next",

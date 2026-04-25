@@ -127,13 +127,13 @@ func renderStatusJSON(w io.Writer, rows []workspace.StatusRow, ws *wsContext) er
 	jsonRows := make([]map[string]any, 0, len(rows))
 	for _, r := range rows {
 		jsonRows = append(jsonRows, map[string]any{
-			"repo_id":       r.RepoID,
-			"remote_url":    r.RemoteURL,
-			"root_path":     r.RootPath,
-			"in_progress":   r.InProgress,
-			"ready":         r.Ready,
-			"blocked":       r.Blocked,
-			"last_active":   r.LastActiveAt,
+			"repo_id":     r.RepoID,
+			"remote_url":  r.RemoteURL,
+			"root_path":   r.RootPath,
+			"in_progress": r.InProgress,
+			"ready":       r.Ready,
+			"blocked":     r.Blocked,
+			"last_active": r.LastActiveAt,
 		})
 		if r.RepoID == ws.currentID && current == "" {
 			current = repoDisplayName(r.RemoteURL, r.RootPath)
