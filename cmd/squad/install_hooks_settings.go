@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/zsiec/squad/internal/store"
 	"github.com/zsiec/squad/plugin/hooks"
 )
 
@@ -130,11 +131,11 @@ func writeSettingsAtomic(path string, data map[string]any) error {
 }
 
 func materializeHooks() (string, error) {
-	home, err := os.UserHomeDir()
+	squadHome, err := store.Home()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, ".squad", "hooks")
+	dir := filepath.Join(squadHome, "hooks")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

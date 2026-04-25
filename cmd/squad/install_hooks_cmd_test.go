@@ -73,6 +73,26 @@ func TestInstallHooksCmd_Status(t *testing.T) {
 	mustContain(t, stdout.Bytes(), "OFF")
 }
 
+func TestInstallHooksCmd_RespectsSquadHome(t *testing.T) {
+	home := t.TempDir()
+	squadHome := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("SQUAD_HOME", squadHome)
+
+	if err := runInstallHooks([]string{"--yes"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+
+	wantScript := filepath.Join(squadHome, "hooks", "session_start.sh")
+	if _, err := os.Stat(wantScript); err != nil {
+		t.Fatalf("expected script materialized under SQUAD_HOME, got: %v", err)
+	}
+	notWant := filepath.Join(home, ".squad", "hooks", "session_start.sh")
+	if _, err := os.Stat(notWant); err == nil {
+		t.Fatalf("script also materialized under $HOME/.squad — should NOT happen when SQUAD_HOME is set")
+	}
+}
+
 func TestInstallHooksCmd_Uninstall(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
