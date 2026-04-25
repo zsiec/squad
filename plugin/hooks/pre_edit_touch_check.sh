@@ -14,7 +14,19 @@ FILE=$(printf '%s' "${TOOL_INPUT:-}" \
 SQUAD_BIN="${SQUAD_BIN:-squad}"
 command -v "$SQUAD_BIN" >/dev/null 2>&1 || exit 0
 
-TOUCHES=$("$SQUAD_BIN" touches list-others --json 2>/dev/null || printf '[]')
+# Cap every squad subprocess so a regression that hangs cannot freeze the
+# Claude Code session. Falls back to bare invocation if no timeout binary.
+_squad_run() {
+    if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout 2s "$SQUAD_BIN" "$@"
+    elif command -v timeout >/dev/null 2>&1; then
+        timeout 2s "$SQUAD_BIN" "$@"
+    else
+        "$SQUAD_BIN" "$@"
+    fi
+}
+
+TOUCHES=$(_squad_run touches list-others --json 2>/dev/null || printf '[]')
 
 # Split JSON array entries one-per-line (each ends with `}`). Then keep only
 # entries whose "path" field EXACTLY equals $FILE — substring match against the

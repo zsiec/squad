@@ -22,8 +22,27 @@ esac
 SQUAD_BIN="${SQUAD_BIN:-squad}"
 command -v "$SQUAD_BIN" >/dev/null 2>&1 || exit 0
 
-LAST_TICK=$("$SQUAD_BIN" whoami --json 2>/dev/null \
-    | sed -n 's/.*"last_tick_at"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' | head -n1)
+# Cap every squad subprocess so a regression that hangs cannot freeze the
+# Claude Code session. Falls back to bare invocation if no timeout binary.
+_squad_run() {
+    if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout 2s "$SQUAD_BIN" "$@"
+    elif command -v timeout >/dev/null 2>&1; then
+        timeout 2s "$SQUAD_BIN" "$@"
+    else
+        "$SQUAD_BIN" "$@"
+    fi
+}
+
+_json_num() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -r ".$1 // empty" 2>/dev/null
+    else
+        sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\\([0-9]*\\).*/\\1/p" | head -n1
+    fi
+}
+
+LAST_TICK=$(_squad_run whoami --json 2>/dev/null | _json_num last_tick_at)
 [ -z "$LAST_TICK" ] && exit 0
 
 NOW=$(date +%s)

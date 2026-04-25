@@ -13,6 +13,38 @@ if ! command -v "$SQUAD_BIN" >/dev/null 2>&1; then
     exit 0
 fi
 
+# Cap every squad subprocess so a regression that hangs (or an SQUAD_BIN
+# pointing at /usr/bin/yes) cannot freeze the Claude Code session.
+_squad_run() {
+    if command -v gtimeout >/dev/null 2>&1; then
+        gtimeout 2s "$SQUAD_BIN" "$@"
+    elif command -v timeout >/dev/null 2>&1; then
+        timeout 2s "$SQUAD_BIN" "$@"
+    else
+        "$SQUAD_BIN" "$@"
+    fi
+}
+
+# Extract a string field from a JSON blob on stdin. Uses jq if available
+# (handles escaped quotes correctly); falls back to a regex that's good
+# enough for squad's own --json outputs (no nested escapes in id/repo fields).
+_json_str() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -r ".$1 // empty" 2>/dev/null
+    else
+        sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" | head -n1
+    fi
+}
+
+# Extract a numeric field, similarly.
+_json_num() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -r ".$1 // empty" 2>/dev/null
+    else
+        sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\\([0-9]*\\).*/\\1/p" | head -n1
+    fi
+}
+
 # Derive a stable per-session suffix so re-running the hook in the same
 # Claude Code session resolves to the SAME agent_id (no DB pollution).
 SESSION_KEY="${SQUAD_SESSION_ID:-${TERM_SESSION_ID:-${ITERM_SESSION_ID:-${TMUX_PANE:-${WT_SESSION:-}}}}}"
@@ -25,17 +57,21 @@ fi
 AGENT_ID="agent-$SUFFIX"
 AGENT_NAME="claude-$AGENT_ID"
 
-"$SQUAD_BIN" register --as "$AGENT_ID" --name "$AGENT_NAME" --no-repo-check >/dev/null 2>&1 || true
-"$SQUAD_BIN" tick >/dev/null 2>&1 || true
+_squad_run register --as "$AGENT_ID" --name "$AGENT_NAME" --no-repo-check >/dev/null 2>&1 || true
+_squad_run tick >/dev/null 2>&1 || true
 
-WHOAMI_ID=$("$SQUAD_BIN" whoami --json 2>/dev/null \
-    | sed -n 's/.*"id":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-REPO_NAME=$("$SQUAD_BIN" workspace status --json 2>/dev/null \
-    | sed -n 's/.*"current_repo":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-NEXT_TOP=$("$SQUAD_BIN" next --json --limit 3 2>/dev/null \
-    | grep -oE '"id":[[:space:]]*"[^"]+"' \
-    | sed -E 's/"id":[[:space:]]*"([^"]+)"/\1/' \
-    | head -n3 | tr '\n' ',' | sed 's/,$//')
+WHOAMI_ID=$(_squad_run whoami --json 2>/dev/null | _json_str id)
+REPO_NAME=$(_squad_run workspace status --json 2>/dev/null | _json_str current_repo)
+if command -v jq >/dev/null 2>&1; then
+    NEXT_TOP=$(_squad_run next --json --limit 3 2>/dev/null \
+        | jq -r '.[].id' 2>/dev/null \
+        | head -n3 | tr '\n' ',' | sed 's/,$//')
+else
+    NEXT_TOP=$(_squad_run next --json --limit 3 2>/dev/null \
+        | grep -oE '"id":[[:space:]]*"[^"]+"' \
+        | sed -E 's/"id":[[:space:]]*"([^"]+)"/\1/' \
+        | head -n3 | tr '\n' ',' | sed 's/,$//')
+fi
 
 [ -z "$WHOAMI_ID" ] && exit 0
 [ -z "$NEXT_TOP" ] && NEXT_TOP="(none)"
