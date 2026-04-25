@@ -10,9 +10,21 @@ import (
 
 type Config struct {
 	IDPrefixes   []string           `yaml:"id_prefixes"`
+	Agent        AgentConfig        `yaml:"agent"`
 	Defaults     Defaults           `yaml:"defaults"`
 	Verification VerificationConfig `yaml:"verification"`
 }
+
+type AgentConfig struct {
+	// ClaimConcurrency caps how many items a single agent can hold open at
+	// once. 0 means "use the default" (DefaultClaimConcurrency below).
+	// Set to a large number (e.g. 100) to effectively disable.
+	ClaimConcurrency int `yaml:"claim_concurrency"`
+}
+
+// DefaultClaimConcurrency is the cap applied when config doesn't override.
+// Documented as 1 since Phase 6; QA round 4 surfaced that it wasn't enforced.
+const DefaultClaimConcurrency = 1
 
 type Defaults struct {
 	Priority string `yaml:"priority"`

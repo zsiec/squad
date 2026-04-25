@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/claims"
+	"github.com/zsiec/squad/internal/config"
+	"github.com/zsiec/squad/internal/repo"
 )
 
 func lookupClaimHolder(ctx context.Context, bc *claimContext, itemID string) string {
@@ -51,6 +53,22 @@ func newClaimCmd() *cobra.Command {
 				}
 			}
 
+			// Enforce agent.claim_concurrency from config. Documented as
+			// default 1 since Phase 6 but QA round 4 surfaced that nothing
+			// actually checked it.
+			if cap := claimConcurrencyCap(); cap > 0 {
+				var n int
+				if err := bc.db.QueryRowContext(ctx,
+					`SELECT COUNT(*) FROM claims WHERE agent_id = ? AND repo_id = ?`,
+					bc.agentID, bc.repoID).Scan(&n); err == nil && n >= cap {
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"%s already holds %d claim(s); agent.claim_concurrency=%d in .squad/config.yaml.\n"+
+							"  release one first, or raise the cap (set claim_concurrency: 100 to effectively disable).\n",
+						bc.agentID, n, cap)
+					os.Exit(1)
+				}
+			}
+
 			err = bc.store.Claim(ctx, itemID, bc.agentID, intent, touchList, long,
 				claims.ClaimWithPreflight(bc.itemsDir, bc.doneDir))
 			if err == nil {
@@ -85,4 +103,23 @@ func newClaimCmd() *cobra.Command {
 	cmd.Flags().StringVar(&touches, "touches", "", "comma-separated file paths you'll modify")
 	cmd.Flags().BoolVar(&long, "long", false, "extended stale threshold (2h instead of 30m)")
 	return cmd
+}
+
+func claimConcurrencyCap() int {
+	wd, err := os.Getwd()
+	if err != nil {
+		return config.DefaultClaimConcurrency
+	}
+	root, err := repo.Discover(wd)
+	if err != nil {
+		return config.DefaultClaimConcurrency
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		return config.DefaultClaimConcurrency
+	}
+	if cfg.Agent.ClaimConcurrency > 0 {
+		return cfg.Agent.ClaimConcurrency
+	}
+	return config.DefaultClaimConcurrency
 }
