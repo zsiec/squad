@@ -1,0 +1,16 @@
+{
+  "name": "squad",
+  "version": "0.1.0",
+  "description": "Operating loop for AI coding agents: atomic claims, typed chat, evidence-gated done, mandatory review, multi-agent coordination.",
+  "author": "Thomas Symborski",
+  "license": "MIT",
+  "homepage": "https://github.com/zsiec/squad",
+  "min_claude_code_version": "1.0.0",
+  "skills": "skills/",
+  "commands": "commands/",
+  "hooks": "hooks/",
+  "requires": {
+    "binary": "squad",
+    "min_binary_version": "0.1.0"
+  }
+}
