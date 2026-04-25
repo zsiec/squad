@@ -55,6 +55,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newArchiveCmd())
 	root.AddCommand(newDumpStatusCmd())
 	root.AddCommand(newInitCmd())
+	root.AddCommand(newWorkspaceCmd())
 	root.PersistentPostRunE = postRunHygiene
 	return root
 }
