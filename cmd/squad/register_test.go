@@ -72,6 +72,50 @@ func TestRegister_RejectsOversizedName(t *testing.T) {
 	}
 }
 
+// QA r6-E F4: a fresh session re-using an existing agent's id used to
+// silently re-point the agents row at the new session, conflating
+// identities. The guard now refuses unless --force is passed.
+func TestRegister_RefusesHijackingExistingAgent(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+
+	// Session 1: register agent-foo from worktree-A.
+	t.Setenv("SQUAD_SESSION_ID", "session-1")
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"register", "--as", "agent-foo", "--no-repo-check"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("session-1 register: %v\n%s", err, out.String())
+	}
+
+	// Session 2: same id, different session. Should refuse.
+	t.Setenv("SQUAD_SESSION_ID", "session-2")
+	root2 := newRootCmd()
+	var out2 bytes.Buffer
+	root2.SetOut(&out2)
+	root2.SetErr(&out2)
+	root2.SetArgs([]string{"register", "--as", "agent-foo", "--no-repo-check"})
+	err := root2.Execute()
+	if err == nil {
+		t.Fatalf("expected refusal for hijack attempt, got success: %s", out2.String())
+	}
+	if !strings.Contains(err.Error(), "already registered") {
+		t.Fatalf("error should mention 'already registered', got: %v", err)
+	}
+
+	// With --force, the same call should succeed.
+	root3 := newRootCmd()
+	var out3 bytes.Buffer
+	root3.SetOut(&out3)
+	root3.SetErr(&out3)
+	root3.SetArgs([]string{"register", "--as", "agent-foo", "--force", "--no-repo-check"})
+	if err := root3.Execute(); err != nil {
+		t.Fatalf("--force register failed: %v\n%s", err, out3.String())
+	}
+}
+
 func TestRegister_NoFlags_RequiresInit(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("SQUAD_HOME", dir)

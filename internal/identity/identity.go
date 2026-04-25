@@ -24,6 +24,13 @@ func AgentID(worktree string) (string, error) {
 	return filepath.Base(worktree), nil
 }
 
+// PersistedAgentID exposes the session-keyed persisted id for callers that
+// need to compare against an --as override before writing. Returns "" when
+// no persisted file exists.
+func PersistedAgentID() string {
+	return readPersistedAgentID()
+}
+
 func readPersistedAgentID() string {
 	home, err := store.Home()
 	if err != nil {

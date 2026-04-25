@@ -159,3 +159,14 @@ func MoveToDone(srcPath, doneDir string) (string, error) {
 	}
 	return dst, nil
 }
+
+// MoveBack reverses a MoveToDone: rename donePath back into itemsDir under
+// its original basename. Used by claims.Done to compensate when the DB
+// commit fails after the file has already been moved.
+func MoveBack(donePath, itemsDir string) error {
+	if err := os.MkdirAll(itemsDir, 0o755); err != nil {
+		return err
+	}
+	dst := filepath.Join(itemsDir, filepath.Base(donePath))
+	return os.Rename(donePath, dst)
+}

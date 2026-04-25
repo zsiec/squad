@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -136,6 +137,17 @@ func newVersionCmd() *cobra.Command {
 }
 
 func main() {
+	// argv strings are NUL-truncated by execve before Go sees them, so a
+	// caller that builds os.Args via Go (or smuggles bytes via env vars)
+	// can land NULs that the kernel preserved into argv. Reject those at
+	// the boundary so they don't quietly truncate a title, agent id, or
+	// path inside squad. (QA r6-E F1.)
+	for i, a := range os.Args[1:] {
+		if strings.ContainsRune(a, 0) {
+			fmt.Fprintf(os.Stderr, "squad: arg %d contains NUL byte; refusing to truncate silently\n", i+1)
+			os.Exit(2)
+		}
+	}
 	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

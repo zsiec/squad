@@ -43,6 +43,56 @@ func TestDone_AtomicWhenReleaseFails(t *testing.T) {
 	}
 }
 
+// QA r6-H #3: Done used to commit the DB tx before the file rewrite. A
+// release failure (e.g., claim wasn't ours) left the file moved with no
+// way to recover automatically. New ordering (files first, DB second)
+// rolls the file back when the DB tx fails.
+func TestDone_RollsBackFileMoveWhenDBFails(t *testing.T) {
+	s, _ := newTestStore(t)
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	itemsDir := filepath.Join(tmp, "items")
+	doneDir := filepath.Join(tmp, "done")
+	if err := os.MkdirAll(itemsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	itemPath := filepath.Join(itemsDir, "BUG-099-rollback.md")
+	contents := `---
+id: BUG-099
+title: rollback
+type: bug
+status: ready
+created: 2026-04-20
+updated: 2026-04-20
+---
+
+## Problem
+.
+`
+	if err := os.WriteFile(itemPath, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// No active claim → release will fail → DB tx errors. Verify the
+	// file ends up back in items/, not stranded in done/.
+	err := s.Done(ctx, "BUG-099", "agent-a", DoneOpts{
+		Summary:  "rollback",
+		ItemPath: itemPath,
+		DoneDir:  doneDir,
+	})
+	if err == nil {
+		t.Fatal("expected Done to fail when no claim exists")
+	}
+	if _, err := os.Stat(itemPath); err != nil {
+		t.Fatalf("item file should be back in items/, got: %v", err)
+	}
+	stranded := filepath.Join(doneDir, "BUG-099-rollback.md")
+	if _, err := os.Stat(stranded); !os.IsNotExist(err) {
+		t.Fatalf("file stranded in done/: err=%v", err)
+	}
+}
+
 func TestDone_RewritesFrontmatterAndMovesToDoneDir(t *testing.T) {
 	s, _ := newTestStore(t)
 	ctx := context.Background()
