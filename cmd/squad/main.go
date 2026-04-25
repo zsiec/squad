@@ -39,6 +39,8 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newHandoffCmd())
 	root.AddCommand(newReviewRequestCmd())
 	root.AddCommand(newProgressCmd())
+	root.AddCommand(newTickCmd())
+	root.AddCommand(newWhoCmd())
 	return root
 }
 
