@@ -65,6 +65,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newInstallPluginCmd())
 	root.AddCommand(newInstallHooksCmd())
 	root.AddCommand(newListenCmd())
+	root.AddCommand(newMailboxCmd())
 	root.AddCommand(newPRCmd())
 	root.AddCommand(newPRLinkCmd())
 	root.AddCommand(newPRCloseCmd())
