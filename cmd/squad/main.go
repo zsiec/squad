@@ -37,6 +37,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newChattyCmd(fyiVerb))
 	root.AddCommand(newKnockCmd())
 	root.AddCommand(newHandoffCmd())
+	root.AddCommand(newReviewRequestCmd())
 	return root
 }
 
