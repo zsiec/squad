@@ -54,3 +54,31 @@ func (s *Store) releaseInTx(ctx context.Context, tx *sql.Tx, itemID, agentID, ou
 	}
 	return postSystemMessage(ctx, tx, s.repoID, now, agentID, itemID, "release", body, nil, "normal")
 }
+
+// ReleaseAll releases every active claim held by agentID with the given outcome.
+// No-op when the agent holds no claims. Used by `squad handoff`.
+func (s *Store) ReleaseAll(ctx context.Context, agentID, outcome string) error {
+	if outcome == "" {
+		outcome = "released"
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT item_id FROM claims WHERE agent_id = ?`, agentID)
+	if err != nil {
+		return fmt.Errorf("list claims: %w", err)
+	}
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		items = append(items, id)
+	}
+	rows.Close()
+	for _, id := range items {
+		if err := s.Release(ctx, id, agentID, outcome); err != nil {
+			return err
+		}
+	}
+	return nil
+}
