@@ -259,3 +259,54 @@ func TestGoCmd_NoReadyItemsIsNotAnError(t *testing.T) {
 		t.Fatalf("expected 'no ready' message, got %s", out.String())
 	}
 }
+
+func TestGoCmd_PrintsAcceptanceCriteria(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-ac-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(filepath.Join(repoDir, ".squad", "items", "EXAMPLE-001-try-the-loop.md"))
+	writeItemFile(t, repoDir, "FEAT-010-with-ac.md",
+		`---
+id: FEAT-010
+title: with ac
+type: feature
+priority: P0
+status: open
+estimate: 1h
+---
+
+## Acceptance criteria
+- [ ] first specific testable thing
+- [ ] second specific testable thing
+- [ ] third specific testable thing
+`)
+
+	t.Chdir(repoDir)
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"go"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	body := out.String()
+	for _, want := range []string{
+		"first specific testable thing",
+		"second specific testable thing",
+		"third specific testable thing",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("AC line %q missing from output:\n%s", want, body)
+		}
+	}
+}

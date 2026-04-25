@@ -67,7 +67,7 @@ func ensureClaim(out io.Writer) error {
 		return err
 	} else if ok {
 		fmt.Fprintf(out, "resuming claim on %s\n", held)
-		return nil
+		return printItemAC(out, bc.itemsDir, held)
 	}
 
 	root, err := repo.Discover(identity.DetectWorktree())
@@ -92,7 +92,7 @@ func ensureClaim(out io.Writer) error {
 			claims.ClaimWithPreflight(bc.itemsDir, bc.doneDir))
 		if err == nil {
 			fmt.Fprintf(out, "claimed %s: %s\n", it.ID, it.Title)
-			return nil
+			return printItemAC(out, bc.itemsDir, it.ID)
 		}
 		if errors.Is(err, claims.ErrClaimTaken) {
 			continue
@@ -158,6 +158,32 @@ func ensureRegistered(out io.Writer) error {
 		return nil
 	}
 	return runRegisterWithOpts(out, "", "", false, false)
+}
+
+func printItemAC(out io.Writer, itemsDir, itemID string) error {
+	path := findItemPath(itemsDir, itemID)
+	if path == "" {
+		fmt.Fprintf(out, "(item file for %s not found in %s)\n", itemID, itemsDir)
+		return nil
+	}
+	it, err := items.Parse(path)
+	if err != nil {
+		return err
+	}
+	if len(it.ACItems) == 0 {
+		fmt.Fprintln(out, "(item has no acceptance criteria — sharpen before coding)")
+		return nil
+	}
+	fmt.Fprintln(out, "")
+	fmt.Fprintln(out, "Acceptance criteria:")
+	for _, ac := range it.ACItems {
+		marker := "[ ]"
+		if ac.Checked {
+			marker = "[x]"
+		}
+		fmt.Fprintf(out, "  %s %s\n", marker, ac.Text)
+	}
+	return nil
 }
 
 func agentExists(id string) (bool, error) {
