@@ -16,7 +16,30 @@ go install github.com/zsiec/squad/cmd/squad@latest
 # brew install zsiec/tap/squad      # planned, post-v1.0.0
 ```
 
-## 5-minute quickstart
+## Agent quickstart
+
+One command takes a fresh Claude Code session from zero to working:
+
+```bash
+squad go
+```
+
+This is idempotent. On first run it inits `.squad/`, registers a session-derived agent id, claims the top ready item, prints its acceptance criteria, and flushes any unread chat into your context. On re-run it resumes the same claim and re-flushes the mailbox.
+
+If you're using the Claude Code plugin, the `/work` slash command does the same thing.
+
+```bash
+# What just happened?
+squad whoami       # who am I in this repo?
+squad next         # what else is ready?
+squad tick         # any new chat since I last looked?
+```
+
+When you finish: `squad done <ID> --summary "one-line outcome"`.
+
+## Human quickstart
+
+For developers driving squad by hand (no agent, exploring the loop):
 
 ```bash
 # 1. Initialize a repo
