@@ -1,0 +1,169 @@
+# Adopting squad
+
+This is the cold-start walkthrough. If you can finish it without DM-ing anyone for help, the docs did their job.
+
+## TL;DR
+
+```bash
+go install github.com/zsiec/squad/cmd/squad@latest
+cd ~/dev/your-project
+squad init
+squad register --as agent-you --name "Your Name"
+squad next                    # see the example item
+squad claim EXAMPLE-001 --intent "first squad loop"
+# ... follow the steps in the example item itself ...
+squad done EXAMPLE-001 --summary "loop complete"
+```
+
+Total time target: under 5 minutes from `go install` to first `squad done`.
+
+## Day 0 — install
+
+```bash
+go install github.com/zsiec/squad/cmd/squad@latest    # or `brew install zsiec/tap/squad` once Phase 14 ships
+squad version
+```
+
+Expected output: `0.1.0-dev` or similar. If `squad: command not found`, your `$GOPATH/bin` isn't on PATH. Add it:
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+Persist that in your shell rc.
+
+## Day 0 — initialize a repo
+
+```bash
+cd ~/dev/your-project           # must be a git repo with at least one commit
+squad init
+```
+
+`init` asks ≤3 questions:
+
+1. **Project name** — defaults to the directory basename. Press enter to accept.
+2. **ID prefixes** — comma-separated list. Defaults are fine for most.
+3. **Install plugin?** — `Y` if you use Claude Code, `n` if you don't.
+
+What lands on disk:
+
+- `.squad/items/EXAMPLE-001-try-the-loop.md` — a tutorial item that walks through the loop while you do it.
+- `.squad/items/`, `.squad/done/` — directories for items you'll file.
+- `.squad/config.yaml` — project config; tune later.
+- `AGENTS.md` — generic agent doctrine doc.
+- `CLAUDE.md` — managed block injected (or file created).
+
+Verify and commit:
+
+```bash
+git status                      # see what changed
+git diff CLAUDE.md              # see the managed block (if CLAUDE.md already existed)
+git add .squad/ AGENTS.md CLAUDE.md
+git commit -m "chore: adopt squad"
+```
+
+## Day 0 — register and tick
+
+```bash
+squad register --as agent-you --name "Your Name"
+squad tick
+```
+
+`register` is idempotent — running it again is fine. The `--as` value persists per-session: if you have multiple terminal tabs open in this repo, each tab can have its own agent_id.
+
+`tick` should be silent on the first run (no mentions yet). Going forward, run it whenever you start a session.
+
+## Day 0 — your first item
+
+Open `.squad/items/EXAMPLE-001-try-the-loop.md`. It's a real item with real acceptance criteria — completing it teaches you the loop while you live it.
+
+```bash
+squad next                      # confirm EXAMPLE-001 is at the top
+squad claim EXAMPLE-001 --intent "walk through the loop end-to-end"
+```
+
+Now follow the steps inside the item. They tell you to:
+
+1. Read the AC.
+2. Check off each box as you do it.
+3. Post `squad milestone` when an AC clears.
+4. Run any local tests the item names.
+5. `squad done EXAMPLE-001 --summary "loop complete"`.
+
+After `done`, the file moves to `.squad/done/`. Commit:
+
+```bash
+git add .squad/
+git commit -m "chore: complete first squad loop"
+```
+
+That's the whole cycle. Everything else is repetition.
+
+## Day 1 — your first real item
+
+```bash
+squad new feat "the smallest real thing you can think of in this repo"
+```
+
+It writes a frontmatter-only stub at `.squad/items/FEAT-001-...md`. Open it and fill in:
+
+- `## Problem` — what's wrong / what doesn't exist.
+- `## Acceptance criteria` — the list of testable things; **be specific**, not "works correctly."
+- `## Notes` — anything else.
+
+Then claim, work, test, review, done — same loop.
+
+## Day 1 — install hooks (optional)
+
+```bash
+squad install-hooks
+```
+
+Interactive: asks about each of five hooks. Recommended for solo:
+
+- `session-start` — Y (default; auto-register + tick on Claude Code launch)
+- `pre-commit-tick` — n (interrupts solo flow)
+- `pre-commit-pm-traces` — Y if you tend to leak ticket IDs into commits
+- `pre-edit-touch-check` — n (no peers)
+- `stop-handoff` — n (you'll just close Claude when done)
+
+For multi-agent, install `pre-edit-touch-check` and `pre-commit-tick` too. See [reference/hooks.md](reference/hooks.md).
+
+## Day 2 — multi-agent (if applicable)
+
+Open a second Claude Code session in the same repo. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` so each session gets a distinct ID automatically. If you skipped the hook, manually:
+
+```bash
+squad register --as agent-second --name "Second Session"
+```
+
+Now both sessions can `claim` independently. Try claiming the same item from both — one wins, one gets a clear error. That's the lock at work. See [recipes/multi-agent-parallel-claude-sessions.md](recipes/multi-agent-parallel-claude-sessions.md) for the full guide.
+
+## Day 7 — hygiene
+
+```bash
+squad doctor                    # should be clean if you've been releasing claims promptly
+```
+
+If `doctor` flags stale claims (yours from sessions that crashed or that you forgot to release), follow its suggested commands. See [concepts/hygiene.md](concepts/hygiene.md).
+
+Run `squad doctor` weekly as a habit, even when nothing seems wrong. It also checks the global DB integrity.
+
+## When things go wrong
+
+See [troubleshooting.md](troubleshooting.md). The fastest path to a fix:
+
+1. `squad doctor` — clears 80% of issues.
+2. `squad workspace list` — confirms the repo is registered.
+3. File a `squad new bug "<symptom>"` against squad itself if the issue is a real bug. Your snag is the next person's snag.
+
+## When you graduate
+
+You'll know you've adopted squad when:
+
+- You don't think about the loop anymore — you just do it.
+- You file items reflexively, without deliberating.
+- `squad doctor` is silent for a week at a time.
+- You can't remember what coordinating with peers was like before atomic claims.
+
+That's the success criterion. The loop is invisible when it's working.
