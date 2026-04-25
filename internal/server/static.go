@@ -18,8 +18,10 @@ func staticHandler() http.Handler {
 	fileServer := http.FileServer(http.FS(sub))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			w.Header().Set("Allow", "GET")
-			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			// Mux didn't match a registered route: the path doesn't exist.
+			// 404 (route absent) is the right signal here, not 405 (route
+			// present but wrong method).
+			writeErr(w, http.StatusNotFound, "no such api route: "+r.URL.Path)
 			return
 		}
 		fileServer.ServeHTTP(w, r)

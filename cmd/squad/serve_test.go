@@ -30,7 +30,7 @@ func TestServe_StartsAndShutsDown(t *testing.T) {
 
 	codeCh := make(chan int, 1)
 	go func() {
-		codeCh <- runServeCtx(ctx, port, "127.0.0.1", ".squad", &bytes.Buffer{})
+		codeCh <- runServeCtx(ctx, port, "127.0.0.1", ".squad", "", &bytes.Buffer{})
 	}()
 
 	url := "http://127.0.0.1:" + strconv.Itoa(port) + "/api/health"

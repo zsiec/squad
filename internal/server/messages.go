@@ -78,7 +78,12 @@ func (s *Server) handleMessagesList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
-	if !s.allowMessage(s.actingAgent(r)) {
+	agent := s.actingAgent(r)
+	if agent == "" {
+		writeErr(w, http.StatusBadRequest, "X-Squad-Agent header required")
+		return
+	}
+	if !s.allowMessage(agent) {
 		writeErr(w, http.StatusTooManyRequests, "rate limited")
 		return
 	}
@@ -103,7 +108,7 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 		mentions = chat.ParseMentions(req.Body)
 	}
 	if err := s.chat.Post(r.Context(), chat.PostRequest{
-		AgentID:  s.actingAgent(r),
+		AgentID:  agent,
 		Thread:   req.Thread,
 		Kind:     chat.KindSay,
 		Body:     req.Body,

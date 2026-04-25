@@ -25,6 +25,7 @@ func newServeCmd() *cobra.Command {
 		port     int
 		bind     string
 		squadDir string
+		token    string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -32,7 +33,11 @@ func newServeCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			if code := runServeCtx(ctx, port, bind, squadDir, cmd.OutOrStdout()); code != 0 {
+			tok := token
+			if tok == "" {
+				tok = os.Getenv("SQUAD_DASHBOARD_TOKEN")
+			}
+			if code := runServeCtx(ctx, port, bind, squadDir, tok, cmd.OutOrStdout()); code != 0 {
 				return fmt.Errorf("serve exited with code %d", code)
 			}
 			return nil
@@ -41,10 +46,11 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&port, "port", 7777, "TCP port to bind")
 	cmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "interface to bind (default localhost only)")
 	cmd.Flags().StringVar(&squadDir, "squad-dir", ".squad", "squad directory containing items/ and done/")
+	cmd.Flags().StringVar(&token, "token", "", "require Bearer <token> on every request (or ?token= for SSE in browsers); falls back to $SQUAD_DASHBOARD_TOKEN")
 	return cmd
 }
 
-func runServeCtx(ctx context.Context, port int, bind, squadDir string, out interface{ Write([]byte) (int, error) }) int {
+func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, out interface{ Write([]byte) (int, error) }) int {
 	db, err := store.OpenDefault()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -65,7 +71,7 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir string, out inter
 	}
 
 	s := server.New(db, repoID, server.Config{
-		Host: bind, Port: port, SquadDir: squadDir, RepoID: repoID,
+		Host: bind, Port: port, SquadDir: squadDir, RepoID: repoID, Token: token,
 	})
 	defer s.Close()
 
