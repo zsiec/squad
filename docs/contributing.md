@@ -10,9 +10,8 @@ cd squad
 go build ./cmd/squad                                # confirms the build works
 go test -race ./...                                 # confirms tests pass
 
-# scaffold a .squad/ if this clone doesn't have one yet, then register
-./squad init --yes                                  # idempotent if already initialised
-./squad register --as agent-you --name "Your Name"
+# scaffold a .squad/ if this clone doesn't have one yet, then onboard
+./squad go                                          # idempotent: init + register + claim + AC + mailbox
 ```
 
 Optional: install the plugin and hooks against this repo (and yes, you can dogfood squad on squad).

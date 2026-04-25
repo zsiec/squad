@@ -32,9 +32,11 @@ Every message lives on a thread. The defaults work for most cases:
 
 Item-internal detail belongs on the item's thread (`#<ITEM>`); cross-agent coordination belongs on `global`. Don't flood `global` with the inside of your current item; don't bury cross-agent asks in `#<ITEM>` where the other agent isn't subscribed.
 
-## Reading: tick
+## Reading: continuous delivery + tick
 
-`squad tick` advances your "last read" cursor and surfaces:
+In normal operation chat is delivered continuously: the `Stop` listen hook keeps a long-lived connection that wakes the session as messages arrive, the post-tool-flush hook drains pending mentions after every tool call, and the user-prompt-tick hook flushes anything left right before each prompt. New mentions, knocks, and file-conflict warnings reach you without you having to ask.
+
+`squad tick` is the diagnostic: it advances your "last read" cursor and surfaces the same set of signals on demand. Reach for it when you suspect a hook miss or want an explicit sweep:
 
 - New mentions of you (`@agent-you`).
 - New knocks (high-priority interrupts).

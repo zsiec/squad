@@ -7,11 +7,8 @@ This is the cold-start walkthrough. If you can finish it without DM-ing anyone f
 ```bash
 go install github.com/zsiec/squad/cmd/squad@latest
 cd ~/dev/your-project
-squad init
-squad register --as agent-you --name "Your Name"
-squad next                    # see the example item
-squad claim EXAMPLE-001 --intent "first squad loop"
-# ... follow the steps in the example item itself ...
+squad go                      # init, register, claim top ready item (the example), print AC, flush chat
+# ... follow the steps inside the example item ...
 squad done EXAMPLE-001 --summary "loop complete"
 ```
 
@@ -63,27 +60,21 @@ git add .squad/ AGENTS.md CLAUDE.md
 git commit -m "chore: adopt squad"
 ```
 
-## Day 0 — register and tick
+## Day 0 — onboard with `squad go`
 
 ```bash
-squad register --as agent-you --name "Your Name"
-squad tick
+squad go
 ```
 
-`register` is idempotent — running it again is fine. The `--as` value persists per-session: if you have multiple terminal tabs open in this repo, each tab can have its own agent_id.
+One command does init (if not already), registers a session-derived agent id, picks the top ready item (the example item on first run), claims it atomically, prints its acceptance criteria, and flushes any unread chat into your context.
 
-`tick` should be silent on the first run (no mentions yet). Going forward, run it whenever you start a session.
+`squad go` is idempotent — re-run it any time to resume the same claim. The session id is derived from your terminal session (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, etc.), so each terminal tab gets its own agent_id automatically.
+
+If you want an explicit override — different display name, scripted setups — `squad register` accepts `--as <id> --name "..."`; otherwise let `squad go` derive both.
 
 ## Day 0 — your first item
 
-Open `.squad/items/EXAMPLE-001-try-the-loop.md`. It's a real item with real acceptance criteria — completing it teaches you the loop while you live it.
-
-```bash
-squad next                      # confirm EXAMPLE-001 is at the top
-squad claim EXAMPLE-001 --intent "walk through the loop end-to-end"
-```
-
-Now follow the steps inside the item. They tell you to:
+`squad go` already opened EXAMPLE-001 for you and printed its AC. Follow the steps inside the item:
 
 1. Read the AC.
 2. Check off each box as you do it.
@@ -122,7 +113,7 @@ squad install-hooks
 
 Interactive: asks about each hook. Recommended for solo:
 
-- `session-start` — Y (default; auto-register + tick on Claude Code launch)
+- `session-start` — Y (default; ensures the session has a derived agent id on Claude Code launch)
 - `pre-commit-pm-traces` — Y if you tend to leak ticket IDs into commits
 - `pre-edit-touch-check` — n (no peers)
 
@@ -130,10 +121,10 @@ For multi-agent, install `pre-edit-touch-check` too. See [reference/hooks.md](re
 
 ## Day 2 — multi-agent (if applicable)
 
-Open a second Claude Code session in the same repo. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` so each session gets a distinct ID automatically. If you skipped the hook, set a unique session env var per shell first (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, etc.) — without one, both shells share the same persisted agent-id file and the second `register` overwrites the first:
+Open a second Claude Code session in the same repo and run `squad go` in each. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` so each session gets a distinct ID automatically. If you skipped the hook, set a unique session env var per shell first (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, etc.) — without one, both shells share the same persisted agent-id file and the second registration overwrites the first:
 
 ```bash
-SQUAD_SESSION_ID=second squad register --as agent-second --name "Second Session"
+SQUAD_SESSION_ID=second squad go
 ```
 
 Now both sessions can `claim` independently. Try claiming the same item from both — one wins, one gets a clear error. That's the lock at work. See [recipes/multi-agent-parallel-claude-sessions.md](recipes/multi-agent-parallel-claude-sessions.md) for the full guide.

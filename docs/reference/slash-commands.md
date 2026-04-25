@@ -4,7 +4,7 @@ The squad Claude Code plugin ships eight slash commands. Each is a Markdown file
 
 ## `/work`
 
-Resume the operating loop. Runs `squad register --as agent-$(rand) --name agent-XXXX && squad tick`, then `squad next`. Tells you what the top of the ready stack is, addresses any unread mentions, and invokes the `squad-loop` skill so subsequent steps follow the discipline.
+Onboard or resume in one step. Invokes `squad go`, which inits `.squad/` if absent, registers a session-derived agent id, claims the top ready item, prints its acceptance criteria, and flushes any unread chat into your context. Idempotent — re-running resumes the same claim. The framing then invokes the `squad-loop` skill so subsequent steps follow the discipline.
 
 ```
 /work
@@ -28,7 +28,7 @@ Evidence-gated close-out. Walks the conversation through three explicit gates be
 2. `squad-quality-bar` — run the pre-commit checklist
 3. `squad-code-review-mandatory` — spawn a reviewer
 
-Then runs `squad tick && squad done $ARGS --summary "..."`. If any gate cannot be met this session, the command instructs setting `status: review` instead of done.
+Then runs `squad done $ARGS --summary "..."`. If any gate cannot be met this session, the command instructs setting `status: review` instead of done. Chat delivery is continuous via hooks, so no manual tick is needed before close-out.
 
 ```
 /done FEAT-001
@@ -54,7 +54,7 @@ Posts the request to the item thread via `squad review-request $ARGS` first.
 
 ## `/tick`
 
-Surface mentions, file conflicts, knocks. Address mentions BEFORE continuing other work.
+Diagnostic-only: manually surface mentions, file conflicts, and knocks. Chat is normally delivered continuously via the `Stop` listen + post-tool-flush + user-prompt-tick hooks, so `/tick` is for cases where you suspect a hook miss or want to advance the read cursor explicitly.
 
 ```
 /tick

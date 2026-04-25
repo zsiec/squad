@@ -12,32 +12,28 @@ In each pane:
 
 ```bash
 cd ~/dev/your-project
-# pane 1
-squad register --as agent-blue --name "Blue"
-# pane 2
-squad register --as agent-green --name "Green"
-# pane 3
-squad register --as agent-violet --name "Violet"
+squad go              # registers a session-derived id and claims the top ready item
 ```
 
-Each pane is now a distinct agent. Open three Claude Code sessions, one per pane. Squad keys the *current* agent identity off the session — first one of `SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `TMUX_PANE`, `STY`, `WT_SESSION` that's set. Terminal apps usually set one of these automatically per pane, so registration is per-pane out of the box.
+Run `squad go` independently in each pane. Squad keys the *current* agent identity off the session — first one of `SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `TMUX_PANE`, `STY`, `WT_SESSION` that's set. Terminal apps usually set one of these automatically per pane, so each pane lands a distinct agent id out of the box and they will not collide on `squad go`.
+
+If you want explicit names for log-readability, override on first run with `squad register --as agent-blue --name "Blue"` (then `squad go` from the same shell resumes against that id). Otherwise let the derived id stand.
 
 If you're scripting against multiple agents from a single shell (no terminal session), set `SQUAD_SESSION_ID` explicitly per process:
 
 ```bash
-SQUAD_SESSION_ID=blue squad register --as agent-blue --name "Blue"
-SQUAD_SESSION_ID=blue squad claim FEAT-001 --intent "blue starts"
-SQUAD_SESSION_ID=green squad register --as agent-green --name "Green"
-SQUAD_SESSION_ID=green squad claim FEAT-002 --intent "green starts"
+SQUAD_SESSION_ID=blue squad go
+SQUAD_SESSION_ID=green squad go
+SQUAD_SESSION_ID=violet squad go
 ```
 
-Without a session key, every shell shares one persisted agent-id file at `~/.squad/agent-id.txt`, and the most recent `register` wins. Set a session env var (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, etc.) to opt into a per-session file at `~/.squad/agent-id.<hash>.txt` so each shell keeps its own identity.
+Without a session key, every shell shares one persisted agent-id file at `~/.squad/agent-id.txt`, and the most recent registration wins. Set a session env var (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, etc.) to opt into a per-session file at `~/.squad/agent-id.<hash>.txt` so each shell keeps its own identity.
 
 ## Coordination commands
 
 ```bash
 squad who                                    # who is registered, current claim, last tick
-squad tick                                   # surface mentions and conflicts since last tick
+squad tick                                   # diagnostic sweep — chat is normally delivered continuously by hooks
 squad ask @agent-green "should I rebase?"    # directed question
 squad workspace status                       # cross-repo when you have multiple
 ```

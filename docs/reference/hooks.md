@@ -6,7 +6,7 @@ Squad's Claude Code hooks are **opt-in per hook** via `squad install-hooks`. `se
 
 | Hook | Default | Event | Effect |
 |---|---|---|---|
-| `session-start` | ON | `SessionStart` | Auto `squad register` + `squad tick`; injects one-line context block. |
+| `session-start` | ON | `SessionStart` | Ensures the session has a derived agent id (calls `squad register --no-repo-check`); injects one-line context block. Chat delivery is handled continuously by `user-prompt-tick` plus the `Stop` listen + post-tool-flush mechanism — session-start does not need to surface chat itself. |
 | `user-prompt-tick` | ON | `UserPromptSubmit` | Auto-tick before every prompt; injects pending mentions/knocks/handoffs as `additionalContext`. |
 | `pre-compact` | ON | `PreCompact` | Inject the agent's current claim + intent + recent chat lines so identity survives compaction. |
 | `pre-commit-pm-traces` | OFF | `PreToolUse:Bash` matching `git commit` | Blocks commit if backlog IDs in diff or message. |

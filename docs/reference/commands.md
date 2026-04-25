@@ -8,13 +8,14 @@ To regenerate this page from the binary itself: `squad <verb> --help`.
 
 ### `squad register`
 
-Register this agent in the squad global database.
+Register this agent in the squad global database. Zero-arg form derives a session-stable id and display name from your terminal session — no flags needed for the common case. Pass `--as <id> --name "..."` only when you want explicit overrides (scripted setups, log-readable names).
 
 ```bash
-squad register --as agent-blue --name "Alice"
+squad register                                # session-derived id and name
+squad register --as agent-blue --name "Alice" # explicit override
 ```
 
-Idempotent; re-running with the same `--as` updates the display name and bumps `last_tick_at`.
+Idempotent; re-running updates the display name and bumps `last_tick_at`. Most agents reach this command via `squad go`, which calls register internally before claiming.
 
 ### `squad whoami`
 
@@ -147,7 +148,7 @@ Or pipe the note from stdin: `git log --oneline | squad handoff --stdin --shippe
 
 ### `squad tick`
 
-Show new messages since last tick and advance the read cursor.
+Show new messages since last tick and advance the read cursor. Diagnostic-only in normal operation — chat is delivered continuously via the `Stop` listen + post-tool-flush + user-prompt-tick hooks. Reach for `squad tick` when you suspect a hook miss or want to advance the cursor explicitly.
 
 ```bash
 squad tick

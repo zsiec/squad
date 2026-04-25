@@ -4,15 +4,15 @@
 
 Every session — yours, every coworker's, every parallel agent's — follows the same eight steps:
 
-> register → tick → pick → claim → work → test → review → done
+> go → pick → claim → work → checkpoint → test → review → done
 
 Skip a step and you produce work that other people have to clean up.
 
 ## The eight stages
 
-### 1. Register and tick
+### 1. Go
 
-`squad register --as agent-XXXX --name "Your Name"` and `squad tick`, in one bash invocation. Register is idempotent — re-running with the same `--as` is fine. Tick surfaces unread mentions, knocks, and file-conflict warnings. **Skip tick and you miss the heads-ups peers posted while you were away.**
+`squad go` registers a session-derived agent id, claims the top ready item, prints its acceptance criteria, and flushes any unread chat into your context — in one command. Idempotent: re-run to resume the same claim. If `squad go` says `no ready items`, drop to step 2 and pick manually. Chat after that point is delivered continuously by hooks, so you do not need to manually tick mid-session.
 
 ### 2. Pick
 
@@ -40,7 +40,7 @@ Every item goes through `superpowers:code-reviewer` (or your project's equivalen
 
 ### 8. Done
 
-Final `squad tick` to catch last-minute mentions. Then `squad done <ID> --summary "one-line outcome"`. The command rewrites the item's frontmatter (`status: done`), moves the file to `.squad/done/`, and posts a system message in the item thread. Commit the file move with the rest of the work.
+`squad done <ID> --summary "one-line outcome"`. The command rewrites the item's frontmatter (`status: done`), moves the file to `.squad/done/`, and posts a system message in the item thread. Commit the file move with the rest of the work. Chat is delivered continuously by hooks, so no manual tick is needed before close-out — if you suspect a hook miss, run `squad tick` as a diagnostic.
 
 ## Premise validation
 
@@ -61,11 +61,11 @@ Items rot. A symptom described two weeks ago might be fixed by an unrelated comm
 
 ## Anti-patterns
 
-- **Skipping tick** because "nothing has changed." You don't know that until you tick.
+- **Skipping `squad go`** at session start. Continuous chat hooks need a registered identity; without `squad go` you may post under a stale or missing id.
 - **Claim-and-walk-away.** Heartbeat handles brief absence; if you're truly done for the day, `handoff` or release. The hygiene sweep auto-flags claims with no activity past the configured threshold.
 - **Test after impl.** Even if the impl works, you've lost the proof that the bug existed — and you've skipped the chance to discover the bug doesn't reproduce.
 - **Marking done without re-reading the AC.** Each box should map to a test you wrote or a step you actually performed.
 
 ## Why the loop works
 
-It's a forcing function for visibility and accountability. Register-and-tick keeps the team unblocked. Atomic claim prevents two agents from doing the same work. Premise validation prevents fixing nothing. Evidence-gated done means the next session can trust your "done." Mandatory review catches what self-review misses. The eight steps together are how a squad of agents actually finishes things instead of meandering.
+It's a forcing function for visibility and accountability. `squad go` keeps the team unblocked — register, claim, mailbox flush in one shot. Atomic claim prevents two agents from doing the same work. Premise validation prevents fixing nothing. Evidence-gated done means the next session can trust your "done." Mandatory review catches what self-review misses. The eight steps together are how a squad of agents actually finishes things instead of meandering.

@@ -81,7 +81,7 @@ Anything outside those markers is yours. Re-running `squad init` re-renders the 
 ```bash
 squad doctor                        # should be clean on a fresh install
 squad install-hooks                 # opt-in to the hooks you want
-squad register --as agent-you --name "Your Name"
+squad go                            # register a session-derived agent id and pick up the top ready item
 ```
 
 For multi-agent work, have a teammate run the same five commands on their machine, then both register and try `squad workspace who`. They should see each other.

@@ -10,7 +10,7 @@ You're alone on a project, you run one Claude Code session at a time, and you wa
 - The `Stop` auto-handoff hook — you'll just close Claude when you're done.
 - `squad workspace` queries — only useful with multiple repos.
 
-## Setup (5 commands)
+## Setup (3 commands)
 
 ```bash
 # 1. Install
@@ -19,15 +19,11 @@ go install github.com/zsiec/squad/cmd/squad@latest
 # 2. cd into your project (must be a git repo with at least one commit)
 cd ~/dev/your-project
 
-# 3. Initialize squad
-squad init                    # answers ≤3 questions; pick "Y" for plugin
-
-# 4. Install only the SessionStart hook
-squad install-hooks --yes     # only session-start ON; the rest default OFF
-
-# 5. Register
-squad register --as agent-solo --name "Your Name"
+# 3. Onboard in one step
+squad go                      # init, register, claim top ready item, print AC, flush chat
 ```
+
+Optional: `squad install-hooks --yes` to add the SessionStart hook (default ON) so future Claude Code launches register the session automatically.
 
 ## Your first item end-to-end
 
@@ -36,8 +32,7 @@ squad register --as agent-solo --name "Your Name"
 squad new feat "wire the export button"
 
 # Pick it up
-squad next                    # see it at the top
-squad claim FEAT-001 --intent "stub then wire to /api/export"
+squad go                      # claims FEAT-001, prints AC, flushes any chat
 
 # Do the work
 # ... edit, test, commit ...
@@ -51,8 +46,8 @@ git add .squad/ && git commit -m "feat: wire the export button"
 
 ## Daily flow
 
-- Open Claude Code in the project. The SessionStart hook auto-runs `squad register` and `squad tick`, injecting a context line about who you are and what's at the top of the ready stack.
-- If you have an in-progress claim, continue it.
+- Open Claude Code in the project. The SessionStart hook ensures the session has a derived agent id; chat is delivered continuously via the `Stop` listen + post-tool-flush + user-prompt-tick hooks, so unread mentions reach you without a manual tick.
+- Run `squad go` to claim the top ready item (or resume an in-progress claim) and have the AC printed back to you.
 - Otherwise pick from `squad next`, claim, work the loop.
 - Close at end of session with `squad done` or `squad release` if you'll resume tomorrow.
 
