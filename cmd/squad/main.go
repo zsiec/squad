@@ -46,6 +46,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newTouchCmd())
 	root.AddCommand(newUntouchCmd())
 	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newArchiveCmd())
 	return root
 }
 
