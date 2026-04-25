@@ -3,7 +3,6 @@ package identity
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,17 +11,19 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
-func AgentID(worktree string) (string, error) {
+// AgentID resolves the identity for this session with the precedence:
+// SQUAD_AGENT env > persisted per-session file > fresh "agent-XXXX" derived
+// from the session suffix. It never returns an empty id and never errors in
+// practice — the error return is preserved for forward-compatibility with a
+// future store-backed lookup.
+func AgentID() (string, error) {
 	if env := strings.TrimSpace(os.Getenv("SQUAD_AGENT")); env != "" {
 		return env, nil
 	}
 	if persisted := readPersistedAgentID(); persisted != "" {
 		return persisted, nil
 	}
-	if worktree == "" {
-		return "", errors.New("cannot infer agent id: SQUAD_AGENT unset, no persisted id, and worktree empty")
-	}
-	return filepath.Base(worktree), nil
+	return "agent-" + SessionSuffix(), nil
 }
 
 // PersistedAgentID exposes the session-keyed persisted id for callers that
@@ -98,21 +99,6 @@ func SessionSuffix() string {
 	}
 	sum := sha256.Sum256([]byte(key))
 	return hex.EncodeToString(sum[:2])
-}
-
-// DerivedAgentID returns "agent-XXXX" where XXXX is SessionSuffix(). Honors
-// the same precedence as AgentID for SQUAD_AGENT and persisted ids — only
-// derives a fresh value when neither is set. The worktree argument is kept
-// for symmetry with AgentID; it's used only when both env and persisted
-// state are empty.
-func DerivedAgentID(worktree string) (string, error) {
-	if env := strings.TrimSpace(os.Getenv("SQUAD_AGENT")); env != "" {
-		return env, nil
-	}
-	if persisted := readPersistedAgentID(); persisted != "" {
-		return persisted, nil
-	}
-	return "agent-" + SessionSuffix(), nil
 }
 
 func DetectWorktree() string {

@@ -2,7 +2,6 @@ package identity
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -63,7 +62,7 @@ func TestPersistedAgentID_PerSessionFile(t *testing.T) {
 func TestAgentID_HonorsEnvOverride(t *testing.T) {
 	clearSessionEnv(t)
 	t.Setenv("SQUAD_AGENT", "from-env")
-	got, err := AgentID("/tmp/wt")
+	got, err := AgentID()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,25 +71,37 @@ func TestAgentID_HonorsEnvOverride(t *testing.T) {
 	}
 }
 
-func TestAgentID_FallsBackToWorktreeBase(t *testing.T) {
+func TestAgentID_PrefersPersistedOverDerivation(t *testing.T) {
 	clearSessionEnv(t)
 	dir := t.TempDir()
 	t.Setenv("SQUAD_HOME", dir)
-	got, err := AgentID(filepath.Join("/tmp/projects", "myrepo"))
+	t.Setenv("SQUAD_SESSION_ID", "sess-X")
+	if err := WritePersistedAgentID("agent-persisted"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := AgentID()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "myrepo" {
-		t.Fatalf("got %q", got)
+	if got != "agent-persisted" {
+		t.Fatalf("got %q want agent-persisted", got)
 	}
 }
 
-func TestAgentID_ErrorWhenNoSignals(t *testing.T) {
+func TestAgentID_DerivesFromSessionSuffix(t *testing.T) {
 	clearSessionEnv(t)
+	t.Setenv("TERM_SESSION_ID", "iterm-xyz")
 	dir := t.TempDir()
 	t.Setenv("SQUAD_HOME", dir)
-	if _, err := AgentID(""); err == nil {
-		t.Fatal("expected error when SQUAD_AGENT unset and worktree empty")
+	id, err := AgentID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(id, "agent-") {
+		t.Fatalf("want agent- prefix, got %q", id)
+	}
+	if len(id) != len("agent-")+4 {
+		t.Fatalf("want agent-XXXX format, got %q", id)
 	}
 }
 
@@ -122,22 +133,5 @@ func TestSessionSuffix_FallbackWhenNoSignals(t *testing.T) {
 	clearSessionEnv(t)
 	if got := SessionSuffix(); got == "" {
 		t.Fatal("SessionSuffix should never return empty")
-	}
-}
-
-func TestDerivedAgentID_PrefersSessionSuffix(t *testing.T) {
-	clearSessionEnv(t)
-	t.Setenv("TERM_SESSION_ID", "iterm-xyz")
-	dir := t.TempDir()
-	t.Setenv("SQUAD_HOME", dir)
-	id, err := DerivedAgentID("/tmp/projects/myrepo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(id, "agent-") {
-		t.Fatalf("want agent- prefix, got %q", id)
-	}
-	if len(id) != len("agent-")+4 {
-		t.Fatalf("want agent-XXXX format, got %q", id)
 	}
 }

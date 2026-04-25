@@ -161,7 +161,7 @@ func ensureSquadInit(wd string, out io.Writer) error {
 }
 
 func ensureRegistered(out io.Writer) error {
-	id, err := identity.DerivedAgentID(identity.DetectWorktree())
+	id, err := identity.AgentID()
 	if err != nil {
 		return err
 	}

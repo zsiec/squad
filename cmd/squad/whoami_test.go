@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,7 +34,7 @@ func TestWhoami_AfterRegister_PrintsAgentID(t *testing.T) {
 	}
 }
 
-func TestWhoami_NoIdentity_FallsBackToWorktreeBasename(t *testing.T) {
+func TestWhoami_NoIdentity_DerivesAgentSuffix(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("SQUAD_HOME", dir)
 	t.Setenv("SQUAD_SESSION_ID", "test-session-whoami-empty")
@@ -49,10 +48,13 @@ func TestWhoami_NoIdentity_FallsBackToWorktreeBasename(t *testing.T) {
 	who.SetErr(&out)
 	who.SetArgs([]string{"whoami"})
 	if err := who.Execute(); err != nil {
-		t.Fatalf("expected fallback to dir basename, got error: %v", err)
+		t.Fatalf("expected derived id, got error: %v", err)
 	}
-	want := filepath.Base(wt)
-	if got := strings.TrimSpace(out.String()); got != want {
-		t.Fatalf("got %q, want %q", got, want)
+	got := strings.TrimSpace(out.String())
+	if !strings.HasPrefix(got, "agent-") {
+		t.Fatalf("got %q, want agent- prefix", got)
+	}
+	if len(got) != len("agent-")+4 {
+		t.Fatalf("got %q, want agent-XXXX (4 hex chars)", got)
 	}
 }

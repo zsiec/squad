@@ -21,7 +21,7 @@ func newWhoamiCmd() *cobra.Command {
 			if err := store.EnsureHome(); err != nil {
 				return err
 			}
-			id, err := identity.AgentID(identity.DetectWorktree())
+			id, err := identity.AgentID()
 			if err != nil {
 				return err
 			}

@@ -47,7 +47,7 @@ func bootClaimContext(_ context.Context) (*claimContext, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	agentID, err := identity.AgentID(wd)
+	agentID, err := identity.AgentID()
 	if err != nil {
 		_ = db.Close()
 		return nil, err

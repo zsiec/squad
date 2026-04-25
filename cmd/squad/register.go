@@ -88,7 +88,7 @@ func runRegisterWithOpts(stdout io.Writer, asFlag, nameFlag string, noRepoCheck,
 			return err
 		}
 	} else {
-		id, err = identity.DerivedAgentID(identity.DetectWorktree())
+		id, err = identity.AgentID()
 		if err != nil {
 			return err
 		}

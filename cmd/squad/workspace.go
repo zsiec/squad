@@ -55,7 +55,7 @@ func openWS() (*wsContext, error) {
 			currentID = id
 		}
 	}
-	agentID, _ := identity.AgentID(wd)
+	agentID, _ := identity.AgentID()
 	return &wsContext{db: db, currentID: currentID, agentID: agentID}, nil
 }
 
