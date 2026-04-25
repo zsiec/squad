@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newSpecNewCmd() *cobra.Command {
@@ -60,29 +57,13 @@ func runSpecNew(args []string, stdout io.Writer) int {
 		fmt.Fprintln(os.Stderr, "spec title required")
 		return 4
 	}
-	wd, _ := os.Getwd()
-	root, err := repo.Discover(wd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "find repo: %v\n", err)
-		return 4
-	}
-	dir := filepath.Join(root, ".squad", "specs")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
-	}
-	path := filepath.Join(dir, name+".md")
-	if _, err := os.Stat(path); err == nil {
-		fmt.Fprintf(os.Stderr, "spec %s already exists\n", path)
-		return 4
+	squadDir, code := discoverSquadDir()
+	if code != 0 {
+		return code
 	}
 	body := fmt.Sprintf(specStub, yamlInlineTitle(title))
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
-	}
-	fmt.Fprintln(stdout, path)
-	return 0
+	_, code = writeScaffold(stdout, squadDir, "specs", name, body, "spec", true)
+	return code
 }
 
 func yamlInlineTitle(s string) string {

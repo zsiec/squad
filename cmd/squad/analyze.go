@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,7 +11,6 @@ import (
 	"github.com/zsiec/squad/internal/analyze"
 	"github.com/zsiec/squad/internal/epics"
 	"github.com/zsiec/squad/internal/items"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newAnalyzeCmd() *cobra.Command {
@@ -35,13 +33,10 @@ func runAnalyze(args []string, stdout io.Writer) int {
 		return 2
 	}
 	epicName := strings.TrimSpace(args[0])
-	wd, _ := os.Getwd()
-	root, err := repo.Discover(wd)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
+	squadDir, code := discoverSquadDir()
+	if code != 0 {
+		return code
 	}
-	squadDir := filepath.Join(root, ".squad")
 
 	epicList, _, err := epics.Walk(squadDir)
 	if err != nil {
@@ -73,13 +68,8 @@ func runAnalyze(args []string, stdout io.Writer) int {
 		}
 	}
 	a := analyze.Run(ep, its)
-	out := filepath.Join(squadDir, "epics", epicName+"-analysis.md")
-	if err := os.WriteFile(out, []byte(renderAnalysis(a)), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
-	}
-	fmt.Fprintln(stdout, out)
-	return 0
+	_, code = writeScaffold(stdout, squadDir, "epics", epicName+"-analysis", renderAnalysis(a), "", false)
+	return code
 }
 
 func renderAnalysis(a analyze.Analysis) string {

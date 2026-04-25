@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newEpicNewCmd() *cobra.Command {
@@ -50,31 +48,16 @@ func runEpicNew(args []string, spec string, stdout io.Writer) int {
 		fmt.Fprintf(os.Stderr, "names must be kebab-case (got name=%q spec=%q)\n", name, spec)
 		return 4
 	}
-	wd, _ := os.Getwd()
-	root, err := repo.Discover(wd)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
+	squadDir, code := discoverSquadDir()
+	if code != 0 {
+		return code
 	}
-	specPath := filepath.Join(root, ".squad", "specs", spec+".md")
+	specPath := filepath.Join(squadDir, "specs", spec+".md")
 	if _, err := os.Stat(specPath); err != nil {
 		fmt.Fprintf(os.Stderr, "spec %s does not exist\n", specPath)
 		return 4
 	}
-	dir := filepath.Join(root, ".squad", "epics")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
-	}
-	path := filepath.Join(dir, name+".md")
-	if _, err := os.Stat(path); err == nil {
-		fmt.Fprintf(os.Stderr, "epic %s already exists\n", path)
-		return 4
-	}
-	if err := os.WriteFile(path, []byte(fmt.Sprintf(epicStub, spec, name)), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
-	}
-	fmt.Fprintln(stdout, path)
-	return 0
+	body := fmt.Sprintf(epicStub, spec, name)
+	_, code = writeScaffold(stdout, squadDir, "epics", name, body, "epic", true)
+	return code
 }
