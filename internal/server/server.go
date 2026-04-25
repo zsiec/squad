@@ -60,6 +60,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/claims", s.handleClaims)
 	mux.HandleFunc("GET /api/messages", s.handleMessagesList)
 	mux.HandleFunc("POST /api/messages", s.handleMessagesPost)
+	mux.HandleFunc("GET /api/repos", s.handleRepos)
+	mux.HandleFunc("GET /api/workspace/status", s.handleWorkspaceStatus)
 	return s.authMiddleware(mux)
 }
 
