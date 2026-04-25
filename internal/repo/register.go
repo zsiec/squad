@@ -15,7 +15,7 @@ func RegisterRepo(ctx context.Context, db *sql.DB, rootPath, remoteURL, name str
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO repos (id, root_path, remote_url, name, created_at)
 		VALUES (?, ?, ?, ?, ?)

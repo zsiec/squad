@@ -92,7 +92,7 @@ func upsertAgent(ctx context.Context, db *sql.DB, repoID, id, name, worktree str
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	now := time.Now().Unix()
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO agents (id, repo_id, display_name, worktree, pid, started_at, last_tick_at, status)
