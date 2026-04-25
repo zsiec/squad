@@ -47,6 +47,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newUntouchCmd())
 	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newArchiveCmd())
+	root.AddCommand(newDumpStatusCmd())
 	return root
 }
 
