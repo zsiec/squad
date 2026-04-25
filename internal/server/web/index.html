@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Squad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <span class="brand-name">SQUAD</span>
+      
+    </div>
+    <div class="stats-ribbon" id="stats-ribbon" aria-live="polite"></div>
+    <div class="topbar-status">
+      <span id="conn-dot" class="conn-dot" data-state="connecting"></span>
+      <span id="conn-label" class="conn-label">connecting</span>
+      <span class="sep">·</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+    <div class="topbar-user">
+      <button id="insights-btn"  class="topbar-btn" title="Insights (s)">
+        <span class="topbar-btn-icon">▤</span>
+        <span class="topbar-btn-label">STATS</span>
+      </button>
+      <button id="depgraph-btn"  class="topbar-btn" title="Dependency graph (g)">
+        <span class="topbar-btn-icon">⬡</span>
+        <span class="topbar-btn-label">GRAPH</span>
+      </button>
+      <span id="palette-trigger" class="palette-trigger" title="Search (⌘K)">
+        <kbd>⌘</kbd><kbd>K</kbd>
+      </span>
+      <span class="user-label">YOU</span>
+      <span id="user" class="user-name">—</span>
+    </div>
+  </header>
+
+  <main class="workspace" data-drawer="closed">
+    <!-- Left rail: agents -->
+    <aside class="rail rail-agents">
+      <div class="rail-header">
+        <h2>Agents</h2>
+        <span id="agents-count" class="rail-count">0</span>
+      </div>
+      <ul id="agents-list" class="agents-list"></ul>
+    </aside>
+
+    <!-- Board -->
+    <section class="board" id="board">
+      <div class="board-tabs">
+        <button class="board-tab active" data-section="in-progress">In Progress <span class="tab-count" id="count-in-progress">0</span></button>
+        <button class="board-tab" data-section="ready">Ready <span class="tab-count" id="count-ready">0</span></button>
+        <button class="board-tab" data-section="blocked">Blocked <span class="tab-count" id="count-blocked">0</span></button>
+        <div class="board-tabs-spacer"></div>
+        <div class="board-search-wrap">
+          <input id="board-search" class="board-search" type="text" placeholder="/ filter…" autocomplete="off" spellcheck="false"/>
+        </div>
+      </div>
+      <div id="saved-views" class="saved-views"></div>
+      <div id="board-filters" class="board-filters"></div>
+      <div class="board-scroll">
+        <table class="board-table" id="board-table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-pri">P</th>
+              <th class="col-title">Title</th>
+              <th class="col-claim">Claim</th>
+              <th class="col-prog">%</th>
+            </tr>
+          </thead>
+          <tbody id="board-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Item drawer -->
+    <section class="drawer" id="drawer" hidden aria-hidden="true">
+      <div class="drawer-head">
+        <div class="drawer-head-meta">
+          <span id="drawer-id" class="drawer-id">—</span>
+          <span id="drawer-pri" class="drawer-pri">—</span>
+        </div>
+        <div class="drawer-head-actions">
+          <button id="drawer-copy-md" class="icon-btn" title="Copy as markdown" aria-label="Copy markdown">⎘</button>
+          <button id="drawer-close" class="icon-btn" title="Close (esc)" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div id="drawer-body" class="drawer-body"></div>
+    </section>
+
+    <!-- Chat -->
+    <aside class="chat" id="chat-panel">
+      <div class="chat-header">
+        <select id="thread-select" class="thread-select">
+          <option value="global">#global</option>
+        </select>
+        <button id="chat-scroll-end" class="chat-scroll-end" hidden><span id="chat-unread" data-unread-count>new</span></button>
+      </div>
+      <ul id="messages" class="messages"></ul>
+      <form id="compose" class="compose">
+        <input id="compose-input" placeholder="Say something… (@mention works)" autocomplete="off"/>
+        <button type="submit" class="btn-send">Send</button>
+      </form>
+    </aside>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
