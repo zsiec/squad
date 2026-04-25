@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/listener"
 	"github.com/zsiec/squad/plugin/hooks"
 )
 
@@ -97,7 +98,12 @@ func runInstallHooksWithFlags(stdout, stderr io.Writer, yes, uninstall, status b
 }
 
 func resolveEnabled(stdout, stderr io.Writer, yes bool, perHook map[string]string) (map[string]bool, error) {
+	return resolveEnabledWithProbe(stdout, stderr, yes, perHook, listener.ProbeLoopbackBind)
+}
+
+func resolveEnabledWithProbe(stdout, stderr io.Writer, yes bool, perHook map[string]string, probe func() bool) (map[string]bool, error) {
 	enabled := map[string]bool{}
+	loopbackOK := probe()
 	for _, h := range hooks.All {
 		if v, ok := perHook[h.Name]; ok {
 			switch strings.ToLower(v) {
@@ -119,6 +125,17 @@ func resolveEnabled(stdout, stderr io.Writer, yes bool, perHook map[string]strin
 			return nil, err
 		}
 		enabled[h.Name] = ans
+	}
+	if !loopbackOK && enabled["stop-listen"] {
+		if _, explicit := perHook["stop-listen"]; explicit {
+			fmt.Fprintln(stderr, "squad: warning: loopback bind probe failed but --stop-listen=on was passed; install proceeding (hook will be a no-op at runtime)")
+		} else {
+			fmt.Fprintln(stderr, "squad: loopback TCP bind failed; disabling stop-listen and falling back to user-prompt-tick + tick polling")
+			enabled["stop-listen"] = false
+			enabled["post-tool-flush"] = false
+			enabled["session-end-cleanup"] = false
+			enabled["async-rewake"] = false
+		}
 	}
 	return enabled, nil
 }

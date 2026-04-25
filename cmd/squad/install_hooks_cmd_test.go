@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -106,4 +107,45 @@ func TestInstallHooksCmd_Uninstall(t *testing.T) {
 	}
 	body, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
 	mustNotContain(t, body, "session-start@v1")
+}
+
+func TestResolveEnabled_DowngradesStopListenOnBindFail(t *testing.T) {
+	probe := func() bool { return false }
+	enabled, err := resolveEnabledWithProbe(io.Discard, io.Discard, true, nil, probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabled["stop-listen"] {
+		t.Fatal("stop-listen must be force-disabled when loopback bind fails")
+	}
+	if !enabled["user-prompt-tick"] {
+		t.Fatal("user-prompt-tick must remain on as the fallback path")
+	}
+}
+
+func TestResolveEnabled_AllowsStopListenWhenBindWorks(t *testing.T) {
+	probe := func() bool { return true }
+	enabled, err := resolveEnabledWithProbe(io.Discard, io.Discard, true, nil, probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !enabled["stop-listen"] {
+		t.Fatal("stop-listen must default-on when bind works")
+	}
+}
+
+func TestResolveEnabled_ExplicitOptInBypassesProbeWithWarning(t *testing.T) {
+	probe := func() bool { return false }
+	var stderr bytes.Buffer
+	enabled, err := resolveEnabledWithProbe(io.Discard, &stderr, true,
+		map[string]string{"stop-listen": "on"}, probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !enabled["stop-listen"] {
+		t.Fatal("explicit --stop-listen=on must win over probe")
+	}
+	if !strings.Contains(stderr.String(), "warning") {
+		t.Fatalf("expected warning, got %q", stderr.String())
+	}
 }
