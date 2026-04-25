@@ -1,0 +1,39 @@
+---
+id: EXAMPLE-001
+title: Try the squad loop end-to-end (delete me when done)
+type: chore
+priority: P3
+status: open
+estimate: 15min
+risk: low
+created: 2026-01-01
+updated: 2026-01-01
+references: []
+relates-to: []
+blocked-by: []
+---
+
+## Problem
+
+You just ran `squad init`. This item exists so you can practice the loop without
+any real work at stake. Walk through it once and you'll know how the system
+fits together.
+
+## Context
+
+The loop is: claim → work → tick → done. Every command is greppable from
+`squad --help`. The item file you're reading right now is the durable
+contract; the SQLite-backed claim is the live lock.
+
+## Acceptance criteria
+
+- [ ] Claim this item: `squad claim EXAMPLE-001 --intent "trying the loop"`
+- [ ] Tick to confirm registration: `squad tick`
+- [ ] Post a thought: `squad thinking "first squad loop"`
+- [ ] Mark done with a one-line outcome: `squad done EXAMPLE-001 --summary "loop works"`
+- [ ] Verify the file moved to `.squad/done/`
+- [ ] Delete this file (it's served its purpose)
+
+## Resolution
+
+(Fill in after you close it. Then delete the file.)

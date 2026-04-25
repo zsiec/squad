@@ -1,0 +1,83 @@
+# .squad/config.yaml
+# Project-level configuration for squad. Every knob has a default; you can
+# delete any block you don't care about and squad will fall back. The schema
+# is documented at https://github.com/zsiec/squad/blob/main/docs/reference/config.md
+#
+# This file IS checked into git. Operational state (claims, chat, file
+# touches) lives in ~/.squad/global.db and is machine-local.
+
+project_name: {{.ProjectName}}
+
+# ID prefixes squad will accept on `squad new <prefix>` and `squad claim`.
+# The defaults work for most projects; add your own (e.g. `INFRA`, `SEC`,
+# `STD`) and squad will treat them as first-class types.
+id_prefixes:
+{{range .IDPrefixes}}  - {{.}}
+{{end}}
+# Default priority + estimate for newly-filed items if you don't pass flags.
+defaults:
+  priority: P2
+  estimate: 1h
+  risk: low
+
+# Risk classification. Paths here are checked against the touched-files set
+# during `squad claim --touches`; matching items inherit the risk bucket
+# unless you override on the item itself.
+#
+# Defaults are conservative — start by listing your most sensitive paths
+# under `high` and let everything else fall through to `low`.
+risk:
+  high:
+    paths: []
+    extra_requirements:
+      - rollback_plan_in_item
+      - effort_max
+  medium:
+    paths: []
+  low:
+    default: true
+
+# Verification gates. `squad done` will refuse to close an item until these
+# commands have run successfully (use `--force` to override locally; the
+# hooks land in Phase 11 enforce this on commit).
+#
+# Each entry is a command + an evidence pattern squad greps from stdout to
+# confirm the run was real. Replace these with YOUR project's test commands.
+verification:
+  pre_commit:{{if eq .PrimaryLanguage "go"}}
+    - cmd: "go test ./... -race"
+      evidence: "ok\\s.*\\s[0-9.]+s"
+    - cmd: "go vet ./..."
+      evidence: ""{{else if eq .PrimaryLanguage "node"}}
+    - cmd: "npm test"
+      evidence: "passed"{{else if eq .PrimaryLanguage "rust"}}
+    - cmd: "cargo test"
+      evidence: "test result: ok"{{else if eq .PrimaryLanguage "python"}}
+    - cmd: "pytest"
+      evidence: "passed"{{else}}
+    # Fill in your project's pre-commit verification commands.
+    # - cmd: "your-test-command"
+    #   evidence: "expected stdout substring"{{end}}
+
+# Chat cadence settings. The hygiene daemon nudges if you go quiet on a
+# claim past `quiet_nudge_minutes`; set to 0 to disable.
+chat:
+  quiet_nudge_minutes: 20
+  default_audience: thread
+
+# Hygiene daemon. Sweeps stale claims, missing item files, drift between
+# DB and filesystem. Runs as a goroutine inside whichever invocation last
+# touched the DB; no separate daemon process.
+hygiene:
+  stale_claim_minutes: 60
+  sweep_on_every_command: true
+
+# Plugin (Claude Code). If installed, the SessionStart hook is on by default;
+# the rest are opt-in via `squad install-hooks`.
+plugin:
+  hooks:
+    session_start: on
+    pre_commit_tick: off
+    pre_commit_pm_traces: off
+    pre_edit_touch_check: off
+    stop_handoff: off
