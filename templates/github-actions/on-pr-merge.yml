@@ -1,0 +1,60 @@
+name: squad-archive-on-pr-merge
+
+# When a PR is merged, look at its description for a `<!-- squad-item: <ID> -->`
+# marker. If found, mark the corresponding item done and move it to .squad/done/.
+# Commits the move back to main with a generic message (no PM IDs).
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+# Serialize runs so two simultaneously-merged PRs cannot race on .squad/items/.
+concurrency:
+  group: squad-pr-close
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main with full history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install squad
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            https://github.com/zsiec/squad/releases/latest/download/squad_linux_amd64.tar.gz \
+            | tar -xz -C /tmp
+          sudo mv /tmp/squad /usr/local/bin/squad
+          squad version
+
+      - name: Archive item linked to merged PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          squad pr-close "${{ github.event.pull_request.number }}" \
+            --repo-id "${{ github.repository }}"
+
+      - name: Commit archive move (if any)
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain .squad)" ]; then
+            echo "no item changes — nothing to commit"
+            exit 0
+          fi
+          git config user.name  "squad-bot"
+          git config user.email "squad-bot@users.noreply.github.com"
+          git add .squad/items .squad/done .squad/pending-prs.json 2>/dev/null || true
+          git commit -m "chore: archive done items from PR merges"
+          git push origin main
