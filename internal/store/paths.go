@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,4 +37,15 @@ func DBPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, "global.db"), nil
+}
+
+func OpenDefault() (*sql.DB, error) {
+	if err := EnsureHome(); err != nil {
+		return nil, err
+	}
+	path, err := DBPath()
+	if err != nil {
+		return nil, err
+	}
+	return Open(path)
 }

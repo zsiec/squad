@@ -9,6 +9,16 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
+// IDFor returns the stable repo_id derived from the origin remote URL (or,
+// if the repo has no remote, from the root path). It does not touch the DB.
+func IDFor(rootPath string) (string, error) {
+	remote, err := ReadRemoteURL(rootPath)
+	if err != nil {
+		return "", err
+	}
+	return DeriveRepoID(remote, rootPath), nil
+}
+
 func RegisterRepo(ctx context.Context, db *sql.DB, rootPath, remoteURL, name string) (string, error) {
 	id := DeriveRepoID(remoteURL, rootPath)
 	tx, err := store.BeginImmediate(ctx, db)

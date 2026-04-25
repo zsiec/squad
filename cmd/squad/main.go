@@ -19,6 +19,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newRegisterCmd())
 	root.AddCommand(newWhoamiCmd())
+	root.AddCommand(newNewCmd())
 	return root
 }
 
