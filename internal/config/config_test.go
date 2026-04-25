@@ -49,3 +49,24 @@ func TestLoad_MalformedYAMLIsError(t *testing.T) {
 		t.Fatal("expected error for malformed yaml")
 	}
 }
+
+func TestLoad_HygieneKnobs(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "hygiene:\n  stale_claim_minutes: 5\n  sweep_on_every_command: false\n"
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Hygiene.StaleClaimMinutes != 5 {
+		t.Fatalf("StaleClaimMinutes=%d want 5", cfg.Hygiene.StaleClaimMinutes)
+	}
+	if cfg.Hygiene.SweepOnEveryCommand == nil || *cfg.Hygiene.SweepOnEveryCommand {
+		t.Fatalf("SweepOnEveryCommand: want false, got %v", cfg.Hygiene.SweepOnEveryCommand)
+	}
+}

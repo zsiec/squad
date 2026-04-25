@@ -101,7 +101,7 @@ func newClaimCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&intent, "intent", "", "short sentence describing intent")
 	cmd.Flags().StringVar(&touches, "touches", "", "comma-separated file paths you'll modify")
-	cmd.Flags().BoolVar(&long, "long", false, "extended stale threshold (2h instead of 30m)")
+	cmd.Flags().BoolVar(&long, "long", false, "use the 2h long-running threshold instead of hygiene.stale_claim_minutes")
 	return cmd
 }
 

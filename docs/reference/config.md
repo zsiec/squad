@@ -20,33 +20,15 @@ defaults:
   estimate: 1h
   risk: low
 
-risk:
-  high:
-    paths: []
-    extra_requirements: []
-  medium:
-    paths: []
-  low:
-    default: true
+agent:
+  claim_concurrency: 1
 
 verification:
   pre_commit: []
 
-chat:
-  quiet_nudge_minutes: 20
-  default_audience: thread
-
 hygiene:
   stale_claim_minutes: 60
   sweep_on_every_command: true
-
-plugin:
-  hooks:
-    session_start: on
-    pre_commit_tick: off
-    pre_commit_pm_traces: off
-    pre_edit_touch_check: off
-    stop_handoff: off
 ```
 
 ## `project_name`
@@ -71,31 +53,18 @@ id_prefixes:
 
 Default `priority` (P0–P3), `estimate` (`30m`, `1h`, `2h`, `4h`, `1d`, etc.), and `risk` (`low` / `medium` / `high`) applied to newly-filed items if `squad new` doesn't pass overrides.
 
-## `risk`
-
-Risk classification by file path. Items whose acceptance criteria mention paths in `risk.high.paths` (configurable matcher) inherit that risk bucket unless explicitly overridden on the item itself.
+## `agent`
 
 ```yaml
-risk:
-  high:
-    paths:
-      - internal/store/migrations/
-      - schema/
-    extra_requirements:
-      - rollback_plan_in_item
-      - effort_max
-  medium:
-    paths:
-      - internal/server/
-  low:
-    default: true
+agent:
+  claim_concurrency: 1   # max items a single agent can hold open at once
 ```
 
-`extra_requirements` is informational — `squad new` won't refuse to file an item missing a rollback plan, but the doctor sweep can be wired to flag it.
+Set to a large number (e.g. `100`) to effectively disable the cap.
 
 ## `verification.pre_commit`
 
-Commands `squad done` will run before closing an item. Each entry has a `cmd` and an optional `evidence` regex squad greps from stdout to confirm the run produced a real result (not a silently-skipped suite).
+Commands `squad done` will run before closing an item. Each entry has a `cmd` and an optional `evidence` regex squad greps from stdout to confirm the run produced a real result (not a silently-skipped suite). Pass `--skip-verify` to override locally.
 
 ```yaml
 verification:
@@ -108,37 +77,15 @@ verification:
       evidence: ""
 ```
 
-The Phase 11 pre-commit-tick hook can be wired alongside this to enforce on commit, not just on `squad done`.
-
-## `chat`
-
-```yaml
-chat:
-  quiet_nudge_minutes: 20         # 0 disables; otherwise the hygiene sweep posts a 'nudge' if you hold a claim and haven't ticked for this long
-  default_audience: thread        # 'thread' (the active claim) or 'global'
-```
-
 ## `hygiene`
 
 ```yaml
 hygiene:
-  stale_claim_minutes: 60         # claims with no last_touch past this are flagged stale
+  stale_claim_minutes: 60         # claims with no last_touch past this are flagged stale and auto-reclaimed
   sweep_on_every_command: true    # run the auto-sweep goroutine on every DB-touching invocation (debounced)
 ```
 
-## `plugin.hooks`
-
-Per-hook default. The actual install state is what `squad install-hooks` wrote to `~/.claude/settings.json`; this block tells `squad install-hooks` what to do when invoked with no `--<hook-name>` flags. See [hooks reference](hooks.md) for descriptions.
-
-```yaml
-plugin:
-  hooks:
-    session_start: on
-    pre_commit_tick: off
-    pre_commit_pm_traces: off
-    pre_edit_touch_check: off
-    stop_handoff: off
-```
+`SQUAD_NO_HYGIENE=1` in the environment disables the sweep for a single invocation regardless of config.
 
 ## Where the file is generated
 

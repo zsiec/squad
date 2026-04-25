@@ -68,8 +68,8 @@ func TestSweep_FlagsStaleClaim(t *testing.T) {
 	registerAgent(t, db, "repo-test", "agent-a", t0)
 	insertClaim(t, db, "repo-test", "BUG-X", "agent-a", t0, 0) // last_touch = t0
 
-	// Now is t0 + 45 minutes — claim is stale (>30m).
-	now := time.Unix(t0+45*60, 0)
+	// Now is t0 + 75 minutes — claim is stale (>60m default).
+	now := time.Unix(t0+75*60, 0)
 	sw := NewWithClock(db, "repo-test", emptyItems{}, func() time.Time { return now })
 	findings, err := sw.Sweep(context.Background())
 	if err != nil {
@@ -267,7 +267,7 @@ func TestReclaimStale_ShortClaim(t *testing.T) {
 	registerAgent(t, db, "repo-test", "agent-a", t0)
 	insertClaim(t, db, "repo-test", "BUG-200", "agent-a", t0, 0)
 
-	now := time.Unix(t0+31*60, 0)
+	now := time.Unix(t0+61*60, 0)
 	sw := NewWithClock(db, "repo-test", emptyItems{}, func() time.Time { return now })
 	got, err := sw.ReclaimStale(context.Background())
 	if err != nil {

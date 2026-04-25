@@ -9,7 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/hygiene"
+	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
 )
 
@@ -82,6 +84,20 @@ func postRunHygiene(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return nil
 	}
+	// Read config before grabbing the debounce lock so the user's explicit
+	// `sweep_on_every_command: false` doesn't get half-honored (skip the
+	// work but still touch the lockfile).
+	var hygieneCfg config.HygieneConfig
+	if wd, err := os.Getwd(); err == nil {
+		if root, err := repo.Discover(wd); err == nil {
+			if cfg, err := config.Load(root); err == nil {
+				hygieneCfg = cfg.Hygiene
+			}
+		}
+	}
+	if hygieneCfg.SweepOnEveryCommand != nil && !*hygieneCfg.SweepOnEveryCommand {
+		return nil
+	}
 	lock := filepath.Join(home, "hygiene.lock")
 	r := hygiene.NewRunner(lock, 10*time.Second)
 	_ = r.RunIfDue(context.Background(), func(ctx context.Context) error {
@@ -92,6 +108,9 @@ func postRunHygiene(cmd *cobra.Command, args []string) error {
 		defer bc.Close()
 		adapter := itemsHygieneAdapter{squadDir: filepath.Dir(bc.itemsDir)}
 		sw := hygiene.New(bc.db, bc.repoID, adapter)
+		if hygieneCfg.StaleClaimMinutes > 0 {
+			sw = sw.WithStaleSeconds(int64(hygieneCfg.StaleClaimMinutes) * 60)
+		}
 		_ = sw.MarkStaleAgents(ctx)
 		_, _ = sw.ReclaimStale(ctx)
 		return nil

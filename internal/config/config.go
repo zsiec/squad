@@ -13,6 +13,7 @@ type Config struct {
 	Agent        AgentConfig        `yaml:"agent"`
 	Defaults     Defaults           `yaml:"defaults"`
 	Verification VerificationConfig `yaml:"verification"`
+	Hygiene      HygieneConfig      `yaml:"hygiene"`
 }
 
 type AgentConfig struct {
@@ -22,9 +23,25 @@ type AgentConfig struct {
 	ClaimConcurrency int `yaml:"claim_concurrency"`
 }
 
+type HygieneConfig struct {
+	// StaleClaimMinutes is the threshold past which a claim's last_touch is
+	// considered stale and eligible for auto-reclaim. 0 = use default.
+	StaleClaimMinutes int `yaml:"stale_claim_minutes"`
+
+	// SweepOnEveryCommand toggles the post-command hygiene runner. nil
+	// (omitted) defaults to true; set to false to disable without setting
+	// SQUAD_NO_HYGIENE per-invocation.
+	SweepOnEveryCommand *bool `yaml:"sweep_on_every_command"`
+}
+
 // DefaultClaimConcurrency is the cap applied when config doesn't override.
 // Documented as 1 since Phase 6; QA round 4 surfaced that it wasn't enforced.
 const DefaultClaimConcurrency = 1
+
+// DefaultStaleClaimMinutes matches the value advertised in the scaffold and
+// reference docs. QA round 5 surfaced a 30/60 mismatch between code and docs;
+// resolved by adopting the documented 60-minute default.
+const DefaultStaleClaimMinutes = 60
 
 type Defaults struct {
 	Priority string `yaml:"priority"`

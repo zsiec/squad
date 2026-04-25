@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/hygiene"
 	"github.com/zsiec/squad/internal/items"
 )
@@ -63,8 +64,12 @@ func newDoctorCmd() *cobra.Command {
 				return err
 			}
 			defer bc.Close()
-			adapter := itemsHygieneAdapter{squadDir: filepath.Dir(bc.itemsDir)}
+			squadDir := filepath.Dir(bc.itemsDir)
+			adapter := itemsHygieneAdapter{squadDir: squadDir}
 			sw := hygiene.New(bc.db, bc.repoID, adapter)
+			if cfg, err := config.Load(filepath.Dir(squadDir)); err == nil && cfg.Hygiene.StaleClaimMinutes > 0 {
+				sw = sw.WithStaleSeconds(int64(cfg.Hygiene.StaleClaimMinutes) * 60)
+			}
 			findings, err := sw.Sweep(ctx)
 			if err != nil {
 				return err

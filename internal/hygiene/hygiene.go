@@ -13,9 +13,11 @@ import (
 )
 
 const (
-	StaleClaimSec     = 30 * 60
-	StaleClaimLongSec = 2 * 60 * 60
-	GhostAgentSec     = 24 * 60 * 60
+	// DefaultStaleClaimSec matches scaffold + docs ("60 min"). Override via
+	// hygiene.stale_claim_minutes in .squad/config.yaml; New() takes seconds.
+	DefaultStaleClaimSec = 60 * 60
+	StaleClaimLongSec    = 2 * 60 * 60
+	GhostAgentSec        = 24 * 60 * 60
 )
 
 type Severity int
@@ -51,18 +53,29 @@ type Items interface {
 }
 
 type Sweeper struct {
-	db     *sql.DB
-	repoID string
-	items  Items
-	now    func() time.Time
+	db       *sql.DB
+	repoID   string
+	items    Items
+	now      func() time.Time
+	staleSec int64
 }
 
 func New(db *sql.DB, repoID string, items Items) *Sweeper {
-	return &Sweeper{db: db, repoID: repoID, items: items, now: time.Now}
+	return &Sweeper{db: db, repoID: repoID, items: items, now: time.Now, staleSec: DefaultStaleClaimSec}
 }
 
 func NewWithClock(db *sql.DB, repoID string, items Items, clock func() time.Time) *Sweeper {
-	return &Sweeper{db: db, repoID: repoID, items: items, now: clock}
+	return &Sweeper{db: db, repoID: repoID, items: items, now: clock, staleSec: DefaultStaleClaimSec}
+}
+
+// WithStaleSeconds returns a copy of sw with the stale-claim threshold
+// overridden. A non-positive value falls back to the default.
+func (sw *Sweeper) WithStaleSeconds(sec int64) *Sweeper {
+	cp := *sw
+	if sec > 0 {
+		cp.staleSec = sec
+	}
+	return &cp
 }
 
 func (sw *Sweeper) nowUnix() int64 { return sw.now().Unix() }
@@ -74,7 +87,7 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 	rows, err := sw.db.QueryContext(ctx, `
 		SELECT item_id, agent_id, last_touch, long FROM claims
 		WHERE repo_id = ? AND ((long = 0 AND last_touch < ?) OR (long = 1 AND last_touch < ?))
-	`, sw.repoID, now-StaleClaimSec, now-StaleClaimLongSec)
+	`, sw.repoID, now-sw.staleSec, now-StaleClaimLongSec)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +315,7 @@ func (sw *Sweeper) ReclaimStale(ctx context.Context) ([]string, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT item_id, agent_id, claimed_at, last_touch FROM claims
 		WHERE repo_id = ? AND ((long = 0 AND last_touch < ?) OR (long = 1 AND last_touch < ?))
-	`, sw.repoID, now-StaleClaimSec, now-StaleClaimLongSec)
+	`, sw.repoID, now-sw.staleSec, now-StaleClaimLongSec)
 	if err != nil {
 		return nil, err
 	}

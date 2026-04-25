@@ -99,7 +99,7 @@ This is by design for v1. Cross-machine claim sync is a v2 design problem (the d
 
 ## Anti-patterns
 
-- **Claiming and walking away** for >30 min without ticking. Heartbeat handles brief absence; long absence stales the claim.
+- **Claiming and walking away** past `hygiene.stale_claim_minutes` without ticking. Heartbeat handles brief absence; long absence stales the claim.
 - **Editing a file without `squad touch`** in a multi-agent session. Peers can't see your overlap and the touch-check hook can't help.
 - **Force-releasing without checking.** The peer might be 30 seconds from posting a milestone. Try `squad ask @agent-NAME` first.
 - **Treating `claim` as a property.** It's a CLI command and a DB row, not a frontmatter field. The item file's `status:` updates only at `squad done`.
