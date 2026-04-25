@@ -74,6 +74,18 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newPRCmd())
 	root.AddCommand(newPRLinkCmd())
 	root.AddCommand(newPRCloseCmd())
+	addPRDRedirect := func(name string) {
+		root.AddCommand(&cobra.Command{
+			Use:    name,
+			Hidden: true,
+			RunE: func(cmd *cobra.Command, args []string) error {
+				return fmt.Errorf("squad uses 'spec', not 'prd'. run: squad spec-new <name> \"<title>\"")
+			},
+		})
+	}
+	addPRDRedirect("prd")
+	addPRDRedirect("prd-new")
+	addPRDRedirect("prd-list")
 	root.PersistentPostRunE = postRunHygiene
 	return root
 }

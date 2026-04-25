@@ -64,3 +64,25 @@ func TestSpecNew_RejectsExisting(t *testing.T) {
 		t.Fatal("second call should refuse to overwrite")
 	}
 }
+
+func TestPRDAlias_RedirectsToSpec(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	root := newRootCmd()
+	root.SetArgs([]string{"prd-new", "auth", "Auth"})
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error redirecting to 'spec-new'")
+	}
+	if !strings.Contains(stderr.String(), "spec-new") &&
+		!strings.Contains(err.Error(), "spec-new") {
+		t.Errorf("expected redirect message mentioning spec-new; got %q / %q",
+			stderr.String(), err.Error())
+	}
+}
