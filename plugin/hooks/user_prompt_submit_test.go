@@ -35,14 +35,15 @@ func TestUserPromptSubmit_NoOpWhenSquadMissing(t *testing.T) {
 	}
 }
 
-func TestUserPromptSubmit_EmitsAdditionalContextWhenMentionsPending(t *testing.T) {
+func TestUserPromptSubmit_ForwardsMailboxEnvelope(t *testing.T) {
 	dir := t.TempDir()
 	stub := filepath.Join(dir, "squad")
-	// Stub `squad tick --json` with a digest carrying a single mention.
-	// The hook should turn that into a hookSpecificOutput JSON envelope.
+	// `squad mailbox --format additional-context` is responsible for
+	// emitting the hookSpecificOutput envelope itself; the hook is now a
+	// thin shim that just lets its stdout flow through to Claude Code.
 	body := `#!/bin/sh
-case "$1 $2" in
-  "tick --json") printf '%s\n' '{"agent":"agent-a","mentions":[{"agent":"alice","kind":"ask","thread":"global","body":"can you review BUG-1?","ts":1000}],"knocks":[],"handoffs":[],"your_threads":[],"global":[],"lost_claims":[]}' ;;
+case "$1" in
+  mailbox) printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"[squad inbox]\nalice asks about BUG-1"}}' ;;
   *) exit 0 ;;
 esac
 `
@@ -71,14 +72,11 @@ esac
 	}
 }
 
-func TestUserPromptSubmit_QuietWhenNothingPending(t *testing.T) {
+func TestUserPromptSubmit_QuietWhenMailboxSilent(t *testing.T) {
 	dir := t.TempDir()
 	stub := filepath.Join(dir, "squad")
 	body := `#!/bin/sh
-case "$1 $2" in
-  "tick --json") printf '%s\n' '{"agent":"agent-a","mentions":[],"knocks":[],"handoffs":[],"your_threads":[],"global":[],"lost_claims":[]}' ;;
-  *) exit 0 ;;
-esac
+exit 0
 `
 	if err := os.WriteFile(stub, []byte(body), 0o755); err != nil {
 		t.Fatalf("write stub: %v", err)
@@ -94,7 +92,7 @@ esac
 		t.Fatalf("hook failed: %v\n%s", err, out)
 	}
 	if strings.TrimSpace(string(out)) != "" {
-		t.Fatalf("expected silent when digest is empty, got: %q", out)
+		t.Fatalf("expected silent when mailbox emits nothing, got: %q", out)
 	}
 }
 
@@ -103,5 +101,20 @@ func TestUserPromptSubmit_DashLintClean(t *testing.T) {
 	out, err := exec.Command("dash", "-n", fixturePathInRepo(t, "user_prompt_submit.sh")).CombinedOutput()
 	if err != nil {
 		t.Fatalf("dash -n failed: %v\n%s", err, out)
+	}
+}
+
+func TestUserPromptSubmit_UsesMailboxCommand(t *testing.T) {
+	stub := writeStubSquad(t, `{"id":"agent-x"}`)
+	stubDir := stub[:len(stub)-len("/squad")]
+	p := writeFixtureScript(t, "user_prompt_submit.sh")
+	cmd := exec.Command("/bin/sh", p)
+	cmd.Env = []string{
+		"PATH=" + stubDir + ":/usr/bin:/bin",
+		"SQUAD_HOOK_TRACE=1",
+	}
+	out, _ := cmd.CombinedOutput()
+	if strings.Contains(string(out), "tick --json") {
+		t.Fatalf("user_prompt_submit must not call `tick`; should use `mailbox` now: %q", out)
 	}
 }
