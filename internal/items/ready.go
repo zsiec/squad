@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -26,6 +27,9 @@ func Ready(w WalkResult, now time.Time) []Item {
 			continue
 		}
 		if hasOpenBlocker(it, statusByID) {
+			continue
+		}
+		if hasUnsatisfiedDep(it, statusByID) {
 			continue
 		}
 		out = append(out, it)
@@ -59,6 +63,22 @@ func hasOpenBlocker(it Item, statusByID map[string]string) bool {
 			continue
 		}
 		return true
+	}
+	return false
+}
+
+// Unlike blocked-by, depends_on treats an unknown id (no row in statusByID)
+// as unsatisfied. R3 epics are planned ahead, so referencing a not-yet-created
+// item is a "wait" signal, not a "skip" signal.
+func hasUnsatisfiedDep(it Item, statusByID map[string]string) bool {
+	for _, d := range it.DependsOn {
+		d = strings.TrimSpace(d)
+		if d == "" {
+			continue
+		}
+		if statusByID[d] != "done" {
+			return true
+		}
 	}
 	return false
 }

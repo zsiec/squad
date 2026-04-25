@@ -65,3 +65,50 @@ func TestReady_TiebreakerSmallestEstimate(t *testing.T) {
 		t.Fatalf("p2 order=%v want BUG-005 first", p2)
 	}
 }
+
+func TestReady_GatesByDependsOn(t *testing.T) {
+	w, err := Walk("testdata/ready")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+	for _, it := range Ready(w, now) {
+		if it.ID == "FEAT-201" {
+			t.Fatal("FEAT-201 should be filtered (dep FEAT-200 not done)")
+		}
+	}
+}
+
+func TestReady_DependsOnSatisfiedSurfaces(t *testing.T) {
+	w, err := Walk("testdata/ready")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, it := range w.Active {
+		if it.ID == "FEAT-200" {
+			w.Active[i].Status = "done"
+		}
+	}
+	now := time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+	found := false
+	for _, it := range Ready(w, now) {
+		if it.ID == "FEAT-201" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("FEAT-201 should surface once dep is done")
+	}
+}
+
+func TestReady_DependsOnUnknownIDIsUnsatisfied(t *testing.T) {
+	w := WalkResult{Active: []Item{{
+		ID: "FEAT-300", Title: "x", Status: "open", Priority: "P1",
+		DependsOn: []string{"FEAT-DOES-NOT-EXIST"},
+	}}}
+	for _, it := range Ready(w, time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)) {
+		if it.ID == "FEAT-300" {
+			t.Fatal("unknown dep must gate ready surfacing")
+		}
+	}
+}
