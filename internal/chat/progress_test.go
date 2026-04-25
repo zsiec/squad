@@ -32,6 +32,29 @@ func TestReportProgress_RejectsOutOfRange(t *testing.T) {
 	}
 }
 
+func TestProgress_BumpsClaimLastTouch(t *testing.T) {
+	c, db := newTestChat(t)
+	ctx := context.Background()
+
+	if _, err := db.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES ('repo-test', 'BUG-700', 'agent-a', 100, 100, '', 0)
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.ReportProgress(ctx, "agent-a", "BUG-700", 50, "still working on it"); err != nil {
+		t.Fatal(err)
+	}
+
+	var lt int64
+	_ = db.QueryRow(`SELECT last_touch FROM claims WHERE item_id='BUG-700'`).Scan(&lt)
+	want := c.nowUnix()
+	if lt != want {
+		t.Fatalf("last_touch=%d want %d", lt, want)
+	}
+}
+
 func TestLatestProgress_ReturnsNewestRow(t *testing.T) {
 	c, _ := newTestChat(t)
 	ctx := context.Background()
