@@ -10,13 +10,21 @@ import (
 )
 
 func preflightBlockers(itemsDir, doneDir, itemID string) error {
+	if strings.TrimSpace(itemID) == "" {
+		return ErrItemNotFound
+	}
 	itemPath, err := findItemFile(itemsDir, itemID)
 	if err != nil {
-		return nil
+		// Not in items/. If it's in done/, surface that specifically;
+		// otherwise the id has no backing item file at all.
+		if blockerInDoneDir(doneDir, itemID) {
+			return ErrItemAlreadyDone
+		}
+		return ErrItemNotFound
 	}
 	it, err := items.Parse(itemPath)
 	if err != nil {
-		return nil
+		return ErrItemNotFound
 	}
 	if len(it.BlockedBy) == 0 {
 		return nil

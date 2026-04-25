@@ -70,6 +70,14 @@ func newClaimCmd() *cobra.Command {
 				fmt.Fprintln(cmd.ErrOrStderr(), err.Error())
 				os.Exit(1)
 			}
+			if errors.Is(err, claims.ErrItemNotFound) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "no item file found for %q in .squad/items/\n", itemID)
+				os.Exit(1)
+			}
+			if errors.Is(err, claims.ErrItemAlreadyDone) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "%s is already done (in .squad/done/) — cannot claim\n", itemID)
+				os.Exit(1)
+			}
 			return err
 		},
 	}
