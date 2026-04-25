@@ -126,3 +126,44 @@ func TestSchema_NotifyEndpoints_PrimaryKeyOnInstanceKind(t *testing.T) {
 		t.Fatalf("expected unique-constraint failure on (instance, kind), got nil")
 	}
 }
+
+func TestSchema_ItemsHasR3Columns(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	rows, err := db.Query(`SELECT name FROM pragma_table_info('items')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	cols := map[string]bool{}
+	for rows.Next() {
+		var n string
+		_ = rows.Scan(&n)
+		cols[n] = true
+	}
+	for _, c := range []string{"epic_id", "parallel", "conflicts_with"} {
+		if !cols[c] {
+			t.Errorf("items missing column %q", c)
+		}
+	}
+}
+
+func TestSchema_SpecsAndEpicsTablesExist(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, table := range []string{"specs", "epics"} {
+		var n int
+		_ = db.QueryRow(
+			`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`,
+			table).Scan(&n)
+		if n != 1 {
+			t.Errorf("table %q missing (count=%d)", table, n)
+		}
+	}
+}

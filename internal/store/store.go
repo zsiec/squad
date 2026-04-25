@@ -5,12 +5,19 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
 
 //go:embed schema.sql
 var schemaSQL string
+
+var additiveAlters = []string{
+	`ALTER TABLE items ADD COLUMN epic_id TEXT`,
+	`ALTER TABLE items ADD COLUMN parallel INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE items ADD COLUMN conflicts_with TEXT NOT NULL DEFAULT '[]'`,
+}
 
 func Open(path string) (*sql.DB, error) {
 	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)&_txlock=immediate", path)
@@ -21,6 +28,14 @@ func Open(path string) (*sql.DB, error) {
 	if _, err := db.Exec(schemaSQL); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
+	}
+	for _, stmt := range additiveAlters {
+		if _, err := db.Exec(stmt); err != nil {
+			if !strings.Contains(err.Error(), "duplicate column name") {
+				db.Close()
+				return nil, fmt.Errorf("apply migration %q: %w", stmt, err)
+			}
+		}
 	}
 	return db, nil
 }

@@ -85,24 +85,53 @@ CREATE TABLE IF NOT EXISTS progress (
 CREATE INDEX IF NOT EXISTS idx_progress_item_ts ON progress(item_id, reported_at);
 
 CREATE TABLE IF NOT EXISTS items (
-  repo_id     TEXT NOT NULL,
-  item_id     TEXT NOT NULL,
-  title       TEXT NOT NULL,
-  type        TEXT,
-  priority    TEXT,
-  area        TEXT,
-  status      TEXT,
-  estimate    TEXT,
-  risk        TEXT,
-  not_before  TEXT,
-  ac_total    INTEGER NOT NULL DEFAULT 0,
-  ac_checked  INTEGER NOT NULL DEFAULT 0,
-  archived    INTEGER NOT NULL DEFAULT 0,
-  path        TEXT NOT NULL,
-  updated_at  INTEGER NOT NULL,
+  repo_id        TEXT NOT NULL,
+  item_id        TEXT NOT NULL,
+  title          TEXT NOT NULL,
+  type           TEXT,
+  priority       TEXT,
+  area           TEXT,
+  status         TEXT,
+  estimate       TEXT,
+  risk           TEXT,
+  not_before     TEXT,
+  ac_total       INTEGER NOT NULL DEFAULT 0,
+  ac_checked     INTEGER NOT NULL DEFAULT 0,
+  archived       INTEGER NOT NULL DEFAULT 0,
+  path           TEXT NOT NULL,
+  updated_at     INTEGER NOT NULL,
+  epic_id        TEXT,
+  parallel       INTEGER NOT NULL DEFAULT 0,
+  conflicts_with TEXT NOT NULL DEFAULT '[]',
   PRIMARY KEY (repo_id, item_id)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_items_repo_status ON items(repo_id, status);
+CREATE INDEX IF NOT EXISTS idx_items_epic ON items(repo_id, epic_id);
+
+CREATE TABLE IF NOT EXISTS specs (
+  repo_id     TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  motivation  TEXT NOT NULL DEFAULT '',
+  acceptance  TEXT NOT NULL DEFAULT '',
+  non_goals   TEXT NOT NULL DEFAULT '',
+  integration TEXT NOT NULL DEFAULT '',
+  path        TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (repo_id, name)
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS epics (
+  repo_id     TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  spec        TEXT NOT NULL DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'open',
+  parallelism TEXT NOT NULL DEFAULT '',
+  path        TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (repo_id, name)
+) STRICT;
+CREATE INDEX IF NOT EXISTS idx_epics_spec ON epics(repo_id, spec);
 
 CREATE TABLE IF NOT EXISTS notify_endpoints (
   instance    TEXT NOT NULL,
