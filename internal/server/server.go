@@ -15,12 +15,13 @@ import (
 )
 
 type Config struct {
-	Token        string
-	Host         string
-	Port         int
-	SquadDir     string
-	RepoID       string
-	pingInterval time.Duration
+	Token            string
+	Host             string
+	Port             int
+	SquadDir         string
+	RepoID           string
+	pingInterval     time.Duration
+	lagFlushInterval time.Duration
 }
 
 type Server struct {
@@ -39,6 +40,12 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 	}
 	if cfg.pingInterval == 0 {
 		cfg.pingInterval = 15 * time.Second
+	}
+	if cfg.lagFlushInterval == 0 {
+		// Independent of heartbeat: drops must surface within ~1 second
+		// even when the publisher has gone quiet, so a paused-then-
+		// resumed dashboard sees the gap immediately.
+		cfg.lagFlushInterval = time.Second
 	}
 	c := chat.New(db, repoID)
 	s := &Server{db: db, chat: c, cfg: cfg}

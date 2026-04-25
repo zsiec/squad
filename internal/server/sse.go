@@ -4,7 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"github.com/zsiec/squad/internal/chat"
 )
+
+// seenIdCap bounds the dedupe map per-subscriber so a long-lived SSE
+// connection doesn't grow unbounded over hours of activity. When we hit
+// the cap we drop the oldest half by walking the map and dropping ids
+// below the median; that keeps the cap O(1) without sorting.
+const seenIdCap = 4096
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
@@ -23,38 +31,49 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 	ping := time.NewTicker(s.cfg.pingInterval)
 	defer ping.Stop()
+	lagFlush := time.NewTicker(s.cfg.lagFlushInterval)
+	defer lagFlush.Stop()
 
 	// Dedupe by message id: server-mediated POSTs publish via chat.Post AND
 	// the pump re-publishes from the DB on its next tick. Both paths carry
 	// the row's id in the payload; track what we've already emitted.
 	seen := make(map[float64]bool)
 
+	emit := func(e chat.Event) bool {
+		payload, _ := json.Marshal(e)
+		if _, err := w.Write([]byte("event: " + e.Kind + "\ndata: ")); err != nil {
+			return false
+		}
+		if _, err := w.Write(payload); err != nil {
+			return false
+		}
+		if _, err := w.Write([]byte("\n\n")); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+
 	for {
 		select {
 		case <-r.Context().Done():
 			return
 		case <-ping.C:
-			// Surface any drops that the publish-side lag injection missed
-			// (e.g., a burst-then-quiesce pattern where no later Publish
-			// carries the sentinel). PullDropped atomically claims the
-			// current counter; a positive value means the client should
-			// refetch from MAX(id) to recover state.
-			if n := s.Bus().PullDropped(ch); n > 0 {
-				if _, err := w.Write([]byte("event: lag\ndata: ")); err != nil {
-					return
-				}
-				payload, _ := json.Marshal(map[string]any{"dropped": n})
-				if _, err := w.Write(payload); err != nil {
-					return
-				}
-				if _, err := w.Write([]byte("\n\n")); err != nil {
-					return
-				}
-			}
 			if _, err := w.Write([]byte(": ping\n\n")); err != nil {
 				return
 			}
 			flusher.Flush()
+		case <-lagFlush.C:
+			// Surface any drops that the publish-side sentinel couldn't
+			// place (channel full at the time of overflow) AND any
+			// drops the publisher hasn't emitted yet because no later
+			// publish came. Emits the same Event shape as the in-band
+			// lag sentinel so a single client parser handles both.
+			if n := s.Bus().PullDropped(ch); n > 0 {
+				if !emit(chat.Event{Kind: "lag", Payload: map[string]any{"dropped": n}}) {
+					return
+				}
+			}
 		case e, ok := <-ch:
 			if !ok {
 				return
@@ -71,20 +90,29 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 					if seen[f] {
 						continue
 					}
+					if len(seen) >= seenIdCap {
+						// Cap reached: keep only the upper half by id so
+						// recent publishes remain deduped while old ids
+						// get garbage-collected.
+						var pivot float64
+						for k := range seen {
+							if k > pivot {
+								pivot = k
+							}
+						}
+						pivot /= 2
+						for k := range seen {
+							if k < pivot {
+								delete(seen, k)
+							}
+						}
+					}
 					seen[f] = true
 				}
 			}
-			payload, _ := json.Marshal(e)
-			if _, err := w.Write([]byte("event: " + e.Kind + "\ndata: ")); err != nil {
+			if !emit(e) {
 				return
 			}
-			if _, err := w.Write(payload); err != nil {
-				return
-			}
-			if _, err := w.Write([]byte("\n\n")); err != nil {
-				return
-			}
-			flusher.Flush()
 		}
 	}
 }
