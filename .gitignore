@@ -1,0 +1,26 @@
+# Binaries
+/squad
+/dist/
+
+# Go
+*.test
+*.out
+*.prof
+coverage.txt
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local env
+.env
+.env.local
+
+# Local plan docs (mirrors switchframe convention)
+docs/plans/
+
+# squad's own state when dogfooding
+.squad/db-snapshot/
+.squad/backups/
