@@ -47,7 +47,7 @@ cd ~/dev/your-project
 squad init                        # answers ≤3 questions
 
 # 2. Register and pick up your first item
-squad register --as agent-you --name "Your Name"
+squad register                    # auto-derives a session-stable id
 squad next                        # see what's ready
 squad new feat "your first item"
 squad claim FEAT-001 --intent "first squad item"

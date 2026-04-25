@@ -46,12 +46,11 @@ Sessions are not continuous; agents come and go; coworkers pick up where others 
 
 ## How to apply
 
-1. Run `squad tick` once more to catch last-minute mentions you owe replies on.
-2. Compose the three bullets in your head. Cut the third if there is genuinely nothing to flag.
-3. Post the brief to chat (the conversation, or via `squad say`).
-4. If pausing mid-item: write the `## Session log` entry in the item file.
-5. If true handoff: `squad release <ID> --outcome released` with the next-step message.
-6. Sign off.
+1. Compose the three bullets in your head. Cut the third if there is genuinely nothing to flag.
+2. Post the brief to chat (the conversation, or via `squad say`).
+3. If pausing mid-item: write the `## Session log` entry in the item file.
+4. If true handoff: `squad release <ID> --outcome released` with the next-step message.
+5. Sign off.
 
 ## Anti-patterns to avoid
 

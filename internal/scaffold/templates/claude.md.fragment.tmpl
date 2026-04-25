@@ -13,14 +13,15 @@ Read these in order before doing any work:
 2. **`.squad/STATUS.md`** — what's in flight, what's ready, what's blocked
 3. The relevant item under `.squad/items/<ID>-*.md` — the acceptance criteria are the contract
 
-Then register and tick in one command:
+Then take the one-command path:
 
 ```bash
-squad register --as "agent-$(openssl rand -hex 2)" --name "agent-XXXX" && squad tick
+squad go
 ```
 
-The `--as` value persists per session so parallel sessions in one repo keep
-distinct identities.
+`squad go` registers a session-stable id, claims the top ready item, prints
+its acceptance criteria, and flushes any unread chat. It's idempotent —
+re-run it to resume the same claim and re-flush the mailbox.
 
 ## Loop summary
 

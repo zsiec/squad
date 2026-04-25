@@ -14,7 +14,6 @@ Pre-flight checklist (invoke each skill explicitly):
 Once all three gates are clean, run:
 
 ```bash
-squad tick                                    # final mention check
 squad done $ARGS --summary "<one-line outcome>"
 ```
 

@@ -21,15 +21,14 @@ fits together.
 
 ## Context
 
-The loop is: claim → work → tick → done. Every command is greppable from
+The loop is: claim → work → done. Every command is greppable from
 `squad --help`. The item file you're reading right now is the durable
 contract; the SQLite-backed claim is the live lock.
 
 ## Acceptance criteria
 
 - [ ] Claim this item: `squad claim EXAMPLE-001 --intent "trying the loop"`
-- [ ] Tick to confirm registration: `squad tick`
-- [ ] Post a thought: `squad thinking "first squad loop"`
+- [ ] Post a thought: `squad thinking "first squad loop"` (or `squad whoami` to confirm identity)
 - [ ] Mark done with a one-line outcome: `squad done EXAMPLE-001 --summary "loop works"`
 - [ ] Verify the file moved to `.squad/done/`
 - [ ] Delete this file (it's served its purpose)

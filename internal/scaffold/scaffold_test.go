@@ -219,8 +219,7 @@ func TestClaudeFragment_HasMarkersAndPointers(t *testing.T) {
 		"<!-- squad-managed:end -->",
 		"AGENTS.md",
 		".squad/items/",
-		"squad register",
-		"squad tick",
+		"squad go",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("claude fragment missing %q", want)
