@@ -17,6 +17,7 @@ type Hook struct {
 
 var All = []Hook{
 	{"session-start", "session_start.sh", true, "Auto-register and tick at session start; inject a one-line context block.", "Adds ~150ms to session startup. Always recommended.", "SessionStart", "*"},
+	{"user-prompt-tick", "user_prompt_submit.sh", true, "Auto-tick before Claude reads each prompt; inject pending mentions/knocks/handoffs as context.", "Adds ~50ms per turn; the tradeoff is Claude sees peer chat without the user having to type 'squad tick'. Recommended.", "UserPromptSubmit", "*"},
 	{"pre-commit-tick", "pre_commit_tick.sh", false, "Block git commit unless squad tick ran in the last 5 minutes.", "Surfaces peer chat before sealing work; can interrupt fast solo loops.", "PreToolUse", "Bash"},
 	{"pre-commit-pm-traces", "pre_commit_pm_traces.sh", false, "Block git commit if backlog IDs leak into staged diff or commit message.", "Catches PM noise pre-commit; harmless if you follow the no-PM-traces rule.", "PreToolUse", "Bash"},
 	{"pre-edit-touch-check", "pre_edit_touch_check.sh", false, "Warn (do not block) if another agent is touching the same file.", "Useful in multi-agent setups; pure noise solo.", "PreToolUse", "Edit|Write"},

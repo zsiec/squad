@@ -34,7 +34,7 @@ func newInstallHooksCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&yes, "yes", false, "skip prompts; use defaults (only session-start ON)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip prompts; use defaults (session-start + user-prompt-tick ON)")
 	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "remove all squad-managed hook entries")
 	cmd.Flags().BoolVar(&status, "status", false, "print which squad hooks are currently installed")
 

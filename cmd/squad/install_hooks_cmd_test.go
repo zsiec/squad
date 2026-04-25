@@ -22,7 +22,7 @@ func mustNotContain(t *testing.T, body []byte, sub string) {
 	}
 }
 
-func TestInstallHooksCmd_YesDefaultsOnlySessionStart(t *testing.T) {
+func TestInstallHooksCmd_YesDefaultsSessionAndUserPrompt(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	if err := runInstallHooks([]string{"--yes"}, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
@@ -33,6 +33,7 @@ func TestInstallHooksCmd_YesDefaultsOnlySessionStart(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustContain(t, body, "session-start@v1")
+	mustContain(t, body, "user-prompt-tick@v1")
 	mustNotContain(t, body, "pre-commit-tick@v1")
 }
 
