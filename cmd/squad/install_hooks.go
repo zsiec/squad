@@ -35,7 +35,7 @@ func newInstallHooksCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&yes, "yes", false, "skip prompts; use defaults (session-start + user-prompt-tick + pre-compact ON)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip prompts; use defaults (session entry, prompt boundaries, listen + flush, and pre-compact ON)")
 	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "remove all squad-managed hook entries")
 	cmd.Flags().BoolVar(&status, "status", false, "print which squad hooks are currently installed")
 
@@ -132,7 +132,6 @@ func resolveEnabledWithProbe(stdout, stderr io.Writer, yes bool, perHook map[str
 		} else {
 			fmt.Fprintln(stderr, "squad: loopback TCP bind failed; disabling stop-listen and falling back to user-prompt-tick + tick polling")
 			enabled["stop-listen"] = false
-			enabled["post-tool-flush"] = false
 			enabled["session-end-cleanup"] = false
 			enabled["async-rewake"] = false
 		}

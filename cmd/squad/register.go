@@ -35,6 +35,7 @@ func newRegisterCmd() *cobra.Command {
 	cmd.Flags().StringVar(&asFlag, "as", "", "agent id override (persisted per-session)")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "display name (defaults to agent id)")
 	cmd.Flags().BoolVar(&noRepoCheck, "no-repo-check", false, "internal — `init` will use this; users normally don't call register directly")
+	_ = cmd.Flags().MarkHidden("no-repo-check")
 	cmd.Flags().BoolVar(&force, "force", false, "claim --as <id> even if another session currently owns that id")
 	return cmd
 }

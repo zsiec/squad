@@ -16,8 +16,9 @@ import (
 func newTickCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
-		Use:   "tick",
-		Short: "Show new messages since last tick and advance the read cursor",
+		Use:    "tick",
+		Short:  "Show new messages since last tick and advance the read cursor",
+		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			bc, err := bootClaimContext(ctx)
