@@ -378,3 +378,50 @@ func TestGoCmd_FlushesMailboxAtEnd(t *testing.T) {
 		t.Fatalf("squad go did not flush mailbox; output=%s", out2.String())
 	}
 }
+
+func TestGoCmd_IdempotentTwoRunsOneClaim(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-idem")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	first := newInitCmd()
+	first.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := first.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(filepath.Join(repoDir, ".squad", "items", "EXAMPLE-001-try-the-loop.md"))
+	writeItemFile(t, repoDir, "FEAT-A.md",
+		"---\nid: FEAT-100\ntitle: a\ntype: feature\npriority: P0\nstatus: open\nestimate: 1h\n---\n")
+	writeItemFile(t, repoDir, "FEAT-B.md",
+		"---\nid: FEAT-200\ntitle: b\ntype: feature\npriority: P0\nstatus: open\nestimate: 1h\n---\n")
+
+	t.Chdir(repoDir)
+	for i := 0; i < 2; i++ {
+		root := newRootCmd()
+		var out bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&out)
+		root.SetArgs([]string{"go"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("run %d: %v\n%s", i, err, out.String())
+		}
+	}
+
+	dbPath, _ := store.DBPath()
+	db, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var n int
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*) FROM claims`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("want exactly 1 claim across two squad-go runs, got %d", n)
+	}
+}
