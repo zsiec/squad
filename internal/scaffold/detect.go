@@ -38,7 +38,11 @@ func findGitRoot(start string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrNotGitRepo, err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	root := strings.TrimSpace(string(out))
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		return real, nil
+	}
+	return root, nil
 }
 
 func readRemote(gitRoot string) string {

@@ -49,8 +49,9 @@ func TestDiscover_FindsConfigInCWD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if root != dir {
-		t.Fatalf("got %q want %q", root, dir)
+	wantCanonical, _ := filepath.EvalSymlinks(dir)
+	if root != wantCanonical {
+		t.Fatalf("got %q want %q", root, wantCanonical)
 	}
 }
 
@@ -70,8 +71,37 @@ func TestDiscover_WalksUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if root != dir {
-		t.Fatalf("got %q want %q", root, dir)
+	wantCanonical, _ := filepath.EvalSymlinks(dir)
+	if root != wantCanonical {
+		t.Fatalf("got %q want %q", root, wantCanonical)
+	}
+}
+
+func TestDiscover_CanonicalizesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte("name: example\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	linkDir := t.TempDir()
+	link := filepath.Join(linkDir, "via-symlink")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Skip("symlink not supported on this platform")
+	}
+
+	rootViaLink, err := Discover(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootViaReal, err := Discover(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rootViaLink != rootViaReal {
+		t.Fatalf("symlinked path resolves differently than canonical:\n  via link: %q\n  via real: %q", rootViaLink, rootViaReal)
 	}
 }
 

@@ -16,7 +16,7 @@ func Discover(start string) (string, error) {
 	dir := start
 	for {
 		if _, err := os.Stat(filepath.Join(dir, ".squad", "config.yaml")); err == nil {
-			return dir, nil
+			return canonicalize(dir), nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -24,6 +24,21 @@ func Discover(start string) (string, error) {
 		}
 		dir = parent
 	}
+}
+
+// canonicalize resolves symlinks and returns an absolute path so repo_id
+// derivation is deterministic across callers. On macOS, /tmp is a symlink
+// to /private/tmp; without resolution, init's `git rev-parse --show-toplevel`
+// (which returns the literal CWD) and the rest of the binary's `os.Getwd()`
+// (which resolves symlinks) yield different repo_ids for the same repo.
+func canonicalize(p string) string {
+	if abs, err := filepath.Abs(p); err == nil {
+		p = abs
+	}
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return real
+	}
+	return p
 }
 
 func DeriveRepoID(remoteURL, rootPath string) string {
