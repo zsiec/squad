@@ -59,6 +59,9 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newServeCmd())
 	root.AddCommand(newInstallPluginCmd())
 	root.AddCommand(newInstallHooksCmd())
+	root.AddCommand(newPRCmd())
+	root.AddCommand(newPRLinkCmd())
+	root.AddCommand(newPRCloseCmd())
 	root.PersistentPostRunE = postRunHygiene
 	return root
 }
