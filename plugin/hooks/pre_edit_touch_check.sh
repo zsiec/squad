@@ -16,15 +16,18 @@ command -v "$SQUAD_BIN" >/dev/null 2>&1 || exit 0
 
 TOUCHES=$("$SQUAD_BIN" touches list-others --json 2>/dev/null || printf '[]')
 
-case "$TOUCHES" in
-    *"$FILE"*) ;;
-    *) exit 0 ;;
-esac
-
+# Split JSON array entries one-per-line (each ends with `}`). Then keep only
+# entries whose "path" field EXACTLY equals $FILE — substring match against the
+# whole blob falsely warned for paths like "g", ":", or "/tmp/foo" matching
+# inside "/tmp/foo.go".
 ENTRIES=$(printf '%s' "$TOUCHES" | sed 's/},[[:space:]]*{/}\n{/g')
-OWNER=$(printf '%s\n' "$ENTRIES" | grep -F "$FILE" \
+MATCH_LINE=$(printf '%s\n' "$ENTRIES" \
+    | grep -F "\"path\":\"$FILE\"" | head -n1)
+[ -z "$MATCH_LINE" ] && exit 0
+
+OWNER=$(printf '%s' "$MATCH_LINE" \
     | sed -n 's/.*"agent_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-REPO=$(printf '%s\n' "$ENTRIES" | grep -F "$FILE" \
+REPO=$(printf '%s' "$MATCH_LINE" \
     | sed -n 's/.*"repo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 
 [ -z "$OWNER" ] && OWNER="another agent"

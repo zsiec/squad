@@ -11,8 +11,11 @@ fi
 CMD=$(printf '%s' "${TOOL_INPUT:-}" \
     | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
 
+# Match `git commit` only when it's the actual command being run, not arbitrary
+# substrings (`echo "git commit"` shouldn't trigger the gate). Accept leading
+# whitespace, optional `git` env-var prefix, or pipeline-trailing forms.
 case "$CMD" in
-    *"git commit"*) ;;
+    "git commit"*|*"&& git commit"*|*"; git commit"*|*"| git commit"*) ;;
     *) exit 0 ;;
 esac
 
