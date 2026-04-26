@@ -566,6 +566,47 @@ func TestMCPSquadInbox_ParentSpecFilters(t *testing.T) {
 	}
 }
 
+func TestMCPSquadDecompose_ReturnsPrompt(t *testing.T) {
+	env := newTestEnv(t)
+	specsDir := filepath.Join(env.Root, ".squad", "specs")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatalf("mkdir specs: %v", err)
+	}
+	specPath := filepath.Join(specsDir, "auth-rotation.md")
+	if err := os.WriteFile(specPath, []byte(decomposeSpecFixture), 0o644); err != nil {
+		t.Fatalf("write spec: %v", err)
+	}
+
+	resp := callMCPTool(t, env, "squad_decompose", `{"spec_name":"auth-rotation"}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %+v", resp.Result.StructuredContent)
+	}
+	prompt, _ := resp.Result.StructuredContent["prompt"].(string)
+	if prompt == "" {
+		t.Fatalf("prompt empty: %+v", resp.Result.StructuredContent)
+	}
+	for _, want := range []string{"auth-rotation", "squad_new", "parent_spec"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("prompt missing %q:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestMCPSquadDecompose_MissingSpecErrors(t *testing.T) {
+	env := newTestEnv(t)
+
+	resp := callMCPTool(t, env, "squad_decompose", `{"spec_name":"does-not-exist"}`)
+	if resp.Error == nil {
+		t.Fatalf("want rpc error for missing spec, got result: %+v", resp.Result.StructuredContent)
+	}
+	if !strings.Contains(resp.Error.Message, "not found") {
+		t.Errorf("error message %q should mention 'not found'", resp.Error.Message)
+	}
+}
+
 func TestMCPSquadAccept_UnknownIDIsRejected(t *testing.T) {
 	env := newTestEnv(t)
 

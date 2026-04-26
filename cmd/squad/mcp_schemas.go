@@ -465,6 +465,16 @@ const schemaInbox = `{
   "additionalProperties": false
 }`
 
+const schemaDecompose = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["spec_name"],
+  "properties": {
+    "spec_name": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}`
+
 const schemaPRClose = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

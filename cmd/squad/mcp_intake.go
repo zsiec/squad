@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -222,6 +224,43 @@ func registerIntakeTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 				refused = append(refused, refusal{ID: id, Error: err.Error()})
 			}
 			return map[string]any{"deleted": deleted, "refused": refused}, nil
+		},
+	})
+
+	srv.Register(mcp.Tool{
+		Name:        "squad_decompose",
+		Description: "Return the structured prompt for decomposing a spec into draft items. The calling agent runs the decomposition; squad just authors the prompt.",
+		InputSchema: json.RawMessage(schemaDecompose),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				SpecName string `json:"spec_name"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(args.SpecName) == "" {
+				return nil, fmt.Errorf("spec_name required")
+			}
+			specPath := filepath.Join(repoRoot, ".squad", "specs", args.SpecName+".md")
+			if _, err := os.Stat(specPath); err != nil {
+				if os.IsNotExist(err) {
+					return nil, fmt.Errorf("spec %q not found at %s", args.SpecName, specPath)
+				}
+				return nil, fmt.Errorf("stat spec: %w", err)
+			}
+			var buf bytes.Buffer
+			if err := decomposeTmpl.Execute(&buf, map[string]string{
+				"SpecPath": specPath,
+				"SpecName": args.SpecName,
+			}); err != nil {
+				return nil, fmt.Errorf("render prompt: %w", err)
+			}
+			return map[string]any{"prompt": buf.String()}, nil
 		},
 	})
 }
