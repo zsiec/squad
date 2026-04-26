@@ -167,3 +167,11 @@ You'll know you've adopted squad when:
 - You can't remember what coordinating with peers was like before atomic claims.
 
 That's the success criterion. The loop is invisible when it's working.
+
+## Coming from Claude Code agent-teams?
+
+If you've been using Claude Code's experimental agent-teams and your work is starting to span multiple sessions, days, or machines, you may be ready to migrate. Walk through [recipes/migrating-from-agent-teams.md](recipes/migrating-from-agent-teams.md) — it's the dedicated step-by-step path.
+
+If you're not yet sure whether you've outgrown agent-teams, the [decision matrix](concepts/squad-vs-agent-teams.md) makes the call concrete.
+
+Composing the two is also fine: a squad-managed repo can host a single ephemeral agent-teams session inside one squad claim, and the optional `squad bridge agent-teams` command (specified in [reference/commands.md](reference/commands.md#squad-bridge-agent-teams)) reflects squad items into the team's native task list for the duration of the session.
