@@ -103,6 +103,7 @@ function row(it) {
       <div class="inbox-title">${escapeHtml(it.title)}</div>
       <div class="inbox-actions">
         <button type="button" class="action-btn" data-action="details" data-id="${escapeHtml(it.id)}" aria-expanded="false">Details</button>
+        <button type="button" class="action-btn warn" data-action="refine" data-id="${escapeHtml(it.id)}">Refine</button>
         <button type="button" class="action-btn ok" data-action="accept" data-id="${escapeHtml(it.id)}">Accept</button>
         <button type="button" class="action-btn danger" data-action="reject" data-id="${escapeHtml(it.id)}">Reject</button>
       </div>
@@ -113,6 +114,10 @@ function row(it) {
 async function onClick(action, id) {
   if (action === 'details') {
     await toggleDetails(id);
+    return;
+  }
+  if (action === 'refine') {
+    await openRefineComposer(id);
     return;
   }
   if (action === 'accept') {
@@ -212,4 +217,55 @@ function renderDetails(it) {
     </div>
     ${acHtml}
     ${bodyHtml}`;
+}
+
+async function openRefineComposer(id) {
+  if (!modalEl) return;
+  const host = modalEl.querySelector(`[data-details-for="${cssEscape(id)}"]`);
+  if (!host) return;
+  if (host.hidden) await toggleDetails(id);
+
+  const existing = host.querySelector('.refine-composer');
+  if (existing) {
+    const ta = existing.querySelector('textarea');
+    if (ta) ta.focus();
+    return;
+  }
+
+  const composer = document.createElement('div');
+  composer.className = 'refine-composer';
+  composer.innerHTML = `
+    <textarea rows="4" placeholder="What needs to change? The refining agent will see this verbatim."></textarea>
+    <div class="refine-composer-actions">
+      <button type="button" class="action-btn ghost" data-refine-cancel>Cancel</button>
+      <button type="button" class="action-btn warn" data-refine-send disabled>Send</button>
+    </div>`;
+  host.appendChild(composer);
+
+  const ta = composer.querySelector('textarea');
+  const sendBtn = composer.querySelector('[data-refine-send]');
+  const cancelBtn = composer.querySelector('[data-refine-cancel]');
+
+  ta.addEventListener('input', () => {
+    sendBtn.disabled = ta.value.trim().length === 0;
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    composer.remove();
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    sendBtn.disabled = true;
+    try {
+      await postJSON(`/api/items/${encodeURIComponent(id)}/refine`, { comments: ta.value });
+      toast({ kind: 'warn', title: `Sent ${id} for refinement` });
+      onMutated();
+      await renderList();
+    } catch (err) {
+      toast({ kind: 'error', title: 'Refine failed', body: err.message });
+      sendBtn.disabled = false;
+    }
+  });
+
+  setTimeout(() => ta.focus(), 30);
 }
