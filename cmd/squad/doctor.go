@@ -54,7 +54,8 @@ func (a itemsHygieneAdapter) Broken(ctx context.Context) ([]hygiene.BrokenRef, e
 }
 
 func newDoctorCmd() *cobra.Command {
-	return &cobra.Command{
+	var strict bool
+	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose stale claims, ghost agents, orphan touches, broken refs, and DB integrity",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -85,7 +86,13 @@ func newDoctorCmd() *cobra.Command {
 					fmt.Fprintf(cmd.OutOrStdout(), "      fix: %s\n", f.Fix)
 				}
 			}
-			return fmt.Errorf("doctor: %d finding(s) — see output above", len(findings))
+			if strict {
+				return fmt.Errorf("doctor: %d finding(s) — see output above", len(findings))
+			}
+			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&strict, "strict", false,
+		"exit non-zero if any findings exist; use this in CI to fail the job")
+	return cmd
 }
