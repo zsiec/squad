@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/config"
+	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
@@ -33,6 +34,7 @@ func newNewCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Estimate, "estimate", "", "duration like 30m, 1h, 4h, 1d (default from config or 1h)")
 	cmd.Flags().StringVar(&opts.Risk, "risk", "", "low|medium|high (default from config or low)")
 	cmd.Flags().StringVar(&opts.Area, "area", "", "freeform area tag (default <fill-in>)")
+	cmd.Flags().BoolVar(&opts.Ready, "ready", false, "create as immediately-claimable (skips the captured/inbox state)")
 	return cmd
 }
 
@@ -99,6 +101,9 @@ func runNew(args []string, stdout io.Writer, opts items.Options) int {
 		opts.Area = cfg.Defaults.Area
 	}
 
+	agentID, _ := identity.AgentID()
+	opts.CapturedBy = agentID
+
 	squadDir := filepath.Join(root, ".squad")
 	path, err := items.NewWithOptions(squadDir, prefix, title, opts)
 	if err != nil {
@@ -106,33 +111,39 @@ func runNew(args []string, stdout io.Writer, opts items.Options) int {
 		return 4
 	}
 
-	if err := persistNewItem(root, path); err != nil {
+	parsed, err := persistNewItem(root, path)
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 4
 	}
 
-	fmt.Fprintln(stdout, path)
+	if parsed.Status == "open" {
+		fmt.Fprintf(stdout, "ready %s (immediately claimable)\n%s\n", parsed.ID, path)
+	} else {
+		fmt.Fprintf(stdout, "captured %s (run 'squad accept %s' when ready, or 'squad reject %s --reason ...')\n%s\n",
+			parsed.ID, parsed.ID, parsed.ID, path)
+	}
 	return 0
 }
 
-func persistNewItem(root, path string) error {
+func persistNewItem(root, path string) (items.Item, error) {
 	db, err := store.OpenDefault()
 	if err != nil {
-		return fmt.Errorf("persist new item: open store: %w", err)
+		return items.Item{}, fmt.Errorf("persist new item: open store: %w", err)
 	}
 	defer db.Close()
 	repoID, err := repo.IDFor(root)
 	if err != nil {
-		return fmt.Errorf("persist new item: repo id: %w", err)
+		return items.Item{}, fmt.Errorf("persist new item: repo id: %w", err)
 	}
 	parsed, err := items.Parse(path)
 	if err != nil {
-		return fmt.Errorf("persist new item: parse: %w", err)
+		return items.Item{}, fmt.Errorf("persist new item: parse: %w", err)
 	}
 	if err := items.Persist(context.Background(), db, repoID, parsed, false); err != nil {
-		return fmt.Errorf("persist new item: %w", err)
+		return items.Item{}, fmt.Errorf("persist new item: %w", err)
 	}
-	return nil
+	return parsed, nil
 }
 
 func containsString(list []string, s string) bool {

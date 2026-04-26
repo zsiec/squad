@@ -30,13 +30,24 @@ func TestRunNew_WritesFileAndPrintsPath(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
 	}
-	out := strings.TrimSpace(stdout.String())
-	if !strings.HasSuffix(out, ".md") {
-		t.Fatalf("expected path output, got %q", out)
-	}
-	if _, err := os.Stat(out); err != nil {
+	path := pathFromNewStdout(t, stdout.String())
+	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("output file missing: %v", err)
 	}
+}
+
+// pathFromNewStdout extracts the .md path line from `squad new` stdout.
+// Output is multi-line ("captured ID …" or "ready ID …" plus the path).
+func pathFromNewStdout(t *testing.T, out string) string {
+	t.Helper()
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasSuffix(line, ".md") {
+			return line
+		}
+	}
+	t.Fatalf("no .md path line in stdout: %q", out)
+	return ""
 }
 
 func TestRunNew_PersistsItemRowImmediately(t *testing.T) {
@@ -57,7 +68,7 @@ func TestRunNew_PersistsItemRowImmediately(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
 	}
-	created := strings.TrimSpace(stdout.String())
+	created := pathFromNewStdout(t, stdout.String())
 	parsed, err := items.Parse(created)
 	if err != nil {
 		t.Fatalf("parse created file: %v", err)
@@ -124,6 +135,133 @@ func TestRunNew_PropagatesPersistError(t *testing.T) {
 	}
 	if len(matches) != 1 {
 		t.Fatalf("expected exactly one BUG-*.md left on disk, got %d: %v", len(matches), matches)
+	}
+}
+
+func TestRunNew_DefaultsToCapturedAndStampsCapturedBy(t *testing.T) {
+	t.Setenv("SQUAD_AGENT", "agent-test")
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
+	t.Chdir(dir)
+
+	var stdout bytes.Buffer
+	code := runNew([]string{"feat", "test thing"}, &stdout, items.Options{})
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
+	}
+	path := pathFromNewStdout(t, stdout.String())
+	parsed, err := items.Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if parsed.Status != "captured" {
+		t.Errorf("status=%q want %q", parsed.Status, "captured")
+	}
+	if parsed.CapturedBy != "agent-test" {
+		t.Errorf("captured_by=%q want %q", parsed.CapturedBy, "agent-test")
+	}
+}
+
+func TestRunNew_ReadyFlagCreatesOpenItem(t *testing.T) {
+	t.Setenv("SQUAD_AGENT", "agent-test")
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
+	t.Chdir(dir)
+
+	var stdout bytes.Buffer
+	code := runNew([]string{"feat", "ready thing"}, &stdout, items.Options{Ready: true})
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
+	}
+	path := pathFromNewStdout(t, stdout.String())
+	parsed, err := items.Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if parsed.Status != "open" {
+		t.Errorf("status=%q want %q", parsed.Status, "open")
+	}
+	if parsed.AcceptedBy != "agent-test" {
+		t.Errorf("accepted_by=%q want %q", parsed.AcceptedBy, "agent-test")
+	}
+}
+
+func TestRunNew_StdoutMentionsCapturedAndAcceptHint(t *testing.T) {
+	t.Setenv("SQUAD_AGENT", "agent-test")
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
+	t.Chdir(dir)
+
+	var stdout bytes.Buffer
+	code := runNew([]string{"feat", "captured msg"}, &stdout, items.Options{})
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "captured ") {
+		t.Errorf("stdout missing 'captured' marker: %q", out)
+	}
+	if !strings.Contains(out, "squad accept") {
+		t.Errorf("stdout missing 'squad accept' hint: %q", out)
+	}
+	if !strings.Contains(out, ".md") {
+		t.Errorf("stdout missing path: %q", out)
+	}
+}
+
+func TestRunNew_ReadyStdoutMentionsImmediateClaim(t *testing.T) {
+	t.Setenv("SQUAD_AGENT", "agent-test")
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
+	t.Chdir(dir)
+
+	var stdout bytes.Buffer
+	code := runNew([]string{"feat", "ready msg"}, &stdout, items.Options{Ready: true})
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "ready ") {
+		t.Errorf("stdout missing 'ready' marker: %q", out)
+	}
+	if !strings.Contains(out, ".md") {
+		t.Errorf("stdout missing path: %q", out)
 	}
 }
 
