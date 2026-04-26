@@ -3,25 +3,41 @@
 ## For agents starting a session
 
 1. Read this file end-to-end.
-2. Read the operating manual: `/Users/zsiec/dev/switchframe/docs/plans/2026-04-24-squad-master-plan.md`. This is the stand-in for squad's own `AGENTS.md` until Phase 6 produces the real one.
-3. Read the current phase plan in that same directory (e.g. `2026-04-24-squad-phase-01-store-and-identity.md`). Do not read phases you are not working on.
-4. Once Phase 6 lands, run `squad init` in this repo and let the scaffolded `CLAUDE.md` replace this file. This hand-written version is a bootstrap stopgap — delete it without nostalgia.
+2. Read `docs/README.md` and `docs/adopting.md` to understand what the binary does and how a user adopts it.
+3. If you're working from a phase plan, read it under `/Users/zsiec/dev/switchframe/docs/plans/` (gitignored locally; not part of this repo). Otherwise the user will provide context inline.
 
 ## Codebase orientation
 
-As of Phase 0 the tree is intentionally sparse. It grows as phases land.
-
 ```
-cmd/squad/       # binary entry; subcommands are added one per file as phases need them
-internal/        # (Phase 1+) store, items, chat, touch, hygiene, repo, identity, server, scaffold, importers
-templates/       # (Phase 6) files copied into user repos by `squad init`
-plugin/          # (Phase 10) Claude Code plugin (skills, commands, hooks)
-web/             # (Phase 8) static SPA for the dashboard
-docs/            # (Phase 13) README, concepts, reference, recipes, adopting guide
-.github/         # CI workflow (Phase 0), release workflow (Phase 14)
+cmd/squad/                       # binary entry; one file per cobra subcommand (135+ files)
+internal/store/                  # SQLite layer; schema.sql + additive migrations
+internal/items/                  # item file format, lock, walk, rewrite
+internal/claims/                 # atomic claim ledger
+internal/chat/                   # typed chat verbs + bus
+internal/touch/                  # file-touch tracking
+internal/hygiene/                # stale-claim sweeps, doctor checks
+internal/identity/               # agent id derivation
+internal/repo/                   # repo discovery + global DB path
+internal/workspace/              # multi-repo views
+internal/scaffold/               # `squad init` templates
+internal/attest/                 # evidence ledger (R4)
+internal/learning/               # learning artifacts (R5)
+internal/notify/                 # notification endpoints
+internal/prmark/                 # PR linkage
+internal/epics/, internal/specs/ # spec/epic hierarchy (R3)
+internal/stats/                  # operational statistics (R7)
+internal/listener/               # real-time chat transport (R1)
+internal/server/                 # dashboard HTTP + SSE; web SPA at internal/server/web/
+internal/mcp/                    # MCP server for Claude Code (R6)
+internal/installer/              # plugin install state machine
+internal/skills/                 # skill frontmatter parser (test scaffold)
+plugin/                          # Claude Code plugin (manifest, hooks, skills, commands) (R6)
+templates/github-actions/        # CI templates emitted by `squad init`
+docs/                            # README, adopting, concepts, recipes, reference, troubleshooting
+.github/workflows/               # CI workflow
 ```
 
-`go.mod` pins Go 1.22. CI matrix: ubuntu-latest + macos-latest × Go 1.22. Pure Go, no CGO.
+`go.mod` pins Go 1.25. CI matrix: ubuntu-latest + macos-latest × Go 1.25. Pure Go, no CGO. Release artifacts target `linux/amd64`, `linux/arm64`, `darwin/amd64`, `darwin/arm64`.
 
 ## Conventions (the load-bearing section)
 
@@ -47,7 +63,7 @@ Delete anything that restates code. Only keep a comment when the WHY is non-obvi
 
 ### No future-work TODO comments
 
-If it is worth doing, file it as an item (once Phase 6 ships). If it is not worth filing, it is not worth a comment. TODOs in the tree are a failure mode — they accumulate forever and nobody reads them.
+If it is worth doing, file it as an item (`squad new bug "..."` or similar). If it is not worth filing, it is not worth a comment. TODOs in the tree are a failure mode — they accumulate forever and nobody reads them.
 
 ### No defensive checks for impossible states
 
@@ -100,4 +116,4 @@ All four documents live in `/Users/zsiec/dev/switchframe/docs/plans/`. They are 
 
 ## Updating this file
 
-Update this file only when a phase lands that changes the codebase structure or the conventions above. Otherwise leave it alone. After Phase 6 ships, replace it entirely with the output of `squad init` run in this directory.
+Update this file when codebase structure or conventions change materially. The conventions section is load-bearing — every contributor reads it. Keep the codebase orientation in sync with the actual tree.
