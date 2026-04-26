@@ -136,6 +136,38 @@ func (l *Ledger) Verify(ctx context.Context, itemID string) error {
 	return nil
 }
 
+func (l *Ledger) MissingKinds(ctx context.Context, itemID string, required []Kind) ([]Kind, error) {
+	if len(required) == 0 {
+		return nil, nil
+	}
+	rows, err := l.db.QueryContext(ctx, `
+		SELECT kind FROM attestations
+		WHERE repo_id = ? AND item_id = ? AND exit_code = 0
+	`, l.repoID, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	have := map[Kind]struct{}{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		have[Kind(k)] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var missing []Kind
+	for _, k := range required {
+		if _, ok := have[k]; !ok {
+			missing = append(missing, k)
+		}
+	}
+	return missing, nil
+}
+
 func (l *Ledger) ListForItem(ctx context.Context, itemID string) ([]Record, error) {
 	rows, err := l.db.QueryContext(ctx, `
 		SELECT id, item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id

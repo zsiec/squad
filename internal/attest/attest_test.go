@@ -3,6 +3,7 @@ package attest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -156,6 +157,54 @@ func TestLedger_Verify_DetectsTampering(t *testing.T) {
 	}
 	if !errors.Is(err, ErrHashMismatch) {
 		t.Fatalf("want ErrHashMismatch, got %v", err)
+	}
+}
+
+func TestLedger_MissingKinds(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "g.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	L := New(db, "repo-x", nil)
+	add := func(kind Kind, exit int) {
+		t.Helper()
+		_, err := L.Insert(context.Background(), Record{
+			ItemID: "FEAT-001", Kind: kind, Command: string(kind),
+			OutputHash: fmt.Sprintf("%s-hash-%d", kind, exit), OutputPath: "p", ExitCode: exit, AgentID: "a",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	add(KindTest, 0)
+	missing, err := L.MissingKinds(context.Background(), "FEAT-001", []Kind{KindTest, KindReview})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(missing) != 1 || missing[0] != KindReview {
+		t.Fatalf("missing = %v, want [review]", missing)
+	}
+
+	// A failing test attestation does NOT satisfy the requirement.
+	add(KindReview, 1)
+	missing, err = L.MissingKinds(context.Background(), "FEAT-001", []Kind{KindTest, KindReview})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(missing) != 1 || missing[0] != KindReview {
+		t.Fatalf("after failing review: missing = %v, want [review]", missing)
+	}
+
+	// A passing review row replaces it.
+	add(KindReview, 0)
+	missing, err = L.MissingKinds(context.Background(), "FEAT-001", []Kind{KindTest, KindReview})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(missing) != 0 {
+		t.Fatalf("with both passing: missing = %v, want []", missing)
 	}
 }
 
