@@ -8,10 +8,7 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/zsiec/squad",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/zsiec/squad.git"
-  },
+  "repository": "https://github.com/zsiec/squad",
   "keywords": [
     "agents",
     "coordination",
