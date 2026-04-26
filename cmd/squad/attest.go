@@ -77,6 +77,7 @@ func newAttestCmd() *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "attest %s %s exit=%d hash=%s\n", k, item, rec.ExitCode, rec.OutputHash)
 			if rec.ExitCode != 0 {
+				// explicit Close: os.Exit skips the deferred bc.Close above.
 				bc.Close()
 				os.Exit(rec.ExitCode)
 			}
