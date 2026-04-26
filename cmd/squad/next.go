@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +18,90 @@ import (
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
 )
+
+// ErrNoReadyItems signals that NextItem found no ready items matching the
+// filter. The cobra wrapper exits 1 in this case (back-compat with the old
+// runNext contract).
+var ErrNoReadyItems = errors.New("next: no ready items")
+
+type NextArgs struct {
+	ItemsDir       string  `json:"items_dir"`
+	DoneDir        string  `json:"done_dir"`
+	DB             *sql.DB `json:"-"`
+	RepoID         string  `json:"repo_id"`
+	AgentID        string  `json:"agent_id"`
+	Limit          int     `json:"limit,omitempty"`
+	IncludeClaimed bool    `json:"include_claimed,omitempty"`
+}
+
+type NextRow struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Priority string `json:"priority"`
+	Estimate string `json:"estimate"`
+	Area     string `json:"area"`
+}
+
+type NextResult struct {
+	Items []NextRow `json:"items"`
+	// Total is the unfiltered count before Limit truncation. The cobra
+	// wrapper uses it to print "... and N more".
+	Total int `json:"total"`
+}
+
+func NextItem(ctx context.Context, args NextArgs) (NextResult, error) {
+	squadDir := filepath.Dir(args.ItemsDir)
+	w, err := items.Walk(squadDir)
+	if err != nil {
+		return NextResult{}, fmt.Errorf("walk items: %w", err)
+	}
+
+	claimed := map[string]struct{}{}
+	if args.DB != nil && args.RepoID != "" {
+		_ = items.Mirror(ctx, args.DB, args.RepoID, w)
+		rows, qerr := args.DB.QueryContext(ctx,
+			`SELECT item_id FROM claims WHERE repo_id = ?`, args.RepoID)
+		if qerr == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var id string
+				if err := rows.Scan(&id); err == nil {
+					claimed[id] = struct{}{}
+				}
+			}
+		}
+	}
+
+	ready := items.Ready(w, time.Now().UTC())
+	if !args.IncludeClaimed {
+		filtered := ready[:0]
+		for _, it := range ready {
+			if _, held := claimed[it.ID]; !held {
+				filtered = append(filtered, it)
+			}
+		}
+		ready = filtered
+	}
+	if len(ready) == 0 {
+		return NextResult{}, ErrNoReadyItems
+	}
+
+	total := len(ready)
+	if args.Limit > 0 && args.Limit < total {
+		ready = ready[:args.Limit]
+	}
+	out := make([]NextRow, 0, len(ready))
+	for _, it := range ready {
+		out = append(out, NextRow{
+			ID:       it.ID,
+			Title:    it.Title,
+			Priority: it.Priority,
+			Estimate: it.Estimate,
+			Area:     it.Area,
+		})
+	}
+	return NextResult{Items: out, Total: total}, nil
+}
 
 func newNextCmd() *cobra.Command {
 	var (
@@ -50,43 +136,23 @@ func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaime
 		fmt.Fprintf(os.Stderr, "find repo: %v\n", err)
 		return 4
 	}
-	squadDir := filepath.Join(root, ".squad")
-	w, err := items.Walk(squadDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "walk items: %v\n", err)
-		return 4
-	}
 
-	claimed := make(map[string]struct{})
+	args := NextArgs{
+		ItemsDir:       filepath.Join(root, ".squad", "items"),
+		DoneDir:        filepath.Join(root, ".squad", "done"),
+		Limit:          limit,
+		IncludeClaimed: includeClaimed,
+	}
 	if db, derr := store.OpenDefault(); derr == nil {
 		defer db.Close()
 		if repoID, rerr := repo.IDFor(root); rerr == nil {
-			_ = items.Mirror(context.Background(), db, repoID, w)
-			rows, qerr := db.QueryContext(context.Background(),
-				`SELECT item_id FROM claims WHERE repo_id = ?`, repoID)
-			if qerr == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var id string
-					if err := rows.Scan(&id); err == nil {
-						claimed[id] = struct{}{}
-					}
-				}
-			}
+			args.DB = db
+			args.RepoID = repoID
 		}
 	}
 
-	ready := items.Ready(w, time.Now().UTC())
-	if !includeClaimed {
-		filtered := ready[:0]
-		for _, it := range ready {
-			if _, held := claimed[it.ID]; !held {
-				filtered = append(filtered, it)
-			}
-		}
-		ready = filtered
-	}
-	if len(ready) == 0 {
+	res, err := NextItem(context.Background(), args)
+	if errors.Is(err, ErrNoReadyItems) {
 		if asJSON {
 			fmt.Fprintln(stdout, "[]")
 			return 0
@@ -94,15 +160,14 @@ func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaime
 		fmt.Fprintln(os.Stderr, "no ready items")
 		return 1
 	}
-
-	total := len(ready)
-	if limit > 0 && limit < total {
-		ready = ready[:limit]
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 4
 	}
 
 	if asJSON {
-		out := make([]map[string]any, 0, len(ready))
-		for _, it := range ready {
+		out := make([]map[string]any, 0, len(res.Items))
+		for _, it := range res.Items {
 			out = append(out, map[string]any{
 				"id":       it.ID,
 				"title":    it.Title,
@@ -120,15 +185,15 @@ func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaime
 		return 0
 	}
 
-	for _, it := range ready {
+	for _, it := range res.Items {
 		marker := ""
 		if strings.HasPrefix(it.ID, "EXAMPLE-") {
 			marker = " [tutorial]"
 		}
 		fmt.Fprintf(stdout, "%-12s %-3s %-8s %s%s\n", it.ID, it.Priority, it.Estimate, it.Title, marker)
 	}
-	if limit > 0 && total > limit {
-		fmt.Fprintf(stdout, "... and %d more (use --limit %d for all)\n", total-limit, total)
+	if limit > 0 && res.Total > limit {
+		fmt.Fprintf(stdout, "... and %d more (use --limit %d for all)\n", res.Total-limit, res.Total)
 	}
 	return 0
 }
