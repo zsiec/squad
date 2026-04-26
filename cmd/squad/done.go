@@ -7,17 +7,21 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/attest"
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/config"
+	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
 )
 
 func newDoneCmd() *cobra.Command {
 	var summary string
 	var skipVerify bool
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "done <ITEM-ID>",
 		Short: "Mark an item done: run pre-commit verification, release claim, rewrite frontmatter, move to .squad/done/",
@@ -53,6 +57,26 @@ func newDoneCmd() *cobra.Command {
 					itemID, bc.itemsDir)
 				os.Exit(1)
 			}
+
+			parsed, perr := items.Parse(itemPath)
+			if perr != nil {
+				return perr
+			}
+			required := requiredKinds(parsed.EvidenceRequired)
+			if len(required) > 0 {
+				L := attest.New(bc.db, bc.repoID, nil)
+				missing, mErr := L.MissingKinds(ctx, itemID, required)
+				if mErr != nil {
+					return mErr
+				}
+				if len(missing) > 0 && !force {
+					return fmt.Errorf(
+						"%s: evidence_required not satisfied. Missing kinds: %s.\n"+
+							"Run `squad attest --item %s --kind <kind> --command \"...\"` for each, or pass --force to override (the override is recorded as a manual attestation).",
+						itemID, joinKinds(missing), itemID)
+				}
+			}
+
 			err = bc.store.Done(ctx, itemID, bc.agentID, claims.DoneOpts{
 				Summary:  summary,
 				ItemPath: itemPath,
@@ -75,7 +99,27 @@ func newDoneCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line summary appended to the done message")
 	cmd.Flags().BoolVar(&skipVerify, "skip-verify", false, "skip the verification.pre_commit gates from .squad/config.yaml")
+	cmd.Flags().BoolVar(&force, "force", false, "override missing evidence_required (records a manual attestation logging the override)")
 	return cmd
+}
+
+func requiredKinds(raw []string) []attest.Kind {
+	out := make([]attest.Kind, 0, len(raw))
+	for _, r := range raw {
+		k := attest.Kind(strings.TrimSpace(r))
+		if k.Valid() {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+func joinKinds(ks []attest.Kind) string {
+	parts := make([]string, len(ks))
+	for i, k := range ks {
+		parts[i] = string(k)
+	}
+	return strings.Join(parts, ", ")
 }
 
 // runVerification executes each verification.pre_commit entry in cwd-relative
