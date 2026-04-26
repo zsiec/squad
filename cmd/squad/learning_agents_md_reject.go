@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/learning"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newLearningAgentsMdRejectCmd() *cobra.Command {
@@ -24,8 +23,7 @@ func newLearningAgentsMdRejectCmd() *cobra.Command {
 				return fmt.Errorf("--reason is required")
 			}
 			id := args[0]
-			wd, _ := os.Getwd()
-			root, err := repo.Discover(wd)
+			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}

@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/learning"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newLearningRejectCmd() *cobra.Command {
@@ -22,8 +21,7 @@ func newLearningRejectCmd() *cobra.Command {
 			if strings.TrimSpace(reason) == "" {
 				return fmt.Errorf("--reason is required (rejected learnings are kept for audit)")
 			}
-			wd, _ := os.Getwd()
-			root, err := repo.Discover(wd)
+			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}

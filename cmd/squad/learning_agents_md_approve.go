@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/learning"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 var diffFenceRe = regexp.MustCompile("(?s)```diff\\n(.*?)```")
@@ -25,8 +24,7 @@ func newLearningAgentsMdApproveCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			wd, _ := os.Getwd()
-			root, err := repo.Discover(wd)
+			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}

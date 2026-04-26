@@ -11,7 +11,6 @@ import (
 
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/learning"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newLearningProposeCmd() *cobra.Command {
@@ -33,11 +32,7 @@ func newLearningProposeCmd() *cobra.Command {
 			if title == "" || area == "" {
 				return fmt.Errorf("--title and --area are required")
 			}
-			wd, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			root, err := repo.Discover(wd)
+			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}

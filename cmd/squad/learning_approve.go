@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/learning"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newLearningApproveCmd() *cobra.Command {
@@ -16,8 +14,7 @@ func newLearningApproveCmd() *cobra.Command {
 		Short: "Promote a proposed learning to approved/",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			wd, _ := os.Getwd()
-			root, err := repo.Discover(wd)
+			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}

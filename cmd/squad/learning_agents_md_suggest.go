@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/identity"
-	"github.com/zsiec/squad/internal/repo"
 )
 
 func newLearningAgentsMdSuggestCmd() *cobra.Command {
@@ -30,8 +29,7 @@ func newLearningAgentsMdSuggestCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("read diff: %w", err)
 			}
-			wd, _ := os.Getwd()
-			root, err := repo.Discover(wd)
+			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}
