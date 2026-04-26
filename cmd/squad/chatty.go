@@ -56,7 +56,11 @@ func runChatty(ctx context.Context, c *chat.Chat, agentID, kind, to, mention str
 		fmt.Fprintf(os.Stderr, "usage: squad %s [--to ITEM|global] [--mention a,b] <message>\n", kind)
 		return 4
 	}
-	thread := c.ResolveThread(ctx, agentID, to)
+	thread, err := c.ResolveThread(ctx, agentID, to)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 4
+	}
 	mentions := splitMentions(mention)
 	if mentions == nil {
 		mentions = chat.ParseMentions(body)

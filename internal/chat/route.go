@@ -1,19 +1,31 @@
 package chat
 
-import "context"
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+)
 
 // ResolveThread returns the thread a chatty verb should post to.
 // Priority: explicit override > current claim > global fallback.
-func (c *Chat) ResolveThread(ctx context.Context, agentID, override string) string {
+//
+// A real DB error is reported to the caller — the no-claim path is
+// signalled only by sql.ErrNoRows and translated to ThreadGlobal here,
+// so a transient outage cannot be confused for "no current claim".
+func (c *Chat) ResolveThread(ctx context.Context, agentID, override string) (string, error) {
 	if override != "" {
-		return override
+		return override, nil
 	}
 	var item string
-	_ = c.db.QueryRowContext(ctx,
+	err := c.db.QueryRowContext(ctx,
 		`SELECT item_id FROM claims WHERE agent_id = ? AND repo_id = ? ORDER BY claimed_at DESC LIMIT 1`,
 		agentID, c.repoID).Scan(&item)
-	if item == "" {
-		return ThreadGlobal
+	if errors.Is(err, sql.ErrNoRows) {
+		return ThreadGlobal, nil
 	}
-	return item
+	if err != nil {
+		return "", fmt.Errorf("resolve thread for %s: %w", agentID, err)
+	}
+	return item, nil
 }

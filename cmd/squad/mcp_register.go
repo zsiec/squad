@@ -283,7 +283,10 @@ func registerChatTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 				return nil, err
 			}
 			c := newChatService(db, repoID)
-			to := c.ResolveThread(ctx, agent, args.To)
+			to, err := c.ResolveThread(ctx, agent, args.To)
+			if err != nil {
+				return nil, err
+			}
 			return Say(ctx, SayArgs{
 				Chat:     c,
 				AgentID:  agent,

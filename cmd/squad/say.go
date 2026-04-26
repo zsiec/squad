@@ -101,7 +101,11 @@ func runSayBody(ctx context.Context, c *chat.Chat, agentID string, a sayCmdFlags
 		fmt.Fprintln(os.Stderr, "usage: squad say [--to ITEM|global] [--mention a,b] <message>")
 		return 4
 	}
-	thread := c.ResolveThread(ctx, agentID, a.To)
+	thread, err := c.ResolveThread(ctx, agentID, a.To)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 4
+	}
 	res, err := Say(ctx, SayArgs{
 		Chat:     c,
 		AgentID:  agentID,
