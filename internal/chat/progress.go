@@ -2,7 +2,10 @@ package chat
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 func (c *Chat) ReportProgress(ctx context.Context, agentID, itemID string, pct int, note string) error {
@@ -13,20 +16,24 @@ func (c *Chat) ReportProgress(ctx context.Context, agentID, itemID string, pct i
 		return fmt.Errorf("progress: item id required")
 	}
 	now := c.nowUnix()
-	if _, err := c.db.ExecContext(ctx, `
-		INSERT INTO progress (item_id, pct, reported_at, reported_by, note)
-		VALUES (?, ?, ?, ?, ?)
-	`, itemID, pct, now, agentID, note); err != nil {
+	err := store.WithTxRetry(ctx, c.db, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO progress (item_id, pct, reported_at, reported_by, note)
+			VALUES (?, ?, ?, ?, ?)
+		`, itemID, pct, now, agentID, note); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE agents SET last_tick_at = ?, status = 'active' WHERE id = ?`,
+			now, agentID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx,
+			`UPDATE claims SET last_touch = ? WHERE agent_id = ? AND repo_id = ?`,
+			now, agentID, c.repoID)
 		return err
-	}
-	if _, err := c.db.ExecContext(ctx,
-		`UPDATE agents SET last_tick_at = ?, status = 'active' WHERE id = ?`,
-		now, agentID); err != nil {
-		return err
-	}
-	if _, err := c.db.ExecContext(ctx,
-		`UPDATE claims SET last_touch = ? WHERE agent_id = ? AND repo_id = ?`,
-		now, agentID, c.repoID); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 	c.bus.Publish(Event{

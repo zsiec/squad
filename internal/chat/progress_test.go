@@ -65,3 +65,79 @@ func TestLatestProgress_ReturnsNewestRow(t *testing.T) {
 		t.Fatalf("pct=%d note=%q", pct, note)
 	}
 }
+
+// If the second of the three writes errors, the first INSERT must roll
+// back too — otherwise the stale-claim sweeper sees a progress row with
+// a fresh reported_at while claims.last_touch lags, and decides the
+// claim is abandoned even though the agent is actively reporting.
+func TestReportProgress_RollsBackPartialOnSecondWriteFailure(t *testing.T) {
+	c, db := newTestChat(t)
+	ctx := context.Background()
+
+	if _, err := db.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES ('repo-test', 'BUG-700', 'agent-a', 100, 100, '', 0)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		CREATE TRIGGER abort_agents_update BEFORE UPDATE ON agents
+		FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'forced'); END
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.ReportProgress(ctx, "agent-a", "BUG-700", 50, "should not commit"); err == nil {
+		t.Fatal("expected error from forced trigger abort, got nil")
+	}
+
+	var progressRows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM progress WHERE item_id='BUG-700'`).Scan(&progressRows); err != nil {
+		t.Fatal(err)
+	}
+	if progressRows != 0 {
+		t.Fatalf("partial commit: %d progress rows survived; expected 0 (entire transaction must roll back)", progressRows)
+	}
+
+	var lastTouch int64
+	if err := db.QueryRow(`SELECT last_touch FROM claims WHERE item_id='BUG-700'`).Scan(&lastTouch); err != nil {
+		t.Fatal(err)
+	}
+	if lastTouch != 100 {
+		t.Fatalf("claims.last_touch advanced to %d on a failed transaction; expected unchanged 100", lastTouch)
+	}
+}
+
+// The bus event must only fire after the writes have committed.
+// Otherwise a downstream subscriber sees a "progress" event for state
+// that never reached disk.
+func TestReportProgress_DoesNotPublishOnFailure(t *testing.T) {
+	c, db := newTestChat(t)
+	ctx := context.Background()
+
+	if _, err := db.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES ('repo-test', 'BUG-701', 'agent-a', 100, 100, '', 0)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		CREATE TRIGGER abort_agents_update_pub BEFORE UPDATE ON agents
+		FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'forced'); END
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	sub := c.Bus().Subscribe()
+	defer c.Bus().Unsubscribe(sub)
+
+	if err := c.ReportProgress(ctx, "agent-a", "BUG-701", 50, "should not publish"); err == nil {
+		t.Fatal("expected error from forced trigger abort, got nil")
+	}
+
+	select {
+	case ev := <-sub:
+		t.Fatalf("bus published %q event on a failed transaction; payload=%v", ev.Kind, ev.Payload)
+	default:
+	}
+}
