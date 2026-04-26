@@ -6,11 +6,43 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/chat"
 )
+
+type AskArgs struct {
+	Chat     *chat.Chat `json:"-"`
+	AgentID  string     `json:"agent_id"`
+	To       string     `json:"to"`
+	Target   string     `json:"target"`
+	Question string     `json:"question"`
+}
+
+type AskResult struct {
+	To       string `json:"to"`
+	Target   string `json:"target"`
+	Question string `json:"question"`
+	PostedAt int64  `json:"posted_at"`
+}
+
+func Ask(ctx context.Context, args AskArgs) (*AskResult, error) {
+	to := args.To
+	if to == "" {
+		to = chat.ThreadGlobal
+	}
+	if err := args.Chat.Ask(ctx, args.AgentID, to, args.Target, args.Question); err != nil {
+		return nil, err
+	}
+	return &AskResult{
+		To:       to,
+		Target:   args.Target,
+		Question: args.Question,
+		PostedAt: time.Now().Unix(),
+	}, nil
+}
 
 func newAskCmd() *cobra.Command {
 	var to string
@@ -46,17 +78,23 @@ func runAskBody(ctx context.Context, c *chat.Chat, agentID, to string, args []st
 	}
 	target := strings.TrimPrefix(args[0], "@")
 	body := strings.Join(args[1:], " ")
-	if to == "" {
-		to = chat.ThreadGlobal
-	}
-	if err := c.Ask(ctx, agentID, to, target, body); err != nil {
+
+	res, err := Ask(ctx, AskArgs{
+		Chat:     c,
+		AgentID:  agentID,
+		To:       to,
+		Target:   target,
+		Question: body,
+	})
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 4
 	}
-	thread := to
+
+	thread := res.To
 	if thread == chat.ThreadGlobal {
 		thread = "global"
 	}
-	fmt.Fprintf(stdout, "[ask -> #%s] @%s %s\n", thread, target, body)
+	fmt.Fprintf(stdout, "[ask -> #%s] @%s %s\n", thread, res.Target, res.Question)
 	return 0
 }
