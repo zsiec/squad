@@ -41,3 +41,33 @@ func TestLearnings_List_FilterByState(t *testing.T) {
 		t.Fatalf("want 0 proposed, got %d", len(out))
 	}
 }
+
+func TestLearnings_Detail(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	req := httptest.NewRequest(http.MethodGet, "/api/learnings/sample-gotcha", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out map[string]any
+	_ = json.NewDecoder(rec.Body).Decode(&out)
+	if out["title"] != "Sample gotcha for server tests" {
+		t.Fatalf("title=%v", out["title"])
+	}
+	if _, ok := out["body_markdown"]; !ok {
+		t.Fatal("expected body_markdown")
+	}
+}
+
+func TestLearnings_Detail_404(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	req := httptest.NewRequest(http.MethodGet, "/api/learnings/no-such-learning", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("code=%d", rec.Code)
+	}
+}
