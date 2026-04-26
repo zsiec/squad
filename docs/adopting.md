@@ -6,19 +6,25 @@ The default voice through this doc assumes you're driving squad through Claude C
 
 ## TL;DR
 
-1. `claude install github.com/zsiec/squad` — one-time install.
-2. Open Claude Code in a git repo and ask: *"Initialize squad here and walk me through the example item."*
-3. When the example is done, ask: *"Mark it done."*
+1. Install the `squad` binary: `go install github.com/zsiec/squad/cmd/squad@latest` (Homebrew tap is planned but not shipped yet).
+2. From inside Claude Code, add the marketplace and install the plugin:
+   - `/plugin marketplace add zsiec/squad`
+   - `/plugin install squad@squad`
+   - Restart Claude Code (or run `/reload-plugins`) so hooks, skills, and the MCP server load.
+3. Open Claude Code in a git repo and ask: *"Initialize squad here and walk me through the example item."*
+4. When the example is done, ask: *"Mark it done."*
 
 If you're not using Claude Code, the terminal equivalent is `squad init --yes && squad go` in the project's directory.
 
-## Day 0 — install
+## Day 0 — install the binary
 
-The fastest path is via Claude Code's plugin system. This drops the binary, registers the MCP server, wires the always-on hooks, and exposes squad's verbs to every Claude Code session — all in one step:
+Squad is two pieces: a Go binary you run from the shell (`squad ...`) and a Claude Code plugin that exposes the binary's verbs as MCP tools, slash commands, skills, and hooks. The plugin needs the binary, so install the binary first.
 
 ```bash
-claude install github.com/zsiec/squad
+go install github.com/zsiec/squad/cmd/squad@latest
 ```
+
+A Homebrew tap is on the roadmap but not yet released; once it ships you'll be able to `brew tap zsiec/tap && brew install squad`.
 
 Verify:
 
@@ -34,12 +40,32 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 
 Persist that in your shell rc.
 
-If you'd rather install the binary alone (CLI-only use, scripting, CI):
+If you only want the CLI (scripts, CI, no Claude Code integration), you're done — skip to [Day 0 — initialize a repo](#day-0--initialize-a-repo).
 
-```bash
-go install github.com/zsiec/squad/cmd/squad@latest
-squad install-plugin                # optional; only needed for Claude Code integration
+## Day 0 — install the Claude Code plugin
+
+Squad ships as a Claude Code marketplace at `github.com/zsiec/squad`. From inside any Claude Code session:
+
 ```
+/plugin marketplace add zsiec/squad
+/plugin install squad@squad
+/reload-plugins
+```
+
+After `/reload-plugins` (or a Claude Code restart), the plugin's pieces are live:
+
+- **MCP tools** — `squad_claim`, `squad_next`, `squad_done`, `squad_say`, etc. visible in the tool list.
+- **Slash commands** — `/work`, `/done`, `/pick`, `/file`, etc. show up under `/help`.
+- **Skills** — squad-loop, squad-handoff, squad-quality-bar, etc. auto-load when their `paths:` match the file you're editing.
+- **Hooks** — session-start, user-prompt-submit, stop, pre-compact, etc. fire automatically.
+
+If you'd rather wire the plugin from a local git checkout (e.g., for plugin development), point Claude Code at the directory directly:
+
+```
+claude --plugin-dir ~/dev/squad/plugin
+```
+
+The CLI-only path with no Claude Code integration is just `go install` above; no `install-plugin` step is needed.
 
 ## Day 0 — initialize a repo
 

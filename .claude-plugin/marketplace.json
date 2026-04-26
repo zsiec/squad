@@ -1,0 +1,15 @@
+{
+  "name": "squad",
+  "owner": {
+    "name": "Thomas Symborski",
+    "url": "https://github.com/zsiec"
+  },
+  "description": "Operating loop for AI coding agents.",
+  "plugins": [
+    {
+      "name": "squad",
+      "source": "./plugin",
+      "description": "Atomic claims, typed chat, evidence-gated done, mandatory review, multi-agent coordination."
+    }
+  ]
+}
