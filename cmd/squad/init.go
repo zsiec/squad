@@ -79,6 +79,9 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	if err := scaffold.WriteExampleItem(info.GitRoot, data); err != nil {
 		return err
 	}
+	if err := scaffold.WriteCapturedExampleItem(info.GitRoot, data); err != nil {
+		return err
+	}
 	if err := scaffold.WriteAgents(info.GitRoot, data); err != nil {
 		return err
 	}
@@ -159,6 +162,7 @@ func printSuccess(out io.Writer, info scaffold.RepoInfo, ans answers, reg scaffo
 	fmt.Fprintln(out, "  .squad/config.yaml")
 	fmt.Fprintln(out, "  .squad/STATUS.md")
 	fmt.Fprintln(out, "  .squad/items/EXAMPLE-001-try-the-loop.md")
+	fmt.Fprintln(out, "  .squad/items/IDEA-001-something-to-think-about.md")
 	fmt.Fprintln(out, "  CLAUDE.md (squad-managed block)")
 	fmt.Fprintln(out, "  .gitignore (squad lines appended)")
 	fmt.Fprintln(out, "")
@@ -169,4 +173,6 @@ func printSuccess(out io.Writer, info scaffold.RepoInfo, ans answers, reg scaffo
 	fmt.Fprintln(out, "Next:")
 	fmt.Fprintln(out, "  squad next             # see what to work on")
 	fmt.Fprintln(out, "  squad claim EXAMPLE-001 --intent \"trying the loop\"")
+	fmt.Fprintln(out, "  squad inbox            # IDEA-001 is captured; promote it with:")
+	fmt.Fprintln(out, "  squad accept IDEA-001  # (edit area first, or it'll fail DoR)")
 }

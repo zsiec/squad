@@ -24,6 +24,14 @@ func WriteExampleItem(repoRoot string, d Data) error {
 	)
 }
 
+func WriteCapturedExampleItem(repoRoot string, d Data) error {
+	return writeIfAbsent(
+		filepath.Join(repoRoot, ".squad", "items", "IDEA-001-something-to-think-about.md"),
+		"templates/items/IDEA-001-something-to-think-about.md.tmpl",
+		d,
+	)
+}
+
 func WriteAgents(repoRoot string, d Data) error {
 	return writeIfAbsent(filepath.Join(repoRoot, "AGENTS.md"), "templates/AGENTS.md.tmpl", d)
 }

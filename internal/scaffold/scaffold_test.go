@@ -120,6 +120,30 @@ func TestExampleItem_HasFrontmatterAndBody(t *testing.T) {
 	}
 }
 
+func TestCapturedExampleItem_HasFrontmatterAndBody(t *testing.T) {
+	raw, err := Templates.ReadFile("templates/items/IDEA-001-something-to-think-about.md.tmpl")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got, err := Render(string(raw), Data{ProjectName: "octopus"})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		"id: IDEA-001",
+		"title:",
+		"status: captured",
+		"## Problem",
+		"## Acceptance criteria",
+		"squad inbox",
+		"squad accept IDEA-001",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("captured-example template missing %q\nrendered:\n%s", want, got)
+		}
+	}
+}
+
 func TestConfigTemplate_RendersAllKnobs(t *testing.T) {
 	raw, err := Templates.ReadFile("templates/config.yaml.tmpl")
 	if err != nil {
@@ -191,6 +215,7 @@ func TestAllTemplates_NoSwitchframeVocabulary(t *testing.T) {
 		"templates/config.yaml.tmpl",
 		"templates/status.md.tmpl",
 		"templates/items/EXAMPLE-001-try-the-loop.md.tmpl",
+		"templates/items/IDEA-001-something-to-think-about.md.tmpl",
 	}
 	for _, f := range files {
 		raw, err := Templates.ReadFile(f)

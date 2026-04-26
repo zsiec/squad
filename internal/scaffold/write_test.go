@@ -98,6 +98,38 @@ func TestWriteExampleItem_SkipsIfPresent(t *testing.T) {
 	}
 }
 
+func TestWriteCapturedExampleItem_CreatesItemFile(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteCapturedExampleItem(root, Data{ProjectName: "octopus"}); err != nil {
+		t.Fatalf("WriteCapturedExampleItem: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, ".squad", "items", "IDEA-001-something-to-think-about.md"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if !strings.Contains(string(got), "id: IDEA-001") {
+		t.Fatalf("missing frontmatter id; got:\n%s", got)
+	}
+	if !strings.Contains(string(got), "status: captured") {
+		t.Fatalf("missing status: captured; got:\n%s", got)
+	}
+}
+
+func TestWriteCapturedExampleItem_SkipsIfPresent(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".squad", "items")
+	_ = os.MkdirAll(dir, 0o755)
+	custom := []byte("user-edited\n")
+	_ = os.WriteFile(filepath.Join(dir, "IDEA-001-something-to-think-about.md"), custom, 0o644)
+	if err := WriteCapturedExampleItem(root, Data{ProjectName: "p"}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(filepath.Join(dir, "IDEA-001-something-to-think-about.md"))
+	if string(got) != "user-edited\n" {
+		t.Fatalf("clobbered user edits; got %q", got)
+	}
+}
+
 func TestWriteAgents_CreatesFile(t *testing.T) {
 	root := t.TempDir()
 	d := Data{ProjectName: "octopus", IDPrefixes: []string{"BUG", "FEAT"}}

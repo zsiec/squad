@@ -39,6 +39,7 @@ func TestRunInit_EmptyGitRepo_ScaffoldsAllFiles(t *testing.T) {
 		".squad/config.yaml",
 		".squad/STATUS.md",
 		".squad/items/EXAMPLE-001-try-the-loop.md",
+		".squad/items/IDEA-001-something-to-think-about.md",
 		".gitignore",
 	} {
 		if _, err := os.Stat(filepath.Join(repo, rel)); err != nil {
@@ -46,8 +47,16 @@ func TestRunInit_EmptyGitRepo_ScaffoldsAllFiles(t *testing.T) {
 		}
 	}
 
+	idea, err := os.ReadFile(filepath.Join(repo, ".squad/items/IDEA-001-something-to-think-about.md"))
+	if err != nil {
+		t.Fatalf("read IDEA-001: %v", err)
+	}
+	if !strings.Contains(string(idea), "status: captured") {
+		t.Errorf("IDEA-001 missing 'status: captured'; got:\n%s", idea)
+	}
+
 	out := stdout.String()
-	for _, want := range []string{"Scaffolded", "squad next", "AGENTS.md"} {
+	for _, want := range []string{"Scaffolded", "squad next", "AGENTS.md", "squad inbox", "squad accept"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("success message missing %q\nstdout:\n%s", want, out)
 		}

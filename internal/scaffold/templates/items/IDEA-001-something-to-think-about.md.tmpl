@@ -1,0 +1,36 @@
+---
+id: IDEA-001
+title: something you've been thinking about
+type: feat
+status: captured
+priority: P2
+area: <fill-in>
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+captured_by: ""
+captured_at: 0
+accepted_by: ""
+accepted_at: 0
+---
+
+## Problem
+This is an inbox example. It demonstrates that captured items live in
+`.squad/items/` alongside everything else; the `status: captured` field
+keeps them out of the claim queue (`squad next`) until you promote them.
+
+## Context
+Run `squad inbox` to see this item. Run `squad accept IDEA-001 --strict`
+to see it fail Definition of Ready (the area is `<fill-in>`). Edit the
+file to set a real area, then `squad accept IDEA-001` succeeds and the
+item becomes claimable like any other.
+
+## Acceptance criteria
+- [ ] Try `squad inbox` to list captured items
+- [ ] Try `squad accept IDEA-001` (will fail DoR initially)
+- [ ] Edit the area, retry — promotion succeeds
+- [ ] `squad next` now lists IDEA-001 as ready
+
+## Notes
+You can delete this example any time with `squad reject IDEA-001 --reason "demo"`.
