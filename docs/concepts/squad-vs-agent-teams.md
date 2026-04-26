@@ -13,11 +13,11 @@ Squad and [Claude Code's experimental agent-teams](https://code.claude.com/docs/
 | Dimension | agent-teams | squad |
 |---|---|---|
 | **Lifetime** | Single session. Tasks vanish when the lead exits. | Durable. Items survive sessions, restarts, machine swaps. |
-| **Storage** | `~/.claude/tasks/<team>/tasks.json` (file-locked JSON). | `.squad/items/*.md` (git-committed) + `~/.squad/global.db` (operational). |
+| **Storage** | Files under `~/.claude/tasks/<team>/` (file-locked). | `.squad/items/*.md` (git-committed) + `~/.squad/global.db` (operational). |
 | **Hosts** | Single host. No network sync built in. | Cross-host. Items travel with the repo; operational state is per-machine. |
 | **Resumption** | None. New session = new team. | First-class. `squad work` reattaches in one command. |
 | **Lead role** | Fixed for the life of the team. | No lead role. Agents are peers; coordination is via claim ledger. |
-| **Membership** | Up to 4 teammates per docs at writing; lead-spawned. | Unbounded (subject to WIP cap per agent identity). |
+| **Membership** | No hard limit per upstream docs; 3-5 teammates is the recommended range. Lead-spawned. | Unbounded (subject to WIP cap per agent identity). |
 | **Repo awareness** | None. Tasks are session-scoped, not repo-scoped. | Items, claims, hygiene all repo-scoped. |
 | **Maturity** | Experimental. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. API may change. | GA. Pure-Go static binary. SemVer. |
 | **Persistence of decisions** | Mailbox messages flushed at session end. | Chat verbs (`squad ask`, `squad milestone`, `squad fyi`) durably stored. |
