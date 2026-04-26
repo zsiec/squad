@@ -9,7 +9,12 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"time"
+
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 type Kind string
@@ -62,6 +67,44 @@ func (l *Ledger) nowUnix() int64 { return l.now().Unix() }
 func (l *Ledger) Hash(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+func (l *Ledger) Insert(ctx context.Context, r Record) (int64, error) {
+	if !r.Kind.Valid() {
+		return 0, fmt.Errorf("invalid kind %q (want test|lint|typecheck|build|review|manual)", r.Kind)
+	}
+	created := r.CreatedAt
+	if created == 0 {
+		created = l.nowUnix()
+	}
+	res, err := l.db.ExecContext(ctx, `
+		INSERT INTO attestations (item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		r.ItemID, string(r.Kind), r.Command, r.ExitCode,
+		r.OutputHash, r.OutputPath, created, r.AgentID, l.repoID,
+	)
+	if err != nil {
+		if isUniqueViolation(err) {
+			var existing int64
+			if qerr := l.db.QueryRowContext(ctx,
+				`SELECT id FROM attestations WHERE item_id = ? AND output_hash = ?`,
+				r.ItemID, r.OutputHash).Scan(&existing); qerr == nil {
+				return existing, nil
+			}
+		}
+		return 0, fmt.Errorf("insert attestation: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+func isUniqueViolation(err error) bool {
+	var sErr *sqlite.Error
+	if errors.As(err, &sErr) {
+		return sErr.Code() == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY ||
+			sErr.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE
+	}
+	return false
 }
 
 func (l *Ledger) ListForItem(ctx context.Context, itemID string) ([]Record, error) {
