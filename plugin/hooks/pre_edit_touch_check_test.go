@@ -28,12 +28,23 @@ esac
 	return p
 }
 
+// runHookWithStdin pipes the given JSON payload to the hook's stdin (matching
+// the real Claude Code PreToolUse contract: payload arrives via stdin, never
+// via $TOOL_INPUT) and returns the combined output.
+func runHookWithStdin(t *testing.T, scriptPath, stdin string, env []string) ([]byte, error) {
+	t.Helper()
+	cmd := exec.Command("/bin/sh", scriptPath)
+	cmd.Env = env
+	cmd.Stdin = strings.NewReader(stdin)
+	return cmd.CombinedOutput()
+}
+
 func TestTouchCheck_NoOpWhenDisabled(t *testing.T) {
 	p := writeFixtureScript(t, "pre_edit_touch_check.sh")
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Env = []string{"SQUAD_NO_HOOKS=1", "PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"file_path":"/tmp/x.go"}`}
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := runHookWithStdin(t, p,
+		`{"tool_name":"Edit","tool_input":{"file_path":"/tmp/x.go"}}`,
+		[]string{"SQUAD_NO_HOOKS=1", "PATH=/usr/bin:/bin"})
+	if err != nil {
 		t.Fatalf("expected exit 0, got %v: %s", err, out)
 	}
 }
@@ -41,10 +52,9 @@ func TestTouchCheck_NoOpWhenDisabled(t *testing.T) {
 func TestTouchCheck_NoConflictPassesThroughCleanBlob(t *testing.T) {
 	p := writeFixtureScript(t, "pre_edit_touch_check.sh")
 	stub := writeStubPolicy(t, `{"conflict":false}`)
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Env = []string{"PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"file_path":"server/main.go"}`, "SQUAD_BIN=" + stub}
-	out, err := cmd.CombinedOutput()
+	out, err := runHookWithStdin(t, p,
+		`{"tool_name":"Edit","tool_input":{"file_path":"server/main.go"}}`,
+		[]string{"PATH=/usr/bin:/bin", "SQUAD_BIN=" + stub})
 	if err != nil {
 		t.Fatalf("expected exit 0, got %v: %s", err, out)
 	}
@@ -57,10 +67,9 @@ func TestTouchCheck_AskBlobReachesStdout(t *testing.T) {
 	p := writeFixtureScript(t, "pre_edit_touch_check.sh")
 	blob := `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","additionalContext":"squad: agent-bbbb is editing server/main.go"}}`
 	stub := writeStubPolicy(t, blob)
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Env = []string{"PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"file_path":"server/main.go"}`, "SQUAD_BIN=" + stub}
-	out, err := cmd.CombinedOutput()
+	out, err := runHookWithStdin(t, p,
+		`{"tool_name":"Edit","tool_input":{"file_path":"server/main.go"}}`,
+		[]string{"PATH=/usr/bin:/bin", "SQUAD_BIN=" + stub})
 	if err != nil {
 		t.Fatalf("expected exit 0, got %v: %s", err, out)
 	}
@@ -76,15 +85,31 @@ func TestTouchCheck_DenyBlobReachesStdout(t *testing.T) {
 	p := writeFixtureScript(t, "pre_edit_touch_check.sh")
 	blob := `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","additionalContext":"squad: blocked - agent-cccc is editing go.mod"}}`
 	stub := writeStubPolicy(t, blob)
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Env = []string{"PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"file_path":"go.mod"}`, "SQUAD_BIN=" + stub}
-	out, err := cmd.CombinedOutput()
+	out, err := runHookWithStdin(t, p,
+		`{"tool_name":"Edit","tool_input":{"file_path":"go.mod"}}`,
+		[]string{"PATH=/usr/bin:/bin", "SQUAD_BIN=" + stub})
 	if err != nil {
 		t.Fatalf("expected exit 0 (decision is in stdout JSON), got %v: %s", err, out)
 	}
 	if !strings.Contains(string(out), `"permissionDecision":"deny"`) {
 		t.Fatalf("expected deny decision in stdout, got %q", out)
+	}
+}
+
+// TestTouchCheck_SkipsNonEditTools asserts the hook only fires for
+// Edit/Write/MultiEdit. A Bash event must be passed through silently — the
+// stub would echo unrelated JSON if invoked.
+func TestTouchCheck_SkipsNonEditTools(t *testing.T) {
+	p := writeFixtureScript(t, "pre_edit_touch_check.sh")
+	stub := writeStubPolicy(t, `{"conflict":true,"should_not_appear":true}`)
+	out, err := runHookWithStdin(t, p,
+		`{"tool_name":"Bash","tool_input":{"command":"ls"}}`,
+		[]string{"PATH=/usr/bin:/bin", "SQUAD_BIN=" + stub})
+	if err != nil {
+		t.Fatalf("expected exit 0, got %v: %s", err, out)
+	}
+	if strings.Contains(string(out), "should_not_appear") {
+		t.Fatalf("hook should skip non-Edit tools; got %q", out)
 	}
 }
 

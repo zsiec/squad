@@ -1,6 +1,9 @@
 #!/bin/sh
 # squad pre-commit PM-trace check. Default OFF.
 # Greps `git diff --staged` and the commit message for backlog ID patterns.
+#
+# PreToolUse delivers its event payload via stdin as JSON, never via env vars.
+# We read the whole payload and extract tool_name and tool_input.command.
 
 set -u
 
@@ -8,8 +11,20 @@ if [ "${SQUAD_NO_HOOKS:-0}" = "1" ]; then
     exit 0
 fi
 
-CMD=$(printf '%s' "${TOOL_INPUT:-}" \
-    | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+PAYLOAD=$(cat)
+[ -z "$PAYLOAD" ] && exit 0
+
+if command -v jq >/dev/null 2>&1; then
+    TOOL=$(printf '%s' "$PAYLOAD" | jq -r '.tool_name // empty' 2>/dev/null)
+    CMD=$(printf '%s' "$PAYLOAD" | jq -r '.tool_input.command // empty' 2>/dev/null)
+else
+    TOOL=$(printf '%s' "$PAYLOAD" \
+        | sed -n 's/.*"tool_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+    CMD=$(printf '%s' "$PAYLOAD" \
+        | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+fi
+
+[ "$TOOL" = "Bash" ] || exit 0
 
 case "$CMD" in
     "git commit"*|*"&& git commit"*|*"; git commit"*|*"| git commit"*) ;;

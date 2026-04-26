@@ -36,11 +36,23 @@ func setupGitRepo(t *testing.T, body string) string {
 	return dir
 }
 
+// runHookInDirWithStdin pipes the given JSON payload to the hook's stdin
+// (matching the real Claude Code PreToolUse contract) inside the supplied
+// working directory, returning the combined output.
+func runHookInDirWithStdin(t *testing.T, scriptPath, dir, stdin string, env []string) ([]byte, error) {
+	t.Helper()
+	cmd := exec.Command("/bin/sh", scriptPath)
+	cmd.Dir = dir
+	cmd.Env = env
+	cmd.Stdin = strings.NewReader(stdin)
+	return cmd.CombinedOutput()
+}
+
 func TestPMTraces_NoOpWhenDisabled(t *testing.T) {
 	p := writeFixtureScript(t, "pre_commit_pm_traces.sh")
 	cmd := exec.Command("/bin/sh", p)
-	cmd.Env = []string{"SQUAD_NO_HOOKS=1", "PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"command":"git commit -m foo"}`}
+	cmd.Env = []string{"SQUAD_NO_HOOKS=1", "PATH=/usr/bin:/bin"}
+	cmd.Stdin = strings.NewReader(`{"tool_name":"Bash","tool_input":{"command":"git commit -m foo"}}`)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("expected exit 0, got %v: %s", err, out)
 	}
@@ -49,11 +61,10 @@ func TestPMTraces_NoOpWhenDisabled(t *testing.T) {
 func TestPMTraces_PassesClean(t *testing.T) {
 	p := writeFixtureScript(t, "pre_commit_pm_traces.sh")
 	repo := setupGitRepo(t, "")
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Dir = repo
-	cmd.Env = append(os.Environ(), "PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"command":"git commit -m 'feat: add cool thing'"}`)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	out, err := runHookInDirWithStdin(t, p, repo,
+		`{"tool_name":"Bash","tool_input":{"command":"git commit -m 'feat: add cool thing'"}}`,
+		append(os.Environ(), "PATH=/usr/bin:/bin"))
+	if err != nil {
 		t.Fatalf("expected exit 0, got %v: %s", err, out)
 	}
 }
@@ -61,11 +72,9 @@ func TestPMTraces_PassesClean(t *testing.T) {
 func TestPMTraces_FailsOnIDInMessage(t *testing.T) {
 	p := writeFixtureScript(t, "pre_commit_pm_traces.sh")
 	repo := setupGitRepo(t, "")
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Dir = repo
-	cmd.Env = append(os.Environ(), "PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"command":"git commit -m 'fix: address BUG-123'"}`)
-	out, err := cmd.CombinedOutput()
+	out, err := runHookInDirWithStdin(t, p, repo,
+		`{"tool_name":"Bash","tool_input":{"command":"git commit -m 'fix: address BUG-123'"}}`,
+		append(os.Environ(), "PATH=/usr/bin:/bin"))
 	if err == nil {
 		t.Fatalf("expected non-zero exit for BUG-123, got success: %s", out)
 	}
@@ -77,16 +86,28 @@ func TestPMTraces_FailsOnIDInMessage(t *testing.T) {
 func TestPMTraces_FailsOnIDInDiff(t *testing.T) {
 	p := writeFixtureScript(t, "pre_commit_pm_traces.sh")
 	repo := setupGitRepo(t, "// note: see FEAT-42 for context\n")
-	cmd := exec.Command("/bin/sh", p)
-	cmd.Dir = repo
-	cmd.Env = append(os.Environ(), "PATH=/usr/bin:/bin",
-		`TOOL_INPUT={"command":"git commit -m 'feat: clean'"}`)
-	out, err := cmd.CombinedOutput()
+	out, err := runHookInDirWithStdin(t, p, repo,
+		`{"tool_name":"Bash","tool_input":{"command":"git commit -m 'feat: clean'"}}`,
+		append(os.Environ(), "PATH=/usr/bin:/bin"))
 	if err == nil {
 		t.Fatalf("expected non-zero exit for FEAT-42 in diff, got success: %s", out)
 	}
 	if !strings.Contains(string(out), "FEAT-42") {
 		t.Fatalf("expected stderr to mention FEAT-42, got %q", out)
+	}
+}
+
+// TestPMTraces_SkipsNonBashTools asserts the hook only fires for Bash.
+// An Edit event must be passed through silently even if its content matches
+// the PM-trace pattern.
+func TestPMTraces_SkipsNonBashTools(t *testing.T) {
+	p := writeFixtureScript(t, "pre_commit_pm_traces.sh")
+	repo := setupGitRepo(t, "")
+	out, err := runHookInDirWithStdin(t, p, repo,
+		`{"tool_name":"Edit","tool_input":{"file_path":"x.go","new_string":"BUG-123"}}`,
+		append(os.Environ(), "PATH=/usr/bin:/bin"))
+	if err != nil {
+		t.Fatalf("expected exit 0 (Edit tool, not a commit), got %v: %s", err, out)
 	}
 }
 
