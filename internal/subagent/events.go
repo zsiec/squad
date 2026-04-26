@@ -51,10 +51,14 @@ func (r *Recorder) Record(ctx context.Context, e Event) error {
 	if pair := pairEvent(e.EventName); pair != "" {
 		var startTs int64
 		err := tx.QueryRowContext(ctx, `
-            SELECT ts FROM subagent_events
-            WHERE subagent_id = ? AND event = ?
-            ORDER BY id DESC LIMIT 1`,
-			e.SubagentID, pair).Scan(&startTs)
+            SELECT ts FROM subagent_events s
+            WHERE s.subagent_id = ? AND s.event = ?
+              AND NOT EXISTS (
+                SELECT 1 FROM subagent_events e
+                WHERE e.subagent_id = s.subagent_id AND e.event = ? AND e.id > s.id
+              )
+            ORDER BY s.id DESC LIMIT 1`,
+			e.SubagentID, pair, e.EventName).Scan(&startTs)
 		if err == nil {
 			duration = sql.NullInt64{Int64: (nowTs - startTs) * 1000, Valid: true}
 		}

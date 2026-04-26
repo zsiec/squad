@@ -91,6 +91,67 @@ func TestRecord_DurationFromStopPair(t *testing.T) {
 	}
 }
 
+func TestRecord_DurationDoesNotMatchAlreadyStoppedStart(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	insertAgent(t, db, "agent-A", "repo-1", 100)
+
+	// First start/stop cycle on sub-1: 10s -> 20s (duration 10000).
+	rec1 := New(db, "repo-1", func() time.Time { return time.Unix(10, 0) })
+	if err := rec1.Record(ctx, Event{
+		AgentID: "agent-A", SubagentID: "sub-1", Type: "Explore", EventName: "subagent_start",
+	}); err != nil {
+		t.Fatalf("record start 1: %v", err)
+	}
+	rec2 := New(db, "repo-1", func() time.Time { return time.Unix(20, 0) })
+	if err := rec2.Record(ctx, Event{
+		AgentID: "agent-A", SubagentID: "sub-1", Type: "Explore", EventName: "subagent_stop",
+	}); err != nil {
+		t.Fatalf("record stop 1: %v", err)
+	}
+
+	// Duplicate / late stop with no new start in between. The buggy
+	// implementation pairs this stop with the already-paired start at id=1
+	// and emits a bogus 80000ms duration. The fix scopes "latest start"
+	// to "latest start with no stop after it" — yielding NULL here.
+	rec3 := New(db, "repo-1", func() time.Time { return time.Unix(100, 0) })
+	if err := rec3.Record(ctx, Event{
+		AgentID: "agent-A", SubagentID: "sub-1", Type: "Explore", EventName: "subagent_stop",
+	}); err != nil {
+		t.Fatalf("record stop 2: %v", err)
+	}
+
+	rows, err := db.Query(`
+		SELECT ts, duration_ms FROM subagent_events
+		WHERE event='subagent_stop' AND subagent_id='sub-1'
+		ORDER BY ts ASC`)
+	if err != nil {
+		t.Fatalf("query stops: %v", err)
+	}
+	defer rows.Close()
+	type stop struct {
+		ts  int64
+		dur sql.NullInt64
+	}
+	var stops []stop
+	for rows.Next() {
+		var s stop
+		if err := rows.Scan(&s.ts, &s.dur); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		stops = append(stops, s)
+	}
+	if len(stops) != 2 {
+		t.Fatalf("want 2 stop rows, got %d", len(stops))
+	}
+	if !stops[0].dur.Valid || stops[0].dur.Int64 != 10000 {
+		t.Fatalf("first stop duration_ms=%v want 10000", stops[0].dur)
+	}
+	if stops[1].dur.Valid {
+		t.Fatalf("second stop must have NULL duration_ms when start already paired, got %d", stops[1].dur.Int64)
+	}
+}
+
 func TestRecord_NoAgentIsNoop(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
