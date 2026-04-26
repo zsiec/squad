@@ -13,6 +13,23 @@ import (
 	"github.com/zsiec/squad/internal/chat"
 )
 
+type TickArgs struct {
+	Chat    *chat.Chat `json:"-"`
+	AgentID string     `json:"agent_id"`
+}
+
+type TickResult struct {
+	Digest chat.Digest `json:"digest"`
+}
+
+func Tick(ctx context.Context, args TickArgs) (*TickResult, error) {
+	dg, err := args.Chat.Tick(ctx, args.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	return &TickResult{Digest: dg}, nil
+}
+
 func newTickCmd() *cobra.Command {
 	var jsonOut bool
 	cmd := &cobra.Command{
@@ -37,7 +54,7 @@ func newTickCmd() *cobra.Command {
 }
 
 func runTickBody(ctx context.Context, c *chat.Chat, agentID string, jsonOut bool, w io.Writer) int {
-	dg, err := c.Tick(ctx, agentID)
+	res, err := Tick(ctx, TickArgs{Chat: c, AgentID: agentID})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 4
@@ -45,10 +62,10 @@ func runTickBody(ctx context.Context, c *chat.Chat, agentID string, jsonOut bool
 	if jsonOut {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		_ = enc.Encode(dg)
+		_ = enc.Encode(res.Digest)
 		return 0
 	}
-	emitDigest(w, dg)
+	emitDigest(w, res.Digest)
 	return 0
 }
 
