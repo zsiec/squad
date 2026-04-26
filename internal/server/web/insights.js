@@ -102,16 +102,27 @@ async function ensureChartJs() {
   if (chartjsLoaded) return chartjsLoaded;
   chartjsLoaded = new Promise((resolve, reject) => {
     const s1 = document.createElement('script');
-    s1.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js';
+    s1.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js';
+    s1.integrity = 'sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ';
+    s1.crossOrigin = 'anonymous';
     s1.onload = () => {
+      if (!window.Chart) {
+        reject(new Error('chart.js loaded but window.Chart is undefined'));
+        return;
+      }
       const s2 = document.createElement('script');
       s2.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js';
+      s2.integrity = 'sha384-cVMg8E3QFwTvGCDuK+ET4PD341jF3W8nO1auiXfuZNQkzbUUiBGLsIQUE+b1mxws';
+      s2.crossOrigin = 'anonymous';
       s2.onload = () => resolve(window.Chart);
-      s2.onerror = reject;
+      s2.onerror = () => reject(new Error('chartjs-adapter-date-fns failed to load'));
       document.head.appendChild(s2);
     };
-    s1.onerror = reject;
+    s1.onerror = () => reject(new Error('chart.js failed to load'));
     document.head.appendChild(s1);
+  }).catch((err) => {
+    chartjsLoaded = null;
+    throw err;
   });
   return chartjsLoaded;
 }
