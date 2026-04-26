@@ -16,6 +16,7 @@ import (
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/prmark"
 	"github.com/zsiec/squad/internal/repo"
+	"github.com/zsiec/squad/internal/store"
 )
 
 func newPRCmd() *cobra.Command {
@@ -193,8 +194,25 @@ func PRClose(ctx context.Context, args PRCloseArgs) (*PRCloseResult, error) {
 		return nil, fmt.Errorf("rewrite status: %w", err)
 	}
 	doneDir := filepath.Join(squadDir, "done")
-	if _, err := items.MoveToDone(itemPath, doneDir); err != nil {
+	movedPath, err := items.MoveToDone(itemPath, doneDir)
+	if err != nil {
 		return nil, fmt.Errorf("move to done/: %w", err)
+	}
+	db, derr := store.OpenDefault()
+	if derr != nil {
+		return nil, fmt.Errorf("open default db for items persist: %w", derr)
+	}
+	defer db.Close()
+	repoID, rerr := repo.IDFor(root)
+	if rerr != nil {
+		return nil, fmt.Errorf("repo id: %w", rerr)
+	}
+	parsed, perr := items.Parse(movedPath)
+	if perr != nil {
+		return nil, fmt.Errorf("parse moved item for persist: %w", perr)
+	}
+	if err := items.Persist(ctx, db, repoID, parsed, true); err != nil {
+		return nil, fmt.Errorf("persist items row: %w", err)
 	}
 	pendingPath := filepath.Join(squadDir, "pending-prs.json")
 	_ = prmark.RemovePending(pendingPath, itemID)

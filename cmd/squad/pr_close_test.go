@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/repo"
+	"github.com/zsiec/squad/internal/store"
 )
 
 func fakeGH(t *testing.T, body string) string {
@@ -97,6 +100,44 @@ func TestPRCloseTwoMarkersFirstWins(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(repo, ".squad", "done", "BUG-001-test.md")); err != nil {
 		t.Fatalf("BUG-001 must be in done/: %v", err)
+	}
+}
+
+func TestPRClosePersistsItemRowImmediately(t *testing.T) {
+	repoDir := seedRepo(t)
+	t.Setenv("SQUAD_HOME", t.TempDir())
+	withFakeGH(t, "<!-- squad-item: BUG-001 -->")
+
+	if _, _, err := runPRCmdInDir(t, repoDir, "pr-close", "42"); err != nil {
+		t.Fatalf("pr-close: %v", err)
+	}
+
+	db, err := store.OpenDefault()
+	if err != nil {
+		t.Fatalf("open default db: %v", err)
+	}
+	defer db.Close()
+	canonical, err := repo.Discover(repoDir)
+	if err != nil {
+		t.Fatalf("repo discover: %v", err)
+	}
+	repoID, err := repo.IDFor(canonical)
+	if err != nil {
+		t.Fatalf("repo id: %v", err)
+	}
+	var status string
+	var archived int
+	if err := db.QueryRow(
+		`SELECT status, archived FROM items WHERE repo_id=? AND item_id=?`,
+		repoID, "BUG-001",
+	).Scan(&status, &archived); err != nil {
+		t.Fatalf("items row missing after PRClose: %v", err)
+	}
+	if status != "done" {
+		t.Errorf("status=%q want done", status)
+	}
+	if archived != 1 {
+		t.Errorf("archived=%d want 1", archived)
 	}
 }
 
