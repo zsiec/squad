@@ -40,6 +40,30 @@ evidence_required: [review]
 - [ ] does the thing
 `
 
+func TestParseReviewExit_StopsAtSeparator(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want int
+	}{
+		{"clean", "status: clean\n---\nbody\n", 0},
+		{"blocking", "status: blocking\n---\nbody\n", 1},
+		{"clean header, blocking line in body", "status: clean\ndisagreements: 0\n---\nprior reviewer wrote:\nstatus: blocking\nbut it was resolved.\n", 0},
+		{"blocking header, clean line in body", "status: blocking\ndisagreements: 2\n---\nfinding 1:\nstatus: clean\nwas the prior verdict.\n", 1},
+		{"no separator, blocking present", "status: blocking\nfollow-up notes\n", 1},
+		{"no header at all", "no status header\n---\nbody\n", 0},
+		{"missing header, body quotes status: blocking", "disagreements: 0\nresolution: accepted\n---\nfinding excerpt:\nstatus: blocking\n(now moot)\n", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseReviewExit([]byte(tc.body))
+			if got != tc.want {
+				t.Fatalf("parseReviewExit(%q) = %d, want %d", tc.body, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestAttest_TestKind_HappyPath(t *testing.T) {
 	repoDir := t.TempDir()
 	state := t.TempDir()

@@ -138,11 +138,14 @@ func recordReviewAttestation(ctx context.Context, L *attest.Ledger, a recordRevi
 
 func parseReviewExit(body []byte) int {
 	for _, line := range strings.Split(string(body), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "status:") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "---" {
+			break
+		}
+		if !strings.HasPrefix(trimmed, "status:") {
 			continue
 		}
-		val := strings.TrimSpace(strings.TrimPrefix(line, "status:"))
+		val := strings.TrimSpace(strings.TrimPrefix(trimmed, "status:"))
 		if val == "blocking" {
 			return 1
 		}
