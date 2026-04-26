@@ -128,6 +128,50 @@ func TestE2E_SessionMessage(t *testing.T) {
 	}
 }
 
+func TestE2E_SSEInvalidation(t *testing.T) {
+	ts, db := e2eFixture(t)
+	c := client.New(ts.URL, "")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	eventCh := c.SubscribeEvents(ctx)
+
+	m := views.NewItems(c)
+	updated, _ := m.Update(runE2ECmd(t, m.Init()))
+	mm := updated.(views.ItemsModel)
+
+	// Out-of-band claim insert simulates a CLI-side `squad claim`. The
+	// server's claimsPump observes it on its 500ms tick and emits
+	// item_changed onto the bus, which the SSE handler forwards.
+	now := time.Now().Unix()
+	if _, err := db.Exec(`INSERT INTO claims (item_id, repo_id, agent_id, claimed_at, last_touch, intent, long) VALUES ('BUG-100', ?, 'agent-x', ?, ?, '', 0)`,
+		e2eRepoID, now, now); err != nil {
+		t.Fatal(err)
+	}
+
+	var ev client.Event
+	select {
+	case ev = <-eventCh:
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for SSE event")
+	}
+	if ev.Kind != "item_changed" {
+		t.Fatalf("expected item_changed, got %q", ev.Kind)
+	}
+
+	_, refetchCmd := mm.Update(ev)
+	if refetchCmd == nil {
+		t.Fatal("expected refetch cmd from item_changed")
+	}
+	refMsg := refetchCmd()
+	updated, _ = mm.Update(refMsg)
+	mm = updated.(views.ItemsModel)
+
+	if mm.View() == "" {
+		t.Fatal("View empty after refetch")
+	}
+}
+
 // suppress unused imports in case future test variants drop them.
 var _ = context.Background
 var _ = time.Second
