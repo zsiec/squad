@@ -10,6 +10,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 const (
@@ -321,74 +323,72 @@ func (sw *Sweeper) MarkStaleAgents(ctx context.Context) error {
 // list of item IDs reclaimed.
 func (sw *Sweeper) ReclaimStale(ctx context.Context) ([]string, error) {
 	now := sw.nowUnix()
-	tx, err := sw.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	rows, err := tx.QueryContext(ctx, `
-		SELECT item_id, agent_id, claimed_at, last_touch FROM claims
-		WHERE repo_id = ? AND ((long = 0 AND last_touch < ?) OR (long = 1 AND last_touch < ?))
-	`, sw.repoID, now-sw.staleSec, now-StaleClaimLongSec)
-	if err != nil {
-		return nil, err
-	}
-	type stale struct {
-		item, agent          string
-		claimedAt, lastTouch int64
-	}
-	var stales []stale
-	for rows.Next() {
-		var s stale
-		if err := rows.Scan(&s.item, &s.agent, &s.claimedAt, &s.lastTouch); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		stales = append(stales, s)
-	}
-	rows.Close()
-
 	var ids []string
-	for _, s := range stales {
-		res, err := tx.ExecContext(ctx,
-			`DELETE FROM claims WHERE repo_id=? AND item_id=? AND agent_id=? AND last_touch=?`,
-			sw.repoID, s.item, s.agent, s.lastTouch)
+	err := store.WithTxRetry(ctx, sw.db, func(tx *sql.Tx) error {
+		ids = nil
+		rows, err := tx.QueryContext(ctx, `
+			SELECT item_id, agent_id, claimed_at, last_touch FROM claims
+			WHERE repo_id = ? AND ((long = 0 AND last_touch < ?) OR (long = 1 AND last_touch < ?))
+		`, sw.repoID, now-sw.staleSec, now-StaleClaimLongSec)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		n, err := res.RowsAffected()
-		if err != nil {
-			return nil, err
+		type stale struct {
+			item, agent          string
+			claimedAt, lastTouch int64
 		}
-		if n == 0 {
-			continue
+		var stales []stale
+		for rows.Next() {
+			var s stale
+			if err := rows.Scan(&s.item, &s.agent, &s.claimedAt, &s.lastTouch); err != nil {
+				rows.Close()
+				return err
+			}
+			stales = append(stales, s)
 		}
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO claim_history (repo_id, item_id, agent_id, claimed_at, released_at, outcome)
-			VALUES (?, ?, ?, ?, ?, 'reclaimed')
-		`, sw.repoID, s.item, s.agent, s.claimedAt, now); err != nil {
-			return nil, err
+		rows.Close()
+
+		for _, s := range stales {
+			res, err := tx.ExecContext(ctx,
+				`DELETE FROM claims WHERE repo_id=? AND item_id=? AND agent_id=? AND last_touch=?`,
+				sw.repoID, s.item, s.agent, s.lastTouch)
+			if err != nil {
+				return err
+			}
+			n, err := res.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if n == 0 {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO claim_history (repo_id, item_id, agent_id, claimed_at, released_at, outcome)
+				VALUES (?, ?, ?, ?, ?, 'reclaimed')
+			`, sw.repoID, s.item, s.agent, s.claimedAt, now); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `
+				UPDATE touches SET released_at = ?
+				WHERE repo_id = ? AND item_id = ? AND agent_id = ? AND released_at IS NULL
+			`, now, sw.repoID, s.item, s.agent); err != nil {
+				return err
+			}
+			// Surface the auto-reclaim on the chat stream so the SSE pump
+			// notifies any connected dashboard. Without this row, a reclaimed
+			// claim only becomes visible on the next manual refetch.
+			body := "auto-reclaimed stale claim on " + s.item
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
+				VALUES (?, ?, ?, 'global', 'release', ?, '[]', 'normal')
+			`, sw.repoID, now, s.agent, body); err != nil {
+				return err
+			}
+			ids = append(ids, s.item)
 		}
-		if _, err := tx.ExecContext(ctx, `
-			UPDATE touches SET released_at = ?
-			WHERE repo_id = ? AND item_id = ? AND agent_id = ? AND released_at IS NULL
-		`, now, sw.repoID, s.item, s.agent); err != nil {
-			return nil, err
-		}
-		// Surface the auto-reclaim on the chat stream so the SSE pump
-		// notifies any connected dashboard. Without this row, a reclaimed
-		// claim only becomes visible on the next manual refetch.
-		body := "auto-reclaimed stale claim on " + s.item
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
-			VALUES (?, ?, ?, 'global', 'release', ?, '[]', 'normal')
-		`, sw.repoID, now, s.agent, body); err != nil {
-			return nil, err
-		}
-		ids = append(ids, s.item)
-	}
-	if err := tx.Commit(); err != nil {
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	return ids, nil
