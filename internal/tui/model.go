@@ -8,6 +8,7 @@ import (
 	"github.com/zsiec/squad/internal/tui/client"
 	"github.com/zsiec/squad/internal/tui/components"
 	"github.com/zsiec/squad/internal/tui/theme"
+	"github.com/zsiec/squad/internal/tui/views"
 )
 
 type View int
@@ -70,9 +71,6 @@ type StubView struct{ label string }
 func (s StubView) Init() tea.Cmd                           { return nil }
 func (s StubView) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return s, nil }
 func (s StubView) View() string                            { return s.label }
-
-// RefreshMsg is emitted on Ctrl-R; view modules pattern-match to re-fetch.
-type RefreshMsg struct{}
 
 // Model is the root bubbletea model.
 type Model struct {
@@ -185,7 +183,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if s == "ctrl+r" {
 			var cmd tea.Cmd
-			m.views[m.current], cmd = m.views[m.current].Update(RefreshMsg{})
+			m.views[m.current], cmd = m.views[m.current].Update(views.RefreshMsg{})
 			return m, cmd
 		}
 		if msg.Type == tea.KeyRunes && len(msg.Runes) == 1 {
