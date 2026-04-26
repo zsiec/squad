@@ -46,6 +46,7 @@ func TestRepeatMistakeRate(t *testing.T) {
 }
 
 func TestTokensReportsUnavailableByDefault(t *testing.T) {
+	t.Setenv(tokenEnvVar, "")
 	db := openTestDB(t)
 	snap, _ := Compute(context.Background(), db, ComputeOpts{
 		RepoID: "repo-1", Now: time.Unix(2_000_000_000, 0), Window: 24 * time.Hour,
