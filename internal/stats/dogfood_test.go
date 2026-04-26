@@ -13,7 +13,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Dogfood: open the user's actual ~/.squad/squad.sqlite (read-only) and
+// Dogfood: open the user's actual ~/.squad/global.db (read-only) and
 // confirm Compute returns no error and a sensible Snapshot. Excluded from the
 // default build; run with `go test -tags dogfood ./internal/stats/`.
 func TestComputeAgainstRealDB(t *testing.T) {
@@ -21,7 +21,7 @@ func TestComputeAgainstRealDB(t *testing.T) {
 	if err != nil {
 		t.Skip("no home dir")
 	}
-	path := filepath.Join(home, ".squad", "squad.sqlite")
+	path := filepath.Join(home, ".squad", "global.db")
 	if _, err := os.Stat(path); err != nil {
 		t.Skip("no real db")
 	}
