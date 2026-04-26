@@ -231,7 +231,7 @@ func (m SessionModel) send(localID int64, body, kind string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		err := c.PostMessage(ctx, &client.PostMessageReq{
-			Thread:   target,
+			Thread:   "global",
 			Body:     body,
 			Kind:     kind,
 			Mentions: []string{target},
