@@ -33,6 +33,7 @@ type Server struct {
 	rlMu        sync.Mutex
 	rl          map[string][]time.Time
 	pump        *messagesPump
+	claimsPump  *claimsPump
 }
 
 func New(db *sql.DB, repoID string, cfg Config) *Server {
@@ -58,6 +59,8 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 	s := &Server{db: db, chat: c, cfg: cfg}
 	s.pump = newMessagesPump(db, repoID, c.Bus())
 	s.pump.start()
+	s.claimsPump = newClaimsPump(db, repoID, c.Bus())
+	s.claimsPump.start()
 	return s
 }
 
@@ -66,6 +69,9 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 func (s *Server) Close() {
 	if s.pump != nil {
 		s.pump.stop()
+	}
+	if s.claimsPump != nil {
+		s.claimsPump.stop()
 	}
 }
 
