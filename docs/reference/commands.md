@@ -110,7 +110,17 @@ squad spec-new auth "rebuild authentication around OIDC"
 
 Prints the absolute path to the created file on success. Names must be kebab-case; titles are free-form.
 
-## Claims
+## Onboarding
+
+### `squad go`
+
+Onboard or resume in one step: init the workspace if `.squad/` is absent, register the agent if not already registered, find the top ready item, claim it, print its AC, and flush the mailbox. Idempotent — running twice does not claim two items; resumes the existing claim instead.
+
+```bash
+squad go
+```
+
+No flags — the command takes no arguments. The recommended single entry point for both first-time and resume cases. Equivalent to `init --yes` + `register` + `next` + `claim` + `tail` chained, but with the resume semantics built in.
 
 ### `squad claim`
 
@@ -316,6 +326,105 @@ squad touches list-others
 squad touches list-others --json
 ```
 
+## Evidence
+
+### `squad attest`
+
+Record a verification artifact (test/lint/build/typecheck/manual/review) into the evidence ledger. Items with `evidence_required: [...]` in their frontmatter need an attestation per kind before `squad done` will close them out (without `--force`).
+
+```bash
+# Test, lint, typecheck, build — squad runs the command and stores stdout+exit.
+squad attest --item FEAT-001 --kind test     --command "go test ./..."
+squad attest --item FEAT-001 --kind lint     --command "golangci-lint run"
+squad attest --item FEAT-001 --kind build    --command "go build ./..."
+
+# Review — write findings to a file first; squad reads, hashes, and stores it.
+squad attest --item FEAT-001 --kind review \
+    --reviewer-agent agent-helper \
+    --findings-file /tmp/review.md
+
+# Manual — record an out-of-band verification (compliance sign-off etc).
+squad attest --item FEAT-001 --kind manual --command "compliance review e-mailed 2026-04-26"
+```
+
+| Flag | Required when | Meaning |
+|---|---|---|
+| `--item <ID>` | always | Item id; the attestation is scoped to one item. |
+| `--kind <kind>` | always | One of `test`, `lint`, `typecheck`, `build`, `review`, `manual`. |
+| `--command <cmd>` | always except `kind=review` | Shell command to run; squad captures stdout and exit code into the ledger. |
+| `--findings-file <path>` | `kind=review` | File whose body becomes the review record. |
+| `--reviewer-agent <id>` | `kind=review` | The agent id of the reviewer. |
+
+The attestation is stored under `.squad/attestations/<hash>.txt` (committed) and indexed in `~/.squad/global.db` (operational). Records are deduplicated on `(repo_id, item_id, kind, output_hash)` — re-running an identical attestation is a no-op.
+
+## Learning
+
+R5 learning artifacts live under `.squad/learnings/{actions,patterns,nots}/{proposed,approved,rejected}/`. `squad learning` is the management surface; the underlying files are plain markdown so peers can review them via PR.
+
+### `squad learning propose`
+
+Stub a new learning artifact under `proposed/`. Asks for the body interactively (or pass `--body-file`). Learning kinds are `actions` (do this), `patterns` (this works), `nots` (don't do this).
+
+```bash
+squad learning propose actions retry-on-503 --area "http retries"
+squad learning propose nots dont-mock-the-db --body-file ./learning.md
+```
+
+### `squad learning list`
+
+List learning artifacts. Filter by area, state, or kind.
+
+```bash
+squad learning list                          # all states, all kinds
+squad learning list --state proposed
+squad learning list --kind nots --area auth
+squad learning list --json
+```
+
+### `squad learning approve`
+
+Promote a proposed learning to `approved/`. The slug is the directory name under `proposed/`.
+
+```bash
+squad learning approve retry-on-503
+```
+
+### `squad learning reject`
+
+Archive a proposed learning under `rejected/` (preserved for audit; the proposal directory and body are kept).
+
+```bash
+squad learning reject not-a-real-pattern --reason "duplicates retry-on-503"
+```
+
+### `squad learning agents-md-suggest`
+
+Propose a unified-diff change to `AGENTS.md` based on an approved learning. The diff goes into `.squad/learnings/agents-md/proposed/` for human review.
+
+```bash
+squad learning agents-md-suggest --learning retry-on-503
+```
+
+### `squad learning agents-md-approve`
+
+Apply a proposed `AGENTS.md` diff via `git apply`; on success archive the proposal.
+
+```bash
+squad learning agents-md-approve <id>
+```
+
+### `squad learning agents-md-reject`
+
+Archive a proposed `AGENTS.md` change under `rejected/` without applying.
+
+```bash
+squad learning agents-md-reject <id> --reason "policy already covers this"
+```
+
+### `squad learning triviality-check`
+
+Internal helper consumed by the `stop-learning-prompt` hook: reads `git diff --numstat` from stdin and prints `trivial` or `non-trivial`. Not normally invoked by hand.
+
 ## Hygiene
 
 ### `squad doctor`
@@ -323,10 +432,27 @@ squad touches list-others --json
 Diagnose stale claims, ghost agents, orphan touches, broken refs, and DB integrity.
 
 ```bash
-squad doctor
+squad doctor                  # report findings; exit 0 either way
+squad doctor --strict         # exit non-zero when findings exist (CI use case)
 ```
 
-Exit 0 when clean; non-zero with a problem list when not.
+The default exit code is 0 even with findings — the output is diagnostic, meant for the user to read and act on. Pass `--strict` only in CI where you want a failing build on any finding.
+
+## Statistics
+
+### `squad stats`
+
+Operational statistics for the current repo: verification rate, claim p99 latency, WIP-violation count, reviewer disagreement rate, and a daily series for each. Pure read-side aggregation over the existing tables; no new state.
+
+```bash
+squad stats                              # human summary
+squad stats --json                       # full pretty-printed snapshot
+squad stats --tail --interval 5s         # NDJSON stream until SIGINT
+squad stats --window 1h                  # last hour only (default 24h)
+squad stats --window 0                   # unbounded
+```
+
+The same data is exposed at `/api/stats` (when `squad serve` is running) and `/metrics` for Prometheus scrape — see [recipes/prometheus.md](../recipes/prometheus.md).
 
 ## Multi-repo
 
@@ -374,6 +500,8 @@ squad workspace forget <repo_id>
 
 ## GitHub integration
 
+`squad pr` is the parent for the GitHub-pull-request integration; the leaf commands below are the verbs you'll usually invoke.
+
 ### `squad pr-link`
 
 Record a pending PR ↔ item mapping (run before `gh pr create`). Prints the hidden HTML marker to embed in the PR body.
@@ -410,11 +538,62 @@ Install or update squad's Claude Code hooks in `~/.claude/settings.json`.
 
 ```bash
 squad install-hooks                               # interactive
-squad install-hooks --yes                         # use defaults (only session-start ON)
+squad install-hooks --yes                         # accept defaults (six hooks ON)
 squad install-hooks --yes --pre-commit-pm-traces=on    # tune individually
 squad install-hooks --status                      # what is installed
 squad install-hooks --uninstall                   # remove all squad-managed entries
 ```
+
+Default-ON hooks (`--yes`): `session-start`, `user-prompt-tick`, `pre-compact`, `stop-listen`, `post-tool-flush`, `session-end-cleanup`. Default-off (opt-in): `async-rewake`, `pre-commit-pm-traces`, `pre-edit-touch-check`, `stop-learning-prompt`, `loop-pre-bash-tick`. See [hooks.md](hooks.md) for the full list and what each does.
+
+## Real-time transport
+
+Three commands together implement squad's chat real-time delivery. Normal users don't invoke them directly — the hooks installed by `squad install-hooks` do — but understanding what they do helps when something looks wrong.
+
+### `squad listen`
+
+Block until a peer message wakes this session; emit a Claude Code decision-block JSON envelope on wake. Bound by the `stop-listen` hook to a loopback TCP listener.
+
+```bash
+squad listen --instance my-session --bind 127.0.0.1:0 --max 24h
+```
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--instance <id>` | derived from env | Stable session identifier; the row in `notify_endpoints` is keyed on this. |
+| `--bind <addr>` | `127.0.0.1:0` | Bind address for the loopback listener. Must be loopback. |
+| `--fallback <dur>` | `30s` | Fallback re-check interval when no wake arrives. |
+| `--max <dur>` | `24h` | Hard exit after this duration with no wake. |
+
+### `squad mailbox`
+
+Print pending mailbox as a Claude Code hook envelope; exit 0 if empty. Used by the `user-prompt-tick`, `post-tool-flush`, and `pre-compact` hooks to inject pending peer chat as `additionalContext`.
+
+```bash
+squad mailbox                         # default: additional-context format, UserPromptSubmit event
+squad mailbox --event PreCompact
+squad mailbox --format text           # plain text instead of JSON envelope
+```
+
+### `squad notify-cleanup`
+
+Drop `notify_endpoints` rows for a given instance. Called by the `session-end-cleanup` hook so peer senders stop dialing a dead listener port.
+
+```bash
+squad notify-cleanup --instance my-session
+```
+
+## MCP
+
+### `squad mcp`
+
+Run an MCP server over stdio (Claude Code transport). Registered in `~/.claude/plugins/squad/.mcp.json` by `squad install-plugin`; not normally invoked by hand.
+
+```bash
+squad mcp
+```
+
+Exposes 23 tools to Claude Code: lifecycle (claim, done, release, blocked), chat verbs (say, ask, fyi, milestone, thinking, stuck), inspection (next, status, get_item, list_items), evidence (attest, attestations), learning (propose, list, approve, reject), and progress/touch helpers. See `~/.claude/plugins/squad/.mcp.json` for the registered command line.
 
 ## Server
 
