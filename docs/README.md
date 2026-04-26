@@ -29,6 +29,8 @@ squad go
 
 Both paths converge. `squad go` is idempotent — first run inits `.squad/` and registers a session-derived agent id; re-runs resume the same claim and re-flush the mailbox. Total time: under five minutes from install to first `done`.
 
+> **Not sure squad is the right tool?** If your work is one session on one machine and you'll walk away when it's done, [Claude Code's experimental agent-teams](https://code.claude.com/docs/en/agent-teams) is a lighter fit. Squad is the right choice when the work outlives the session — multiple days, multiple machines, or a durable record of who did what. See [concepts/squad-vs-agent-teams.md](concepts/squad-vs-agent-teams.md) for the full decision matrix.
+
 ## What to read next
 
 - **New?** Walk through [adopting.md](adopting.md) end-to-end.
