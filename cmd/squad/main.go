@@ -76,6 +76,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newPRCloseCmd())
 	root.AddCommand(newAttestCmd())
 	root.AddCommand(newStatsCmd())
+	root.AddCommand(newLearningCmd())
 	addPRDRedirect := func(name string) {
 		root.AddCommand(&cobra.Command{
 			Use:    name,
