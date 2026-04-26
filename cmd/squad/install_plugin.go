@@ -11,6 +11,7 @@ import (
 
 	squad "github.com/zsiec/squad"
 	"github.com/zsiec/squad/internal/installer"
+	"github.com/zsiec/squad/plugin/hooks"
 )
 
 func newInstallPluginCmd() *cobra.Command {
@@ -95,15 +96,11 @@ func newInstallPluginCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				enabled := map[string]bool{
-					"session-start":    true,
-					"user-prompt-tick": true,
-					"pre-compact":      true,
-				}
+				enabled := defaultOnHooks()
 				if err := mergeSquadHooks(settingsPath, enabled); err != nil {
 					return fmt.Errorf("register hooks in %s: %w", settingsPath, err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "registered always-on hooks in %s\n", settingsPath)
+				fmt.Fprintf(cmd.OutOrStdout(), "registered %d default hooks in %s\n", len(enabled), settingsPath)
 			}
 			return nil
 		},
@@ -111,8 +108,22 @@ func newInstallPluginCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "remove the squad plugin instead of installing")
 	cmd.Flags().BoolVar(&registerMCP, "register-mcp", true, "merge mcpServers.squad into ~/.claude/settings.json")
 	cmd.Flags().BoolVar(&printMCPConfig, "print-mcp-config", false, "print the JSON snippet that would be merged and exit")
-	cmd.Flags().BoolVar(&skipHooks, "skip-hooks", false, "do not register the always-on session/prompt/pre-compact hooks")
+	cmd.Flags().BoolVar(&skipHooks, "skip-hooks", false, "do not register the default-on hooks (use squad install-hooks for fine-grained control)")
 	return cmd
+}
+
+// defaultOnHooks returns the set of squad hook names that should be installed
+// by default. Single source of truth: plugin/hooks.embed.go's All array
+// filtered to DefaultOn==true. install-hooks consumes the same array, so
+// install-plugin and install-hooks --yes always agree.
+func defaultOnHooks() map[string]bool {
+	out := make(map[string]bool, len(hooks.All))
+	for _, h := range hooks.All {
+		if h.DefaultOn {
+			out[h.Name] = true
+		}
+	}
+	return out
 }
 
 func squadMCPSpec() map[string]installer.MCPServerSpec {

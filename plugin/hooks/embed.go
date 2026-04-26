@@ -1,3 +1,9 @@
+// Package hooks is the canonical Go source of truth for squad's Claude Code
+// hooks. The All array drives both squad install-hooks (interactive, per-hook
+// confirmation) and squad install-plugin (one-shot, registers DefaultOn==true
+// hooks). The static plugin/hooks.json file is a separate manifest read by
+// Claude Code at plugin-load time; if you change anything here that affects
+// what plugin loaders should see, update hooks.json to match.
 package hooks
 
 import "embed"
