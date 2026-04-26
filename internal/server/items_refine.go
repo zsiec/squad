@@ -1,14 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -48,7 +46,7 @@ func (s *Server) handleItemsRefine(w http.ResponseWriter, r *http.Request) {
 		if status != "captured" && status != "needs-refinement" {
 			return fmt.Errorf("refine %s: status is %q (only captured or needs-refinement items can be refined)", id, status)
 		}
-		if err := rewriteRefine(path, body.Comments); err != nil {
+		if err := items.RewriteWithFeedback(path, body.Comments, "needs-refinement", time.Now()); err != nil {
 			return err
 		}
 		it, err := items.Parse(path)
@@ -74,45 +72,3 @@ func (s *Server) handleItemsRefine(w http.ResponseWriter, r *http.Request) {
 }
 
 var errItemNotFound = errors.New("item not found")
-
-func rewriteRefine(path, comments string) error {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	fm, oldBody, err := splitFrontmatter(raw)
-	if err != nil {
-		return err
-	}
-	newBody := items.WriteFeedback(oldBody, comments)
-	combined := append(append([]byte{}, fm...), []byte(newBody)...)
-	if err := os.WriteFile(path, combined, 0o644); err != nil {
-		return err
-	}
-	return items.RewriteStatus(path, "needs-refinement", time.Now())
-}
-
-func splitFrontmatter(raw []byte) (fm []byte, body string, err error) {
-	open := []byte("---\n")
-	openCRLF := []byte("---\r\n")
-	closeM := []byte("\n---\n")
-	closeMCRLF := []byte("\r\n---\r\n")
-	openLen := len(open)
-	closeLen := len(closeM)
-	if bytes.HasPrefix(raw, openCRLF) {
-		openLen = len(openCRLF)
-	} else if !bytes.HasPrefix(raw, open) {
-		return nil, "", fmt.Errorf("file does not begin with frontmatter")
-	}
-	rest := raw[openLen:]
-	closeIdx := bytes.Index(rest, closeM)
-	if idx := bytes.Index(rest, closeMCRLF); idx >= 0 && (closeIdx < 0 || idx < closeIdx) {
-		closeIdx = idx
-		closeLen = len(closeMCRLF)
-	}
-	if closeIdx < 0 {
-		return nil, "", fmt.Errorf("no closing --- marker for frontmatter")
-	}
-	end := openLen + closeIdx + closeLen
-	return raw[:end], string(raw[end:]), nil
-}

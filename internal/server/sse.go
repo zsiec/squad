@@ -16,7 +16,8 @@ const seenIDCap = 4096
 
 // publishInboxChanged emits an inbox_changed event on the bus so SSE
 // subscribers (the TUI inbox view, dashboards) refresh after a successful
-// intake mutation. action is one of "captured", "accepted", "rejected".
+// intake mutation. action is one of "captured", "accepted", "rejected",
+// "refine".
 func (s *Server) publishInboxChanged(itemID, action string) {
 	s.Bus().Publish(chat.Event{
 		Kind: "inbox_changed",

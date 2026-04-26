@@ -1,12 +1,59 @@
 package items
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var sectionHeader = regexp.MustCompile(`(?m)^## .+$`)
+
+// RewriteWithFeedback reads the item file at path, transforms its body via
+// WriteFeedback(comments), and updates frontmatter status to newStatus and
+// updated to now. The whole rewrite is one atomicWrite so a crash mid-write
+// cannot corrupt the file.
+func RewriteWithFeedback(path, comments, newStatus string, now time.Time) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	rewritten, err := rewriteFrontmatter(raw, map[string]string{
+		"status":  newStatus,
+		"updated": now.UTC().Format("2006-01-02"),
+	})
+	if err != nil {
+		return fmt.Errorf("rewrite frontmatter for %s: %w", path, err)
+	}
+	fmEnd, body, err := splitRewrittenBody(rewritten)
+	if err != nil {
+		return err
+	}
+	newBody := WriteFeedback(body, comments)
+	combined := append(append([]byte{}, rewritten[:fmEnd]...), []byte(newBody)...)
+	return atomicWrite(path, combined)
+}
+
+// splitRewrittenBody splits the output of rewriteFrontmatter (which always
+// emits a normalized "---\n ... \n---\n<body>") into frontmatter bytes and
+// the body string. rewriteFrontmatter normalizes BOM/CRLF, so the format is
+// known.
+func splitRewrittenBody(raw []byte) (fmEnd int, body string, err error) {
+	open := []byte("---\n")
+	closeM := []byte("\n---\n")
+	if !bytes.HasPrefix(raw, open) {
+		return 0, "", fmt.Errorf("rewritten file does not begin with frontmatter")
+	}
+	rest := raw[len(open):]
+	idx := bytes.Index(rest, closeM)
+	if idx < 0 {
+		return 0, "", fmt.Errorf("rewritten file missing closing frontmatter marker")
+	}
+	end := len(open) + idx + len(closeM)
+	return end, string(raw[end:]), nil
+}
 
 func WriteFeedback(body, comments string) string {
 	body = stripFeedback(body)

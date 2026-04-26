@@ -1,6 +1,12 @@
 package items
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestWriteFeedback_InsertsAboveProblem(t *testing.T) {
 	in := "## Problem\nfoo\n\n## Acceptance criteria\n- [ ] x\n"
@@ -60,5 +66,59 @@ func TestMoveFeedbackToHistory_NoFeedback_Noop(t *testing.T) {
 	got := MoveFeedbackToHistory(in, "2026-04-26")
 	if got != in {
 		t.Fatalf("expected no-op, got: %q", got)
+	}
+}
+
+func TestRewriteWithFeedback_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "FEAT-001-x.md")
+	body := "---\nid: FEAT-001\ntitle: x\nstatus: captured\nupdated: 2026-04-25\n---\n\n## Problem\nfoo\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 4, 26, 12, 0, 0, 0, time.UTC)
+	if err := RewriteWithFeedback(path, "rename area", "needs-refinement", now); err != nil {
+		t.Fatalf("RewriteWithFeedback: %v", err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("Parse after rewrite: %v", err)
+	}
+	if it.Status != "needs-refinement" {
+		t.Fatalf("status not flipped: %q", it.Status)
+	}
+	if it.Updated != "2026-04-26" {
+		t.Fatalf("updated not advanced: %q", it.Updated)
+	}
+	got, _ := os.ReadFile(path)
+	if !strings.Contains(string(got), "## Reviewer feedback\nrename area\n") {
+		t.Fatalf("feedback section missing:\n%s", got)
+	}
+	if !strings.Contains(string(got), "## Problem\nfoo\n") {
+		t.Fatalf("original body lost:\n%s", got)
+	}
+}
+
+func TestRewriteWithFeedback_AcceptsBOM(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "FEAT-001-x.md")
+	body := "\xef\xbb\xbf---\nid: FEAT-001\ntitle: x\nstatus: captured\nupdated: 2026-04-25\n---\n\n## Problem\nfoo\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 4, 26, 12, 0, 0, 0, time.UTC)
+	if err := RewriteWithFeedback(path, "fix it", "needs-refinement", now); err != nil {
+		t.Fatalf("RewriteWithFeedback on BOM file failed: %v", err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("Parse after rewrite: %v", err)
+	}
+	if it.Status != "needs-refinement" {
+		t.Fatalf("status not flipped on BOM file: %q", it.Status)
+	}
+	got, _ := os.ReadFile(path)
+	if !strings.Contains(string(got), "## Reviewer feedback\nfix it\n") {
+		t.Fatalf("feedback section missing on BOM file:\n%s", got)
 	}
 }
