@@ -91,3 +91,41 @@ func TestMetricsExposesAllSquadFamilies(t *testing.T) {
 		}
 	}
 }
+
+func TestMetricsExposesScrapeErrorGauge(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, "repo-1", Config{RepoID: "repo-1"})
+	defer s.Close()
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "squad_metrics_scrape_error") {
+		t.Errorf("missing squad_metrics_scrape_error family\nbody:\n%s", body)
+	}
+	if !strings.Contains(string(body), `squad_metrics_scrape_error{repo="repo-1"} 0`) {
+		t.Errorf("expected 0 on healthy scrape\nbody:\n%s", body)
+	}
+}
+
+func TestMetricsScrapeErrorGaugeFiresOnComputeFailure(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, "repo-1", Config{RepoID: "repo-1"})
+	defer s.Close()
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+	db.Close() // force Compute to fail on next scrape
+	resp, err := http.Get(srv.URL + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), `squad_metrics_scrape_error{repo="repo-1"} 1`) {
+		t.Errorf("expected 1 on failed scrape\nbody:\n%s", body)
+	}
+}

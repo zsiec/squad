@@ -26,6 +26,9 @@ var (
 		"Fraction of new bugs whose area matches an approved learning.", []string{"repo"}, nil)
 	descAttest = prometheus.NewDesc("squad_attestations_total",
 		"Attestation rows by kind and status.", []string{"repo", "kind", "status"}, nil)
+	descScrapeErr = prometheus.NewDesc("squad_metrics_scrape_error",
+		"1 if the last scrape's Compute call returned an error, 0 otherwise.",
+		[]string{"repo"}, nil)
 )
 
 func (s *Server) prometheusHandler() http.Handler {
@@ -38,7 +41,7 @@ type serverCollector struct{ srv *Server }
 
 func (c *serverCollector) Describe(ch chan<- *prometheus.Desc) {
 	for _, d := range []*prometheus.Desc{descItemsTotal, descClaimDur,
-		descVerify, descDisagree, descWIP, descRepeat, descAttest} {
+		descVerify, descDisagree, descWIP, descRepeat, descAttest, descScrapeErr} {
 		ch <- d
 	}
 }
@@ -49,10 +52,15 @@ func (c *serverCollector) Collect(ch chan<- prometheus.Metric) {
 	snap, err := stats.Compute(ctx, c.srv.db, stats.ComputeOpts{
 		RepoID: c.srv.cfg.RepoID, Window: 24 * time.Hour,
 	})
+	repo := c.srv.cfg.RepoID
 	if err != nil {
+		ch <- prometheus.MustNewConstMetric(descScrapeErr, prometheus.GaugeValue, 1, repo)
 		return
 	}
-	repo := snap.RepoID
+	ch <- prometheus.MustNewConstMetric(descScrapeErr, prometheus.GaugeValue, 0, repo)
+	if repo == "" {
+		repo = snap.RepoID
+	}
 	g := func(d *prometheus.Desc, v float64, lvs ...string) {
 		ch <- prometheus.MustNewConstMetric(d, prometheus.GaugeValue, v,
 			append([]string{repo}, lvs...)...)
