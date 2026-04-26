@@ -39,8 +39,25 @@ func (f *fakeExec) Output(name string, args ...string) ([]byte, error) {
 	return nil, fmt.Errorf("no fake output for %q", cmd)
 }
 
+// fakeBus stages a $XDG_RUNTIME_DIR/bus socket inside tmp so
+// systemdUserAvailable() returns true for the duration of the test.
+func fakeBus(t *testing.T, tmp string) {
+	t.Helper()
+	runtimeDir := filepath.Join(tmp, "runtime")
+	if err := os.MkdirAll(runtimeDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(filepath.Join(runtimeDir, "bus"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+}
+
 func TestLinux_InstallWritesUnitAndCallsSystemctl(t *testing.T) {
 	tmp := t.TempDir()
+	fakeBus(t, tmp)
 	fe := &fakeExec{}
 	m := newWithExec(tmp, fe)
 	err := m.Install(InstallOpts{
@@ -84,6 +101,7 @@ func TestLinux_InstallWritesUnitAndCallsSystemctl(t *testing.T) {
 
 func TestLinux_UninstallRemovesUnitAndCallsDisable(t *testing.T) {
 	tmp := t.TempDir()
+	fakeBus(t, tmp)
 	fe := &fakeExec{}
 	m := newWithExec(tmp, fe)
 	if err := m.Install(InstallOpts{HomeDir: tmp, LogDir: filepath.Join(tmp, ".squad/logs")}); err != nil {
@@ -118,6 +136,7 @@ func TestLinux_StatusReportsNotInstalledWhenNoUnit(t *testing.T) {
 
 func TestLinux_StatusReportsInstalledAndRunning(t *testing.T) {
 	tmp := t.TempDir()
+	fakeBus(t, tmp)
 	fe := &fakeExec{
 		outputData: map[string]string{
 			"systemctl --user is-active squad-serve":  "active\n",

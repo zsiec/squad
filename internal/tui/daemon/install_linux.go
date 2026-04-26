@@ -65,6 +65,22 @@ func (m *linuxManager) unitPath() string {
 	return filepath.Join(m.home, ".config", "systemd", "user", systemdUnitName+".service")
 }
 
+// systemdUserAvailable reports whether the user-bus socket is reachable
+// at $XDG_RUNTIME_DIR/bus. When false, systemctl --user invocations would
+// fail with "Failed to connect to bus". The Install path skips them and
+// emits a warning to stderr instead of returning an error — the unit
+// file is on disk and the user can load it manually if they want.
+func systemdUserAvailable() bool {
+	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
+	if runtimeDir == "" {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(runtimeDir, "bus")); err != nil {
+		return false
+	}
+	return true
+}
+
 func (m *linuxManager) Install(opts InstallOpts) error {
 	var buf bytes.Buffer
 	tpl := template.Must(template.New("unit").Parse(unitTpl))
@@ -88,6 +104,14 @@ func (m *linuxManager) Install(opts InstallOpts) error {
 	if err := os.MkdirAll(opts.LogDir, 0o755); err != nil {
 		return fmt.Errorf("mkdir logs: %w", err)
 	}
+	if !systemdUserAvailable() {
+		fmt.Fprintln(os.Stderr,
+			"warning: systemd user bus unavailable (no $XDG_RUNTIME_DIR/bus); "+
+				"unit file written to "+p+" but systemctl --user not invoked. "+
+				"Run `systemctl --user daemon-reload && systemctl --user enable --now "+systemdUnitName+"` "+
+				"manually if you want it active in this environment.")
+		return nil
+	}
 	if err := m.exec.Run("systemctl", "--user", "daemon-reload"); err != nil {
 		return fmt.Errorf("systemctl daemon-reload: %w", err)
 	}
@@ -102,11 +126,15 @@ func (m *linuxManager) Uninstall() error {
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		return nil
 	}
-	_ = m.exec.Run("systemctl", "--user", "disable", "--now", systemdUnitName)
+	if systemdUserAvailable() {
+		_ = m.exec.Run("systemctl", "--user", "disable", "--now", systemdUnitName)
+	}
 	if err := os.Remove(p); err != nil {
 		return err
 	}
-	_ = m.exec.Run("systemctl", "--user", "daemon-reload")
+	if systemdUserAvailable() {
+		_ = m.exec.Run("systemctl", "--user", "daemon-reload")
+	}
 	return nil
 }
 
