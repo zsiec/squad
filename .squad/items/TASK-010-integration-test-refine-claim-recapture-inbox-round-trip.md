@@ -43,3 +43,35 @@ Also includes manual UI smoke validation by booting `squad serve --port 9999 --t
 ## Notes
 
 Lands after TASK-003, TASK-004, TASK-005, and ideally after TASK-008/TASK-009 so the manual smoke covers UI too.
+
+## Resolution
+
+### Test
+
+`internal/server/integration_refine_test.go` — `TestIntegration_RefineRoundTrip` exercises the full server-side loop:
+
+1. Seed a captured `FEAT-950`.
+2. POST `/api/items/FEAT-950/refine` with comments → `204`, status flips to `needs-refinement`.
+3. GET `/api/refine` → list contains `FEAT-950`.
+4. POST `/api/items/FEAT-950/claim` (with `X-Squad-Agent: agent-zzzz`) → `200`.
+5. POST `/api/items/FEAT-950/recapture` (same agent) → `204`, claim row gone, status back to `captured`.
+6. GET `/api/inbox` → list contains `FEAT-950` again.
+
+### Evidence
+
+```
+$ go test ./... -count=1 -race
+... ok github.com/zsiec/squad/internal/server (...)
+ok  github.com/zsiec/squad/templates/github-actions  1.335s
+(0 FAIL lines)
+```
+
+### UI smoke
+
+Deferred until TASK-008 lands the Refine button + composer wiring in `internal/server/web/inbox.js`. TASK-009's CSS already exists; once TASK-008 plugs the markup and POST calls in, the manual smoke (button visible → composer focuses → item disappears from inbox → recapture restores it) can run against `squad serve` end-to-end. The backend round-trip is fully covered by `TestIntegration_RefineRoundTrip` in the meantime.
+
+### AC verification
+
+- [x] `internal/server/integration_refine_test.go` exists, single passing test that round-trips refine → list → claim → recapture → inbox.
+- [x] `go test ./... -count=1 -race` passes; trailing summary above.
+- [ ] Manual UI smoke — deferred until TASK-008 lands the SPA wiring (see UI smoke note above).
