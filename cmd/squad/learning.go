@@ -6,5 +6,6 @@ func newLearningCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "learning", Short: "Learning artifacts"}
 	cmd.AddCommand(newLearningProposeCmd())
 	cmd.AddCommand(newLearningListCmd())
+	cmd.AddCommand(newLearningApproveCmd())
 	return cmd
 }
