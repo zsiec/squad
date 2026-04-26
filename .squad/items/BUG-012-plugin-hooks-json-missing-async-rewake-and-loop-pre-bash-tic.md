@@ -38,4 +38,33 @@ The plugin's hook surface is the contract between the docs and the user. A scrip
 Found during a parallel exploration sweep on 2026-04-26. Verified by listing `plugin/hooks/*.sh` against the `command` lines in `plugin/hooks.json`. Also note: the `adopting.md` "Ten hooks are on by default" claim is fuzzy — it appears to count subagent-event registrations as four separate hooks. Worth a once-over while in the file.
 
 ## Resolution
-(Filled in when status → done.)
+
+### Reproduction
+
+`TestHooksJSONIncludesShippedOptInHooks` fails on the prior `plugin/hooks.json` — both `async_rewake.sh` and `loop_pre_bash_tick.sh` are absent. RED confirmed; GREEN after the manifest update.
+
+### Fix
+
+`plugin/hooks.json`:
+- Added a new top-level `asyncRewake` event with `async_rewake.sh` (matcher `*`).
+- Added `loop_pre_bash_tick.sh` as a second entry inside the existing `PreToolUse` Bash matcher, alongside `pre_commit_pm_traces.sh`. Multi-entry-per-matcher precedent already lives at the `Stop` block (`stop_listen.sh` + `stop_learning_prompt.sh`).
+
+The pre-existing `TestEmbedAndHooksJSONStayInSync` and `TestHooksJSONHasNoOrphanEntries` validate the new entries match `embed.All` (event type, matcher, filename) and round-trip cleanly.
+
+### Test
+
+`plugin/hooks/embed_test.go` — added `TestHooksJSONIncludesShippedOptInHooks`. A grep tripwire so the next "wrote a script, forgot the manifest" regression fails fast in CI.
+
+### AC verification
+
+- [x] `plugin/hooks.json` registers both scripts under their correct events.
+- [x] `squad install-hooks --help` already lists both as opt-in toggles (verified — embed.All drives the install flow, no code change needed).
+- [x] `docs/adopting.md:142` already names both in the opt-in list and `:132` "Ten hooks are on by default" matches embed.go's 10 DefaultOn entries — accurate as-is.
+- [x] `docs/reference/hooks.md` table already documents both (lines 15 and 19).
+
+### Evidence
+
+```
+ok  	github.com/zsiec/squad/plugin/hooks	0.218s
+```
+Full `go test ./...` passes.

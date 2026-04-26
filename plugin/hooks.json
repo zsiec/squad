@@ -85,6 +85,11 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre_commit_pm_traces.sh",
             "squad": "pre-commit-pm-traces@0.2.0"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/loop_pre_bash_tick.sh",
+            "squad": "loop-pre-bash-tick@0.2.0"
           }
         ]
       },
@@ -95,6 +100,18 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre_edit_touch_check.sh",
             "squad": "pre-edit-touch-check@0.2.0"
+          }
+        ]
+      }
+    ],
+    "asyncRewake": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/async_rewake.sh",
+            "squad": "async-rewake@0.2.0"
           }
         ]
       }

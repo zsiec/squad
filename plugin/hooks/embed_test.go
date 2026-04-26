@@ -104,6 +104,31 @@ func TestEmbedAndHooksJSONStayInSync(t *testing.T) {
 	}
 }
 
+// Hooks shipped as scripts in this package must appear in hooks.json so Claude
+// Code's plugin loader sees them — otherwise they cannot be enabled at all.
+// Pinned by name because every regression of this kind is "we wrote a script
+// and forgot the manifest registration."
+func TestHooksJSONIncludesShippedOptInHooks(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	hooksJSONPath := filepath.Join(filepath.Dir(thisFile), "..", "hooks.json")
+	raw, err := os.ReadFile(hooksJSONPath)
+	if err != nil {
+		t.Fatalf("read hooks.json: %v", err)
+	}
+
+	required := map[string]string{
+		"async_rewake.sh":       "asyncRewake",
+		"loop_pre_bash_tick.sh": "PreToolUse",
+	}
+
+	manifest := string(raw)
+	for script, eventType := range required {
+		if !strings.Contains(manifest, script) {
+			t.Errorf("hooks.json missing entry for %s (expected under %s)", script, eventType)
+		}
+	}
+}
+
 func TestHooksJSONHasNoOrphanEntries(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	hooksJSONPath := filepath.Join(filepath.Dir(thisFile), "..", "hooks.json")
