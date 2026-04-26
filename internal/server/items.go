@@ -116,15 +116,16 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var currentClaim any
+	var lastTouch int64
 	row := s.db.QueryRowContext(r.Context(),
-		`SELECT agent_id, COALESCE(intent, ''), claimed_at FROM claims WHERE item_id = ? AND repo_id = ?`,
+		`SELECT agent_id, COALESCE(intent, ''), claimed_at, last_touch FROM claims WHERE item_id = ? AND repo_id = ?`,
 		id, s.cfg.RepoID)
 	var cc struct {
 		AgentID   string `json:"agent_id"`
 		Intent    string `json:"intent"`
 		ClaimedAt int64  `json:"claimed_at"`
 	}
-	switch err := row.Scan(&cc.AgentID, &cc.Intent, &cc.ClaimedAt); {
+	switch err := row.Scan(&cc.AgentID, &cc.Intent, &cc.ClaimedAt, &lastTouch); {
 	case err == nil:
 		currentClaim = cc
 	case errors.Is(err, sql.ErrNoRows):
@@ -145,6 +146,14 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 	if it.References == nil {
 		it.References = []string{}
 	}
+	deps := it.DependsOn
+	if deps == nil {
+		deps = []string{}
+	}
+	evReq := it.EvidenceRequired
+	if evReq == nil {
+		evReq = []string{}
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": it.ID, "title": it.Title, "type": it.Type, "priority": it.Priority,
@@ -153,6 +162,11 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 		"ac_total": it.ACTotal, "ac_checked": it.ACChecked, "progress_pct": it.ProgressPct(),
 		"body_markdown": it.Body, "ac": it.ACItems,
 		"blocked_by": it.BlockedBy, "relates_to": it.RelatesTo, "references": it.References,
-		"current_claim": currentClaim,
+		"current_claim":     currentClaim,
+		"epic":              it.Epic,
+		"depends_on":        deps,
+		"parallel":          it.Parallel,
+		"evidence_required": evReq,
+		"last_touch":        lastTouch,
 	})
 }

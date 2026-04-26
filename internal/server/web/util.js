@@ -9,8 +9,14 @@ if (token) localStorage.setItem('squad_token', token);
 
 export const authHeader = token ? { Authorization: 'Bearer ' + token } : {};
 
+let cachedAgentId = '';
+export function setAgentHeader(id) { cachedAgentId = id || ''; }
+export function agentHeader() {
+  return cachedAgentId ? { 'X-Squad-Agent': cachedAgentId } : {};
+}
+
 export async function fetchJSON(path) {
-  const r = await fetch(path, { headers: authHeader });
+  const r = await fetch(path, { headers: { ...authHeader, ...agentHeader() } });
   if (!r.ok) throw new Error(path + ': ' + r.status);
   return r.json();
 }
@@ -18,10 +24,17 @@ export async function fetchJSON(path) {
 export async function postJSON(path, body) {
   const r = await fetch(path, {
     method: 'POST',
-    headers: { ...authHeader, 'Content-Type': 'application/json' },
+    headers: { ...authHeader, ...agentHeader(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(path + ': ' + r.status);
+  if (!r.ok) {
+    let msg = path + ': ' + r.status;
+    try {
+      const j = await r.json();
+      if (j?.error) msg += ' — ' + j.error;
+    } catch {}
+    throw new Error(msg);
+  }
   return r.status === 204 ? null : r.json().catch(() => null);
 }
 

@@ -183,10 +183,16 @@ function itemRow(it, claimByItem) {
 
   const pct = it.progress_pct || 0;
   const pri = priClass(it.priority);
+  const badges = [];
+  if (it.epic)              badges.push(`<span class="row-badge epic" title="epic">${escapeHtml(it.epic)}</span>`);
+  if (it.parallel)          badges.push(`<span class="row-badge parallel" title="parallel-safe">∥</span>`);
+  const evCount = (it.evidence_required || []).length;
+  if (evCount)              badges.push(`<span class="row-badge evidence" title="evidence required">📎${evCount}</span>`);
+  const titleHtml = `${escapeHtml(it.title || '—')}${badges.length ? ' <span class="row-badges">' + badges.join('') + '</span>' : ''}`;
   tr.innerHTML =
     `<td class="cell-id">${escapeHtml(it.id)}</td>` +
     `<td class="cell-pri"><span class="pri-pip ${pri}">${escapeHtml((it.priority || '').replace(/^P/, ''))}</span></td>` +
-    `<td class="cell-title">${escapeHtml(it.title || '—')}</td>` +
+    `<td class="cell-title">${titleHtml}</td>` +
     `<td class="cell-claim"></td>` +
     `<td class="cell-prog">${pct ? pct + '%' : ''}</td>`;
 

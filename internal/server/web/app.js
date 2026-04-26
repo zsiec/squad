@@ -1,6 +1,6 @@
 // app.js — entry: SSE wiring, bootstrap, cross-module coordination
 
-import { fetchJSON, token, clock } from './util.js';
+import { fetchJSON, token, clock, setAgentHeader } from './util.js';
 import { displayName } from './names.js';
 import { refreshBoard, refreshClaimsAndAgents, setItemClickHandler, setSelected, claimsSnapshot, itemsSnapshot, agentsSnapshot, recordActivityTs, setMeAgentId } from './board.js';
 import { refreshMessages, appendLive, populateThreads, setThread, setAgentsProvider } from './chat.js';
@@ -12,12 +12,14 @@ import { wireAutolinkClicks } from './autolink.js';
 import { initInsights, open as openInsights } from './insights.js';
 import { initDepGraph, openAsync as openDepGraph } from './depgraph.js';
 import { initSavedViews } from './savedviews.js';
+import { openNewItemModal, setOnMutated as setOnActionMutated } from './actions.js';
 
 // clock
 clock(document.getElementById('clock'));
 
-// me
-(async () => {
+// me — resolved before anything that could mutate so X-Squad-Agent is set
+let meAgentId = '';
+const whoamiReady = (async () => {
   try {
     const me = await fetchJSON('/api/whoami');
     const userEl = document.getElementById('user');
@@ -27,11 +29,14 @@ clock(document.getElementById('clock'));
     if (me?.agent_id) {
       userEl.dataset.agentId = me.agent_id;
       setMeAgentId(me.agent_id);
+      setAgentHeader(me.agent_id);
+      meAgentId = me.agent_id;
     }
   } catch {
     document.getElementById('user').textContent = 'anon';
   }
 })();
+export function getMeAgentId() { return meAgentId; }
 
 // wire board → drawer
 setItemClickHandler((id) => {
@@ -50,6 +55,22 @@ initDepGraph({ onOpen: (id) => { openItem(id); setSelected(id); } });
 document.getElementById('palette-trigger')?.addEventListener('click', openPalette);
 document.getElementById('insights-btn')?.addEventListener('click', openInsights);
 document.getElementById('depgraph-btn')?.addEventListener('click', openDepGraph);
+document.getElementById('new-item-btn')?.addEventListener('click', openNewItemModal);
+
+// after any item mutation: refresh board + drawer; optionally open the new item.
+setOnActionMutated(async (id, opts) => {
+  await refreshBoard();
+  refreshChrome();
+  if (id) {
+    if (opts?.open) {
+      openItem(id);
+      setSelected(id);
+    } else if (currentItemId() === id) {
+      // re-open to refresh drawer body
+      openItem(id);
+    }
+  }
+});
 
 // global keys for stats + graph (outside typing context)
 document.addEventListener('keydown', (e) => {
@@ -96,6 +117,7 @@ document.addEventListener('sf:open-item', (e) => {
 
 // initial loads
 (async () => {
+  await whoamiReady;
   await refreshBoard();
   populateThreads(claimsSnapshot());
   await refreshMessages();

@@ -6,8 +6,9 @@ import { ActivityFeed } from './activity.js';
 import { attachScrollAnchor } from './scroll-anchor.js';
 import { autolinkDOM } from './autolink.js';
 import { attachMentionAutocomplete } from './mention.js';
-import { agentsSnapshot, itemsSnapshot } from './board.js';
+import { agentsSnapshot, itemsSnapshot, refreshBoard } from './board.js';
 import { displayName } from './names.js';
+import { renderItemActions, wireItemActions, setOnMutated } from './actions.js';
 
 const drawerEl    = document.getElementById('drawer');
 const workspace   = document.querySelector('.workspace');
@@ -123,6 +124,7 @@ function renderDrawer(it, activity) {
     <h1 class="drawer-title">${escapeHtml(it.title || '')}</h1>
     ${metaRibbon(it)}
     ${claimBanner(it)}
+    ${renderItemActions(it)}
     ${progressBar(it.progress_pct || 0)}
     ${depsSection(it)}
     ${referencesSection(it)}
@@ -156,6 +158,9 @@ function renderDrawer(it, activity) {
   drawerBody.querySelectorAll('.dep-chip').forEach((c) => {
     c.addEventListener('click', () => openItem(c.dataset.id));
   });
+
+  // wire mutation buttons
+  wireItemActions(drawerBody, it);
 
   // wire similar-row clicks
   drawerBody.querySelectorAll('.similar-row').forEach((r) => {
@@ -224,6 +229,7 @@ function renderDrawer(it, activity) {
 }
 
 function metaRibbon(it) {
+  const unresolvedDeps = (it.depends_on || []).length;
   const cells = [
     ['Type',     it.type || '—'],
     ['Area',     it.area || '—'],
@@ -233,6 +239,10 @@ function metaRibbon(it) {
     ['Created',  fmtDate(it.created)],
     ['Updated',  fmtDate(it.updated)],
   ];
+  if (it.epic) cells.push(['Epic', it.epic, 'meta-epic']);
+  if (it.parallel) cells.push(['Parallel', '∥']);
+  if (unresolvedDeps) cells.push(['Deps', String(unresolvedDeps)]);
+  if (it.last_touch) cells.push(['Touched', fmtAgo(it.last_touch) + ' ago']);
   return `
     <div class="meta-ribbon">
       ${cells.map(([label, val, extra]) => `
