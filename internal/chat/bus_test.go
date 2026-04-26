@@ -94,7 +94,7 @@ func TestBus_DoesNotBlockOnSlowSubscriber(t *testing.T) {
 	}
 }
 
-// QA r6 G-1 reproducer: publisher bursts past the buffer, then stops.
+// Reproducer: publisher bursts past the buffer, then stops.
 // The publish-side lag injection only fires on the NEXT publish — if no
 // more come, drops stay invisible to the subscriber. PullDropped lets a
 // consumer (the SSE ping tick) surface the count without depending on

@@ -378,7 +378,7 @@ func (sw *Sweeper) ReclaimStale(ctx context.Context) ([]string, error) {
 		}
 		// Surface the auto-reclaim on the chat stream so the SSE pump
 		// notifies any connected dashboard. Without this row, a reclaimed
-		// claim only becomes visible on the next manual refetch (QA r6-G).
+		// claim only becomes visible on the next manual refetch.
 		body := "auto-reclaimed stale claim on " + s.item
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)

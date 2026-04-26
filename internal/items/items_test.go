@@ -81,7 +81,7 @@ func TestWalk_MissingDoneDirIsOk(t *testing.T) {
 	}
 }
 
-// QA r6 H #5: Walk used to recurse with filepath.WalkDir while every
+// Regression: Walk used to recurse with filepath.WalkDir while every
 // downstream lookup (findItemPath, findItemFile, blockerInDoneDir) used
 // flat os.ReadDir. Items in subdirs showed up in `next` but `claim` said
 // "not found". Lock the now-flat behaviour in.

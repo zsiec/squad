@@ -40,7 +40,7 @@ func TestServe_RefusesWhitespaceOnlyToken(t *testing.T) {
 	t.Cleanup(cancel)
 	var stderr bytes.Buffer
 	// "   " satisfied the gate string-emptiness check but no HTTP header
-	// could carry it. QA r6-D L1.
+	// could carry it.
 	if code := runServeCtx(ctx, 0, "0.0.0.0", ".squad", "   ", &stderr); code != 4 {
 		t.Fatalf("whitespace token should be treated as empty: code=%d", code)
 	}

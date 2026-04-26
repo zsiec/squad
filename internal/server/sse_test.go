@@ -61,7 +61,7 @@ func TestSSE_RoundTripsPostedMessage(t *testing.T) {
 	t.Fatal("did not observe message event within 3s")
 }
 
-// QA r6-B: bus-level drops occurred but no lag event ever reached SSE.
+// Regression: bus-level drops occurred but no lag event ever reached SSE.
 // Two faults: lag-flush rode the 15s ping-tick (test ran shorter than
 // that), and the in-band sentinel has a different JSON shape than the
 // out-of-band one. Force drops by saturating the channel and keeping

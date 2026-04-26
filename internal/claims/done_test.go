@@ -43,7 +43,7 @@ func TestDone_AtomicWhenReleaseFails(t *testing.T) {
 	}
 }
 
-// QA r6-H #3: Done used to commit the DB tx before the file rewrite. A
+// Regression: Done used to commit the DB tx before the file rewrite. A
 // release failure (e.g., claim wasn't ours) left the file moved with no
 // way to recover automatically. New ordering (files first, DB second)
 // rolls the file back when the DB tx fails.

@@ -28,7 +28,7 @@ func RewriteStatus(path, newStatus string, now time.Time) error {
 // atomicWrite stages content into a sibling temp file (CreateTemp's
 // random-suffix pattern bounds the name length regardless of the target's
 // basename — the original `path + ".squad.tmp"` overflowed the 255-byte
-// FS limit when basenames pushed past ~245 bytes, see QA r6-H #1) and
+// FS limit when basenames pushed past ~245 bytes — see TestRewriteStatus_HandlesLongFilename) and
 // renames into place once the bytes are flushed.
 func atomicWrite(path string, content []byte) error {
 	dir := filepath.Dir(path)
@@ -63,7 +63,7 @@ func rewriteFrontmatter(raw []byte, updates map[string]string) ([]byte, error) {
 	// Match Parse's tolerance: strip a leading UTF-8 BOM and accept CRLF.
 	// Without this, a CRLF/BOM-prefixed file that Parse() happily reads
 	// fails the "begins with frontmatter" check here, so squad done leaves
-	// the file behind even though the DB transaction commits (QA r6 H #2/#4).
+	// the file behind even though the DB transaction commits.
 	if len(raw) >= len(utf8BOM) && bytes.Equal(raw[:len(utf8BOM)], utf8BOM) {
 		raw = raw[len(utf8BOM):]
 	}

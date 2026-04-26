@@ -9,7 +9,7 @@ import (
 // withItemsLock takes an exclusive flock on a sentinel file inside squadDir
 // for the duration of fn. Used by NewWithOptions so two concurrent
 // `squad new` invocations on the same machine can't both pick the same
-// numeric id (QA r6-G, r6-H #7). The lock is per-process advisory; nothing
+// numeric id. The lock is per-process advisory; nothing
 // stops a peer on another machine, but cross-machine races would surface
 // later as git merge conflicts on the items/ directory anyway.
 //

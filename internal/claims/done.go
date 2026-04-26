@@ -22,7 +22,7 @@ type DoneOpts struct {
 // Ordering matters. The DB transaction runs LAST so a file-rewrite or move
 // failure leaves no DB residue. If the DB commit itself fails, we roll
 // back the file move (best effort) so the user can retry cleanly. The
-// previous order (DB first, files second) hit QA r6-H #3: a partial file
+// previous order (DB first, files second) caused: a partial file
 // failure left the claim released but the file untouched, with no
 // recovery path beyond manual intervention.
 func (s *Store) Done(ctx context.Context, itemID, agentID string, opts DoneOpts) error {

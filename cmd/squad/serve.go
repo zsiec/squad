@@ -58,7 +58,7 @@ func newServeCmd() *cobra.Command {
 func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, out interface{ Write([]byte) (int, error) }) int {
 	// Reject host:port forms early — users instinctively try
 	// `--bind 127.0.0.1:8080` and the resulting startup error would otherwise
-	// be a cryptic net.Listen failure. QA r6-D F1.
+	// be a cryptic net.Listen failure.
 	if strings.Contains(bind, ":") && !strings.Contains(bind, "::") && net.ParseIP(bind) == nil {
 		fmt.Fprintf(os.Stderr,
 			"squad serve: --bind takes only a host or IP, not a host:port pair (got %q).\n"+
@@ -67,7 +67,7 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 	}
 	// A whitespace-only token satisfies the gate but cannot survive an
 	// HTTP header — the operator would think they secured the server while
-	// no client could actually authenticate. QA r6-D L1.
+	// no client could actually authenticate.
 	token = strings.TrimSpace(token)
 	if !isLoopbackBind(bind) && token == "" {
 		fmt.Fprintf(os.Stderr,

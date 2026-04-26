@@ -102,7 +102,7 @@ func TestNew_HostileTitlesProduceParseableFiles(t *testing.T) {
 	}
 }
 
-// QA r6-G + H#7: two concurrent `squad new` calls used to TOCTOU on the
+// Regression: two concurrent `squad new` calls used to TOCTOU on the
 // flat NextID lookup and produce two files with the same PREFIX-NN. With
 // the items-dir flock, every parallel writer gets a distinct id.
 func TestNew_NoDuplicateIDsUnderConcurrency(t *testing.T) {

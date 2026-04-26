@@ -165,7 +165,7 @@ func main() {
 	// caller that builds os.Args via Go (or smuggles bytes via env vars)
 	// can land NULs that the kernel preserved into argv. Reject those at
 	// the boundary so they don't quietly truncate a title, agent id, or
-	// path inside squad. (QA r6-E F1.)
+	// path inside squad.
 	for i, a := range os.Args[1:] {
 		if strings.ContainsRune(a, 0) {
 			fmt.Fprintf(os.Stderr, "squad: arg %d contains NUL byte; refusing to truncate silently\n", i+1)

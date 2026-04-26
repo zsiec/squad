@@ -60,7 +60,7 @@ func walkOne(dir string) ([]Item, []BrokenItem, error) {
 		if perr != nil {
 			// A file that vanished between ReadDir and Parse is a race,
 			// not a malformed item. Swallow it; the next walk picks up
-			// the new state. (QA r6-H #8.)
+			// the new state.
 			if os.IsNotExist(perr) {
 				continue
 			}

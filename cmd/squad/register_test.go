@@ -72,7 +72,7 @@ func TestRegister_RejectsOversizedName(t *testing.T) {
 	}
 }
 
-// QA r6-E F4: a fresh session re-using an existing agent's id used to
+// Regression: a fresh session re-using an existing agent's id used to
 // silently re-point the agents row at the new session, conflating
 // identities. The guard now refuses unless --force is passed.
 func TestRegister_RefusesHijackingExistingAgent(t *testing.T) {

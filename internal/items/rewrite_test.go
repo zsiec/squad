@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// QA r6 H #2/#4: Parse tolerates UTF-8 BOM + CRLF, but rewriteFrontmatter
+// Regression: Parse tolerates UTF-8 BOM + CRLF, but rewriteFrontmatter
 // used to assume LF-only and reject. Result: squad done committed the DB
 // release but bailed on the file rewrite, leaving inconsistent state.
 func TestRewriteStatus_AcceptsCRLF(t *testing.T) {
@@ -27,7 +27,7 @@ func TestRewriteStatus_AcceptsCRLF(t *testing.T) {
 	}
 }
 
-// QA r6-H #1: 'path + ".squad.tmp"' overflowed the 255-byte FS limit when
+// Regression: 'path + ".squad.tmp"' overflowed the 255-byte FS limit when
 // the basename approached ~245 bytes. atomicWrite uses CreateTemp's
 // random-suffix pattern so the staging name is bounded regardless.
 func TestRewriteStatus_HandlesLongFilename(t *testing.T) {

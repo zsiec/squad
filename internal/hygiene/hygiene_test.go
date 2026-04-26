@@ -361,7 +361,7 @@ func TestReclaimStale_ShortClaim(t *testing.T) {
 	if c != 1 {
 		t.Fatalf("history row missing")
 	}
-	// QA r6-G: the auto-reclaim must surface on chat so the SSE pump
+	// Regression: the auto-reclaim must surface on chat so the SSE pump
 	// can notify any connected dashboard. Without this the reclaim is
 	// silent and the dashboard shows the stale agent as still claiming
 	// until a manual refresh.
