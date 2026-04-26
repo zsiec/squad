@@ -1,18 +1,21 @@
 package learning
 
 import (
+	"errors"
 	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
 )
 
+func isNotExist(err error) bool { return errors.Is(err, fs.ErrNotExist) }
+
 func Walk(repoRoot string) ([]Learning, error) {
 	root := LearningsRoot(repoRoot)
 	var out []Learning
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if strings.Contains(err.Error(), "no such file") {
+			if isNotExist(err) {
 				return nil
 			}
 			return err
