@@ -4,11 +4,11 @@ title: POST /api/items/{id}/refine — captured → needs-refinement
 type: task
 priority: P2
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777242002
 accepted_by: agent-1f3f
@@ -36,11 +36,11 @@ Full handler reference + tests in Task 3 of the implementation plan.
 
 ## Acceptance criteria
 
-- [ ] `POST /api/items/{id}/refine` returns 204 on captured input, with body persisted (`## Reviewer feedback` section present near top of body) and DB `status='needs-refinement'`.
-- [ ] Empty `comments` → 422.
-- [ ] Wrong status (e.g. `open`) → 422.
-- [ ] `inbox_changed` SSE event fires with `action: "refine"` on success.
-- [ ] 4 tests in `internal/server/items_refine_test.go` cover the above; output pasted.
+- [x] `POST /api/items/{id}/refine` returns 204 on captured input, with body persisted (`## Reviewer feedback` section present near top of body) and DB `status='needs-refinement'`.
+- [x] Empty `comments` → 422.
+- [x] Wrong status (e.g. `open`) → 422.
+- [x] `inbox_changed` SSE event fires with `action: "refine"` on success.
+- [x] 4 tests in `internal/server/items_refine_test.go` cover the above; output pasted.
 
 ## Notes
 

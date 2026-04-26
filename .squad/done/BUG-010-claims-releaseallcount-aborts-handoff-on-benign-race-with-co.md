@@ -4,7 +4,7 @@ title: claims ReleaseAllCount aborts handoff on benign race with concurrent clai
 type: bug
 priority: P1
 area: claims
-status: open
+status: done
 estimate: 45m
 risk: medium
 created: 2026-04-26
