@@ -78,6 +78,23 @@ type VerificationCmd struct {
 
 var defaultPrefixes = []string{"BUG", "FEAT", "TASK", "CHORE"}
 
+// ValidateTouch returns human-readable warnings for a TouchConfig. An empty
+// slice means the config is well-formed. Unknown enforcement values are
+// flagged so a typo like "denied" or "warning" doesn't silently degrade to
+// warn-only mode.
+func ValidateTouch(cfg TouchConfig) []string {
+	var warns []string
+	switch cfg.Enforcement {
+	case "", TouchEnforcementWarn, TouchEnforcementDeny:
+	default:
+		warns = append(warns, fmt.Sprintf(
+			"touch.enforcement=%q is not recognized; valid values are %q|%q (defaulting to warn)",
+			cfg.Enforcement, TouchEnforcementWarn, TouchEnforcementDeny,
+		))
+	}
+	return warns
+}
+
 func Load(repoRoot string) (Config, error) {
 	cfg := Config{IDPrefixes: append([]string(nil), defaultPrefixes...)}
 	path := filepath.Join(repoRoot, ".squad", "config.yaml")

@@ -102,6 +102,9 @@ func newTouchesPolicyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			for _, w := range config.ValidateTouch(cfg.Touch) {
+				fmt.Fprintln(cmd.ErrOrStderr(), "squad: warning: "+w)
+			}
 			out, err := TouchesPolicy(ctx, TouchesPolicyArgs{
 				DB:      bc.db,
 				RepoID:  bc.repoID,

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -130,6 +133,31 @@ func TestTouchesPolicy_DenyModeNestedGlobMatch(t *testing.T) {
 	hso := decodeHookOutput(t, out)
 	if hso.PermissionDecision != "deny" {
 		t.Fatalf("permissionDecision=%q want deny (matched **/*.lock)", hso.PermissionDecision)
+	}
+}
+
+func TestTouchesPolicyCmd_WarnsOnUnknownEnforcement(t *testing.T) {
+	root := setupSquadRepo(t)
+	t.Chdir(root)
+	cfgPath := filepath.Join(root, ".squad", "config.yaml")
+	body := "touch:\n  enforcement: denied\n  enforcement_paths:\n    - go.mod\n"
+	if err := os.WriteFile(cfgPath, []byte(body), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cmd := newTouchesPolicyCmd()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"internal/foo/bar.go"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := stderr.String()
+	for _, sub := range []string{"squad: warning:", "denied", "warn", "deny"} {
+		if !strings.Contains(got, sub) {
+			t.Fatalf("stderr missing %q: %q", sub, got)
+		}
 	}
 }
 

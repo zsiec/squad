@@ -71,6 +71,60 @@ func TestLoadTouchConfig(t *testing.T) {
 	}
 }
 
+func TestValidateTouch(t *testing.T) {
+	cases := []struct {
+		name        string
+		cfg         TouchConfig
+		wantWarn    bool
+		wantContain []string
+	}{
+		{name: "empty", cfg: TouchConfig{}},
+		{name: "warn", cfg: TouchConfig{Enforcement: TouchEnforcementWarn}},
+		{name: "deny", cfg: TouchConfig{Enforcement: TouchEnforcementDeny}},
+		{
+			name:        "typo_denied",
+			cfg:         TouchConfig{Enforcement: "denied"},
+			wantWarn:    true,
+			wantContain: []string{"denied", "warn", "deny"},
+		},
+		{
+			name:        "typo_warning",
+			cfg:         TouchConfig{Enforcement: "warning"},
+			wantWarn:    true,
+			wantContain: []string{"warning", "warn", "deny"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			warns := ValidateTouch(tc.cfg)
+			if tc.wantWarn {
+				if len(warns) == 0 {
+					t.Fatalf("expected warning, got none")
+				}
+				joined := warns[0]
+				for _, sub := range tc.wantContain {
+					if !contains(joined, sub) {
+						t.Fatalf("warning %q missing %q", joined, sub)
+					}
+				}
+				return
+			}
+			if len(warns) != 0 {
+				t.Fatalf("expected no warnings, got %v", warns)
+			}
+		})
+	}
+}
+
+func contains(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
 func TestLoad_HygieneKnobs(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {
