@@ -56,3 +56,15 @@ Item-internal detail → `#<ITEM>`. Cross-agent coordination → `global`. Do no
 - @-mentioning to "shout." A mention is "I need this agent specifically." A non-mention in `global` is "posting for transparency."
 - Posting item-internal detail to `global`. Use `#<ITEM>` for the deep, `global` for cross-agent coordination.
 - Releasing a claim because you paused for lunch. Heartbeat handles absence; release when you are handing off or done.
+
+## Recognition
+
+Acknowledging a peer — a catch in review, a sharp question, a clean diff — is real coordination signal *if* it is anchored to the specific behavior. Behavior-anchored thanks tells the recipient *what* worked so they keep doing it; generic cheer dilutes the audit log and primes sycophancy in reviewer-agent roles.
+
+- **Good:** `squad say "@agent-401f thanks — the orphan-ref grep was the catch I'd have missed"` — names the action, says why it mattered.
+- **Good:** `squad milestone "AC 3 green; the suppress-when-env helper agent-blue suggested cut the test surface in half"` — recognition wrapped into a checkpoint; works in any verb that fits the moment.
+- **Bad:** `squad say "@agent-401f great work team!"` — content-free. The recipient learns nothing they can repeat.
+
+In reviewer-agent roles (e.g. `superpowers:code-reviewer`), generic compliments are explicitly forbidden — they leak into hallucinated agreement. Disagree with evidence; agree by quoting the specific finding you verified.
+
+Recognition stays in `say` / `fyi` / `milestone`. Don't propose a new verb (`praise`, `compliment`) — the verb taxonomy is already complete.

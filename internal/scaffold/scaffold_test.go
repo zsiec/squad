@@ -207,6 +207,9 @@ func TestAgentsTemplate_HasAllSections(t *testing.T) {
 		"Stay chatty",
 		"squad thinking",
 		"Don't grind silently",
+		// Recognition pointer — keeps generic-cheer / sycophancy guidance
+		// surfaced in fast read; full rule lives in squad-chat-cadence skill.
+		"**Recognition.**",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("AGENTS template missing %q", want)
