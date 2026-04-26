@@ -55,7 +55,7 @@ Squad ships as a Claude Code marketplace at `github.com/zsiec/squad`. From insid
 After `/reload-plugins` (or a Claude Code restart), the plugin's pieces are live:
 
 - **MCP tools** — `squad_claim`, `squad_next`, `squad_done`, `squad_say`, etc. visible in the tool list.
-- **Slash commands** — `/work`, `/done`, `/pick`, `/file`, etc. show up under `/help`.
+- **Slash commands** — `/squad:work`, `/squad:done`, `/squad:pick`, `/squad:file`, etc. show up under `/help` (Claude Code namespaces all plugin slash commands as `/<plugin>:<command>`).
 - **Skills** — squad-loop, squad-handoff, squad-quality-bar, etc. auto-load when their `paths:` match the file you're editing.
 - **Hooks** — session-start, user-prompt-submit, stop, pre-compact, etc. fire automatically.
 
@@ -139,7 +139,7 @@ Then: *"Claim FEAT-001 and start."*
 
 ## Day 1 — install optional hooks
 
-Six hooks are on by default after `claude install` (session-start, user-prompt-tick, pre-compact, stop-listen, post-tool-flush, session-end-cleanup). Five more are opt-in:
+Ten hooks are on by default after `/plugin install squad@squad` (session-start, user-prompt-tick, pre-compact, stop-listen, post-tool-flush, session-end-cleanup, subagent-start, subagent-stop, task-created, task-completed). Five more are opt-in:
 
 ```bash
 squad install-hooks
@@ -159,12 +159,14 @@ Open a second Claude Code session in the same repo, ideally in a different termi
 
 In the second session, ask: *"Claim the next ready item."* Atomic SQLite `BEGIN IMMEDIATE` claims mean two sessions can't both grab the same item — exactly one wins, the other gets a clean error. File-touch tracking warns when you're about to edit a file the peer already touched.
 
-If both sessions share the same `TERM_SESSION_ID` (some terminal multiplexers do this), set a unique session var per shell first:
+If both sessions share the same `TERM_SESSION_ID` (some terminal multiplexers do this), set a unique session var per shell so each derives a distinct agent id:
 
 ```bash
-SQUAD_SESSION_ID=blue squad install-plugin   # in shell A
-SQUAD_SESSION_ID=red  squad install-plugin   # in shell B
+export SQUAD_SESSION_ID=blue   # in shell A
+export SQUAD_SESSION_ID=red    # in shell B
 ```
+
+Then run `squad register` (or any squad command — the env var is read on each invocation) inside each shell.
 
 The full multi-agent walkthrough is at [recipes/multi-agent-parallel-claude-sessions.md](recipes/multi-agent-parallel-claude-sessions.md).
 
@@ -208,4 +210,4 @@ If you've been using Claude Code's experimental agent-teams and your work is sta
 
 If you're not yet sure whether you've outgrown agent-teams, the [decision matrix](concepts/squad-vs-agent-teams.md) makes the call concrete.
 
-Composing the two is also fine: a squad-managed repo can host a single ephemeral agent-teams session inside one squad claim, and the optional `squad bridge agent-teams` command (specified in [reference/commands.md](reference/commands.md#squad-bridge-agent-teams)) reflects squad items into the team's native task list for the duration of the session.
+Composing the two is also fine: a squad-managed repo can host a single ephemeral agent-teams session inside one squad claim. Squad items remain authoritative for any work that needs to outlive the agent-teams session.
