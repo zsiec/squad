@@ -36,9 +36,11 @@ type ACItem struct {
 }
 
 type Claim struct {
+	ItemID    string `json:"item_id,omitempty"`
 	AgentID   string `json:"agent_id"`
 	Intent    string `json:"intent"`
 	ClaimedAt int64  `json:"claimed_at"`
+	LastTouch int64  `json:"last_touch,omitempty"`
 }
 
 // --- Agents ---

@@ -148,6 +148,11 @@ func (c *Client) Repos(ctx context.Context) ([]Repo, error) {
 	return out, c.GET(ctx, "/api/repos", &out)
 }
 
+func (c *Client) Claims(ctx context.Context) ([]Claim, error) {
+	var out []Claim
+	return out, c.GET(ctx, "/api/claims", &out)
+}
+
 func (c *Client) WorkspaceStatus(ctx context.Context) (WorkspaceStatus, error) {
 	var out WorkspaceStatus
 	return out, c.GET(ctx, "/api/workspace/status", &out)
