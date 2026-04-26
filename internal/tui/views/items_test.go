@@ -222,7 +222,7 @@ func TestItems_FilterRowFormatting(t *testing.T) {
 	if cap < 0 || op < 0 || bl < 0 || dn < 0 {
 		t.Fatalf("count band missing entries, got %q", out)
 	}
-	if !(cap < op && op < bl && bl < dn) {
+	if cap >= op || op >= bl || bl >= dn {
 		t.Fatalf("count band order wrong: cap=%d open=%d blocked=%d done=%d (%q)", cap, op, bl, dn, out)
 	}
 

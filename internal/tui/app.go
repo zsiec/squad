@@ -13,6 +13,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/tui/client"
 	"github.com/zsiec/squad/internal/tui/daemon"
 )
@@ -23,12 +24,16 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	c := client.New(url, token)
-	who, err := c.Whoami(ctx)
-	if err != nil || who.AgentID == "" {
-		return fmt.Errorf("could not determine agent identity — run `squad register` first")
+	// Derive the actor's agent id locally — the same path `squad whoami`
+	// takes. The earlier flow called /api/whoami over HTTP, which required
+	// `squad serve` running AND the agent registered in the DB. CLI users
+	// for whom `squad whoami` worked were getting "could not determine
+	// agent identity" from the TUI.
+	agentID, err := identity.AgentID()
+	if err != nil || agentID == "" {
+		return fmt.Errorf("could not determine agent identity: %w", err)
 	}
-	c = c.WithAgent(who.AgentID)
+	c := client.New(url, token).WithAgent(agentID)
 	eventCh := c.SubscribeEvents(ctx)
 
 	scope := detectScope()

@@ -25,11 +25,12 @@ func locateReadme(t *testing.T) string {
 }
 
 // TestReadme_QuickStartIsMCPFirst pins the README's structure to the
-// MCP-first voice. The Quick start section must lead with `claude install`
-// (the Claude Code path); the CLI form (`squad go`) must only appear later
-// as a power-user fallback. The previous shape — two parallel quickstarts
-// contradicting each other on which command to type — was actively
-// confusing for Claude Code users.
+// MCP-first voice. The Quick start section must lead with the real
+// Claude Code plugin install commands (/plugin marketplace add +
+// /plugin install); the CLI form (`squad go`) must only appear later
+// as a power-user fallback. The previous shape pinned `claude install
+// github.com/zsiec/squad` here, but that command doesn't exist —
+// updated to the real install path.
 func TestReadme_QuickStartIsMCPFirst(t *testing.T) {
 	body, err := os.ReadFile(locateReadme(t))
 	if err != nil {
@@ -50,12 +51,17 @@ func TestReadme_QuickStartIsMCPFirst(t *testing.T) {
 			quickStartIdx, beyondIdx)
 	}
 
-	claudeInstallIdx := strings.Index(s, "claude install github.com/zsiec/squad")
-	if claudeInstallIdx < 0 {
-		t.Fatal("README quick-start should show 'claude install github.com/zsiec/squad'")
-	}
-	if claudeInstallIdx < quickStartIdx || claudeInstallIdx > beyondIdx {
-		t.Fatal("'claude install' should be inside the Quick start section, not after Beyond")
+	for _, frag := range []string{
+		"/plugin marketplace add zsiec/squad",
+		"/plugin install squad@squad",
+	} {
+		idx := strings.Index(s, frag)
+		if idx < 0 {
+			t.Fatalf("README quick-start should show %q", frag)
+		}
+		if idx < quickStartIdx || idx > beyondIdx {
+			t.Fatalf("%q should be inside the Quick start section, not after Beyond", frag)
+		}
 	}
 
 	squadGoIdx := strings.Index(s, "squad go")

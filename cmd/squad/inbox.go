@@ -184,7 +184,7 @@ func printRejectedLog(squadDir string, stdout, stderr io.Writer) int {
 	n := 0
 	for sc.Scan() {
 		var e struct {
-			Ts     int64  `json:"ts"`
+			TS     int64  `json:"ts"`
 			ID     string `json:"id"`
 			Reason string `json:"reason"`
 			By     string `json:"by"`
@@ -192,7 +192,7 @@ func printRejectedLog(squadDir string, stdout, stderr io.Writer) int {
 		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
 			continue
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", e.ID, inboxAgeStr(e.Ts), e.By, e.Reason)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", e.ID, inboxAgeStr(e.TS), e.By, e.Reason)
 		n++
 	}
 	tw.Flush()
