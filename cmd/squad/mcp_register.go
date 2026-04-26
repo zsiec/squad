@@ -17,6 +17,17 @@ import (
 // structured RPC error rather than crashing init.
 var errNoRepo = errors.New("squad mcp: no repo discovered (run from inside a squad repo, or pass repo_root)")
 
+// asInvalidParams wraps err so the MCP server returns code -32602
+// (Invalid params) instead of the catch-all -32603 (Internal error).
+// The "no repo" case is the canonical example: the call's params imply a
+// context (a repo) that doesn't exist, which is precisely what -32602 covers.
+func asInvalidParams(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}
+}
+
 type registerEnvelope struct {
 	*RegisterResult
 	Warnings []string `json:"warnings,omitempty"`
@@ -41,7 +52,7 @@ func resolveAgentID(explicit string) (string, error) {
 
 func requireRepo(repoRoot, repoID string) error {
 	if repoRoot == "" || repoID == "" {
-		return errNoRepo
+		return asInvalidParams(errNoRepo)
 	}
 	return nil
 }
@@ -552,7 +563,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				return nil, err
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			agent, err := resolveAgentID(args.AgentID)
 			if err != nil {
@@ -587,7 +598,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				}
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			return LearningList(ctx, LearningListArgs{
 				RepoRoot: repoRoot,
@@ -610,7 +621,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				return nil, err
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			return LearningApprove(ctx, LearningApproveArgs{RepoRoot: repoRoot, Slug: args.Slug})
 		},
@@ -629,7 +640,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				return nil, err
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			return LearningReject(ctx, LearningRejectArgs{
 				RepoRoot: repoRoot, Slug: args.Slug, Reason: args.Reason,
@@ -652,7 +663,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				return nil, err
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			agent, err := resolveAgentID(args.AgentID)
 			if err != nil {
@@ -680,7 +691,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				return nil, err
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			res, err := LearningAgentsMdApprove(ctx, LearningAgentsMdApproveArgs{
 				RepoRoot: repoRoot, ID: args.ID,
@@ -709,7 +720,7 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 				return nil, err
 			}
 			if repoRoot == "" {
-				return nil, errNoRepo
+				return nil, asInvalidParams(errNoRepo)
 			}
 			return LearningAgentsMdReject(ctx, LearningAgentsMdRejectArgs{
 				RepoRoot: repoRoot, ID: args.ID, Reason: args.Reason,

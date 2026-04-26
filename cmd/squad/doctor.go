@@ -48,7 +48,7 @@ type DoctorResult struct {
 // installed, which is a CLI-side concern.
 func Doctor(ctx context.Context, args DoctorArgs) (*DoctorResult, error) {
 	if args.DB == nil || args.RepoID == "" || args.RepoRoot == "" {
-		return nil, errNoRepo
+		return nil, asInvalidParams(errNoRepo)
 	}
 	squadDir := filepath.Join(args.RepoRoot, ".squad")
 	adapter := itemsHygieneAdapter{squadDir: squadDir}

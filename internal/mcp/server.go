@@ -80,6 +80,36 @@ const (
 	errInternal       = -32603
 )
 
+// ToolError lets handlers return a JSON-RPC error with a non-default code.
+// callTool checks errors.As(err, *ToolError) and uses Code instead of the
+// catch-all errInternal. Handlers wrap an underlying error like:
+//
+//	return nil, &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}
+//
+// for user-facing failures (missing repo, item not found, claim conflict).
+type ToolError struct {
+	Code int
+	Err  error
+}
+
+func (e *ToolError) Error() string {
+	if e == nil || e.Err == nil {
+		return ""
+	}
+	return e.Err.Error()
+}
+
+func (e *ToolError) Unwrap() error { return e.Err }
+
+// CodeInvalidParams / CodeMethodNotFound are exported aliases for the
+// JSON-RPC error codes squad handlers commonly map onto. Use these instead
+// of hand-rolling integers in handler code.
+const (
+	CodeInvalidParams  = errInvalidParams
+	CodeMethodNotFound = errMethodNotFound
+	CodeInternal       = errInternal
+)
+
 // isNotification reports whether a parsed JSON-RPC request lacks an id field
 // (i.e. is a notification, which must not receive a response). json.RawMessage
 // is empty when omitted, "null" when explicitly set to null; both are
@@ -181,6 +211,11 @@ func (s *Server) callTool(ctx context.Context, base rpcResponse, raw json.RawMes
 	}
 	result, err := tool.Handler(ctx, p.Arguments)
 	if err != nil {
+		var te *ToolError
+		if errors.As(err, &te) && te.Code != 0 {
+			base.Error = &rpcError{Code: te.Code, Message: err.Error()}
+			return base
+		}
 		base.Error = &rpcError{Code: errInternal, Message: err.Error()}
 		return base
 	}

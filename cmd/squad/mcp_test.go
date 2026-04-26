@@ -255,6 +255,44 @@ func mustWriteItem(t *testing.T, repoRoot, id, title string) {
 	}
 }
 
+// TestMCP_NoRepoReturnsInvalidParams covers the JSON-RPC error mapping for
+// the "no .squad/ here" condition. Per the spec, -32602 (Invalid params) is
+// the right code: the call's arguments imply a context (a repo) that does
+// not exist. Previously every per-repo handler returned the catch-all
+// -32603 (Internal error), which is what JSON-RPC reserves for unexpected
+// server-side faults — the opposite of a user-input issue.
+func TestMCP_NoRepoReturnsInvalidParams(t *testing.T) {
+	env := newTestEnv(t)
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_next","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	// Call with empty repoID/repoRoot to simulate a non-squad working dir.
+	if err := runMCP(context.Background(), env.DB, "", "", in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error == nil {
+		t.Fatalf("expected an error on no-repo call; got: %s", lines[1])
+	}
+	if resp.Error.Code != -32602 {
+		t.Errorf("error code = %d, want -32602 (Invalid params); message=%q",
+			resp.Error.Code, resp.Error.Message)
+	}
+}
+
 // TestMCP_DoctorRoundTrip ensures squad_doctor is registered and returns
 // a structured findings list. README documents this tool but it was missing
 // from registerTools, so tools/list omitted it and tools/call returned
