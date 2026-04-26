@@ -10,6 +10,7 @@ import (
 
 	"github.com/zsiec/squad/internal/attest"
 	"github.com/zsiec/squad/internal/claims"
+	"github.com/zsiec/squad/internal/commitlog"
 	"github.com/zsiec/squad/internal/items"
 )
 
@@ -64,6 +65,15 @@ func (s *Server) handleItemDone(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var claimedAt int64
+	_ = s.db.QueryRowContext(r.Context(),
+		`SELECT claimed_at FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
+		s.cfg.RepoID, id, agent).Scan(&claimedAt)
+	var repoRoot string
+	_ = s.db.QueryRowContext(r.Context(),
+		`SELECT COALESCE(root_path, '') FROM repos WHERE id=?`,
+		s.cfg.RepoID).Scan(&repoRoot)
+
 	store := claims.New(s.db, s.cfg.RepoID, nil)
 	derr := store.Done(r.Context(), id, agent, claims.DoneOpts{
 		Summary:  req.Summary,
@@ -72,6 +82,9 @@ func (s *Server) handleItemDone(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case derr == nil:
+		if repoRoot != "" && claimedAt > 0 {
+			_, _ = commitlog.RecordSinceClaim(r.Context(), s.db, s.cfg.RepoID, repoRoot, id, agent, claimedAt)
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	case errors.Is(derr, claims.ErrNotClaimed):
 		writeErr(w, http.StatusNotFound, derr.Error())

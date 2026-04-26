@@ -190,7 +190,7 @@ func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
 		t.Fatalf("max: %v", err)
 	}
-	if maxV != 5 {
-		t.Fatalf("want version 5 after bootstrap; got %d", maxV)
+	if maxV != 6 {
+		t.Fatalf("want version 6 after bootstrap; got %d", maxV)
 	}
 }

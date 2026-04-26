@@ -17,6 +17,7 @@ import (
 
 	"github.com/zsiec/squad/internal/attest"
 	"github.com/zsiec/squad/internal/claims"
+	"github.com/zsiec/squad/internal/commitlog"
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/items"
 )
@@ -101,6 +102,13 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 		}
 	}
 
+	// Read claimed_at BEFORE store.Done — Done releases the claim, so the
+	// row is gone by the time we'd want to scope git log to it.
+	var claimedAt int64
+	_ = args.DB.QueryRowContext(ctx,
+		`SELECT claimed_at FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
+		args.RepoID, args.ItemID, args.AgentID).Scan(&claimedAt)
+
 	store := claims.New(args.DB, args.RepoID, clock)
 	if err := store.Done(ctx, args.ItemID, args.AgentID, claims.DoneOpts{
 		Summary:  args.Summary,
@@ -109,6 +117,14 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 	}); err != nil {
 		return nil, err
 	}
+
+	// Best-effort commit capture. A failure here does not roll back the
+	// done — commits are append-only metadata for the dashboard, not part
+	// of the close-out contract.
+	if args.RepoRoot != "" && claimedAt > 0 {
+		_, _ = commitlog.RecordSinceClaim(ctx, args.DB, args.RepoID, args.RepoRoot, args.ItemID, args.AgentID, claimedAt)
+	}
+
 	return &DoneResult{
 		ItemID:        args.ItemID,
 		Summary:       args.Summary,

@@ -7,15 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
-// linksFixture builds a self-contained world: temp dir as repoRoot, a real
-// git repo inside it with deterministic commits, a `.squad/` directory, a
-// repos row pinned to that root path, optional touches and pending-prs.
 type linksFixture struct {
 	repoRoot string
 	squadDir string
@@ -41,41 +36,7 @@ func newLinksFixture(t *testing.T) (*Server, *linksFixture) {
 	return s, &linksFixture{repoRoot: repoRoot, squadDir: squadDir}
 }
 
-func (f *linksFixture) initGit(t *testing.T) {
-	t.Helper()
-	run := func(args ...string) {
-		t.Helper()
-		c := exec.Command("git", append([]string{"-C", f.repoRoot}, args...)...)
-		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("git %v: %v\n%s", args, err, out)
-		}
-	}
-	run("init", "-q", "-b", "main")
-	run("config", "user.email", "test@example.com")
-	run("config", "user.name", "Test")
-	run("config", "commit.gpgsign", "false")
-}
-
-func (f *linksFixture) commit(t *testing.T, file, subject string) {
-	t.Helper()
-	if file != "" {
-		w := exec.Command("sh", "-c", fmt.Sprintf("echo %q >> %s", subject, file))
-		w.Dir = f.repoRoot
-		if out, err := w.CombinedOutput(); err != nil {
-			t.Fatalf("write: %v\n%s", err, out)
-		}
-		add := exec.Command("git", "-C", f.repoRoot, "add", file)
-		if out, err := add.CombinedOutput(); err != nil {
-			t.Fatalf("add: %v\n%s", err, out)
-		}
-	}
-	c := exec.Command("git", "-C", f.repoRoot, "commit", "--allow-empty", "-m", subject)
-	if out, err := c.CombinedOutput(); err != nil {
-		t.Fatalf("commit: %v\n%s", err, out)
-	}
-}
-
-func (f *linksFixture) writeItem(t *testing.T, id, status string, acceptedAt int64) {
+func (f *linksFixture) writeItem(t *testing.T, id, status string) {
 	t.Helper()
 	dir := "items"
 	if status == "done" {
@@ -95,7 +56,7 @@ updated: 2026-04-26
 captured_by: web
 captured_at: 0
 accepted_by: web
-accepted_at: %d
+accepted_at: 0
 references: []
 relates-to: []
 blocked-by: []
@@ -103,7 +64,7 @@ blocked-by: []
 
 ## Problem
 test
-`, id, status, acceptedAt)
+`, id, status)
 	path := filepath.Join(f.squadDir, dir, id+"-test.md")
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
@@ -113,6 +74,16 @@ test
 func (f *linksFixture) writePendingPRs(t *testing.T, entries string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(f.squadDir, "pending-prs.json"), []byte(entries), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seedCommit(t *testing.T, s *Server, itemID, sha, subject string, ts int64) {
+	t.Helper()
+	if _, err := s.db.ExecContext(context.Background(), `
+		INSERT INTO commits (repo_id, item_id, sha, subject, ts, agent_id)
+		VALUES (?, ?, ?, ?, ?, 'agent-a')
+	`, testRepoID, itemID, sha, subject, ts); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -140,9 +111,9 @@ func TestItemLinks_UnknownItem404(t *testing.T) {
 	}
 }
 
-func TestItemLinks_KnownItemNoBranchNoTouches(t *testing.T) {
+func TestItemLinks_KnownItemNoPRNoCommits(t *testing.T) {
 	s, f := newLinksFixture(t)
-	f.writeItem(t, "BUG-101", "done", 0)
+	f.writeItem(t, "BUG-101", "done")
 	code, body := getJSON(t, s, "/api/items/BUG-101/links")
 	if code != http.StatusOK {
 		t.Fatalf("code=%d body=%v", code, body)
@@ -167,7 +138,6 @@ func TestItemLinks_NonGithubOriginShortCircuits(t *testing.T) {
 	s := New(db, testRepoID, Config{RepoID: testRepoID, SquadDir: squadDir, LearningsRoot: repoRoot})
 	t.Cleanup(s.Close)
 
-	// Write item directly so we don't reuse newLinksFixture's GitHub origin.
 	body := `---
 id: BUG-202
 title: test
@@ -192,10 +162,15 @@ test
 	if err := os.WriteFile(filepath.Join(squadDir, "done", "BUG-202-test.md"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-
-	// Even with a pending entry, a non-github origin returns no links.
 	if err := os.WriteFile(filepath.Join(squadDir, "pending-prs.json"),
 		[]byte(`[{"item_id":"BUG-202","branch":"feat/foo","created_at":"2026-04-26T00:00:00Z"}]`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Seed commits anyway — non-github origin must still short-circuit.
+	if _, err := db.ExecContext(context.Background(), `
+		INSERT INTO commits (repo_id, item_id, sha, subject, ts, agent_id)
+		VALUES (?, 'BUG-202', 'abc123', 'test commit', 100, 'agent-a')
+	`, testRepoID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -212,61 +187,60 @@ test
 	}
 }
 
-func TestItemLinks_FullPRAndCommits(t *testing.T) {
+func TestItemLinks_PRAndCommitsFromTable(t *testing.T) {
 	s, f := newLinksFixture(t)
-	f.initGit(t)
-	f.commit(t, "before.go", "before claim window")
-	since := time.Now()
-	time.Sleep(1100 * time.Millisecond) // git --since/--until is second-precision
-	f.commit(t, "x.go", "in window touched x")
-	f.commit(t, "y.go", "in window touched y")
-	f.commit(t, "z.go", "in window touched z (no touch row)")
-
-	f.writeItem(t, "BUG-301", "done", since.Unix())
-	f.writePendingPRs(t, `[{"item_id":"BUG-301","branch":"main","created_at":"2026-04-26T00:00:00Z"}]`)
-
-	// Insert touches for x.go and y.go only.
-	for _, p := range []string{"x.go", "y.go"} {
-		if _, err := s.db.ExecContext(context.Background(), `
-			INSERT INTO touches (repo_id, agent_id, item_id, path, started_at, released_at)
-			VALUES (?, 'agent-a', 'BUG-301', ?, 0, 0)
-		`, testRepoID, p); err != nil {
-			t.Fatal(err)
-		}
-	}
+	f.writeItem(t, "BUG-301", "done")
+	f.writePendingPRs(t, `[{"item_id":"BUG-301","branch":"feat/foo","created_at":"2026-04-26T00:00:00Z"}]`)
+	seedCommit(t, s, "BUG-301", "1111111111111111111111111111111111111111", "first", 100)
+	seedCommit(t, s, "BUG-301", "2222222222222222222222222222222222222222", "second", 200)
 
 	code, out := getJSON(t, s, "/api/items/BUG-301/links")
 	if code != http.StatusOK {
 		t.Fatalf("code=%d out=%v", code, out)
 	}
-
 	pr, _ := out["pr"].(map[string]any)
 	if pr == nil {
-		t.Fatalf("pr is nil; want pr with branch=main")
+		t.Fatalf("pr is nil; want compare URL for branch feat/foo")
 	}
-	if pr["branch"] != "main" {
-		t.Fatalf("pr.branch=%v want main", pr["branch"])
+	if pr["branch"] != "feat/foo" {
+		t.Fatalf("pr.branch=%v want feat/foo", pr["branch"])
 	}
-	if pr["url"] == nil {
-		t.Fatalf("pr.url is nil; want compare URL")
+	if url, _ := pr["url"].(string); url != "https://github.com/zsiec/squad/compare/feat/foo?expand=1" {
+		t.Fatalf("pr.url=%q", url)
 	}
-
 	commits, _ := out["commits"].([]any)
 	if len(commits) != 2 {
-		t.Fatalf("got %d commits, want 2 (x.go and y.go) — %v", len(commits), commits)
+		t.Fatalf("got %d commits, want 2 — %v", len(commits), commits)
+	}
+	first, _ := commits[0].(map[string]any)
+	if first["subject"] != "second" {
+		t.Fatalf("commits[0].subject=%v want 'second' (newest first)", first["subject"])
 	}
 	for _, raw := range commits {
 		c, _ := raw.(map[string]any)
-		if c["sha"] == nil || c["subject"] == nil || c["url"] == nil {
-			t.Fatalf("commit missing fields: %+v", c)
-		}
 		url, _ := c["url"].(string)
-		if !startsWith(url, "https://github.com/zsiec/squad/commit/") {
-			t.Fatalf("commit url=%q does not start with expected base", url)
+		want := "https://github.com/zsiec/squad/commit/" + c["sha"].(string)
+		if url != want {
+			t.Fatalf("commit url=%q want %q", url, want)
 		}
 	}
 }
 
-func startsWith(s, prefix string) bool {
-	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+func TestItemLinks_CommitsWithoutPR(t *testing.T) {
+	s, f := newLinksFixture(t)
+	f.writeItem(t, "BUG-401", "done")
+	// No pending-prs.json entry — commits should still surface.
+	seedCommit(t, s, "BUG-401", "abcdef0123456789abcdef0123456789abcdef01", "solo commit", 50)
+
+	code, out := getJSON(t, s, "/api/items/BUG-401/links")
+	if code != http.StatusOK {
+		t.Fatalf("code=%d out=%v", code, out)
+	}
+	if out["pr"] != nil {
+		t.Fatalf("pr=%v want nil (no pending-prs entry)", out["pr"])
+	}
+	commits, _ := out["commits"].([]any)
+	if len(commits) != 1 {
+		t.Fatalf("got %d commits, want 1 — %v", len(commits), commits)
+	}
 }
