@@ -49,7 +49,7 @@ squad init
 `init` asks ≤3 questions:
 
 1. **Project name** — defaults to the directory basename. Press enter to accept.
-2. **ID prefixes** — comma-separated list. Defaults are fine for most.
+2. **ID prefixes** — comma-separated list. The prefix is the first segment of every item ID (`FEAT-001`, `BUG-007`, `TASK-042`, …), and `squad new <type> "<title>"` derives the prefix from `<type>`. Defaults `BUG,FEAT,TASK,CHORE` cover most projects; add a custom one (e.g. `OPS`, `DOCS`) only if you want to file items under that namespace. The set is appendable later, but renaming a prefix retroactively is manual — pick what you'll live with.
 3. **Install plugin?** — `Y` if you use Claude Code, `n` if you don't.
 
 What lands on disk:
