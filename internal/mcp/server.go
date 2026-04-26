@@ -10,7 +10,10 @@ import (
 	"sync"
 )
 
-const ProtocolVersion = "2024-11-05"
+// ProtocolVersion advertised in the initialize handshake. Bump when the spec
+// version squad targets changes; Claude Code negotiates the actual wire
+// version so older clients still work.
+const ProtocolVersion = "2025-11-25"
 
 type ServerInfo struct {
 	Name    string
