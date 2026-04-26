@@ -2474,6 +2474,34 @@ a.item-chip:hover {
 .inbox-dor.bad { color: var(--danger); }
 .inbox-title { color: var(--fg); font: 13px var(--font-sans); }
 .inbox-actions { display: flex; gap: 8px; }
+.inbox-details {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.inbox-details[hidden] { display: none; }
+.inbox-detail-meta {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  font: 11px var(--font-mono);
+  color: var(--fg-dim);
+}
+.inbox-detail-meta-k { color: var(--fg-dim); margin-right: 4px; }
+.inbox-detail-meta-cell { color: var(--fg); }
+.inbox-detail-section { display: flex; flex-direction: column; gap: 6px; }
+.inbox-detail-head {
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+}
+.inbox-detail-head .count { color: var(--fg-dim); margin-left: 4px; }
+.inbox-details .md { font: 13px var(--font-sans); color: var(--fg); }
+.inbox-details .md p { margin: 6px 0; }
+.inbox-details .md ul, .inbox-details .md ol { margin: 6px 0 6px 20px; }
+.inbox-details .md code { background: var(--panel); padding: 0 4px; border-radius: 2px; }
+.inbox-details .md pre { background: var(--panel); padding: 8px; overflow-x: auto; }
 
 /* ------------------------------------------------------------------------
    Learnings panel + evidence drawer section
