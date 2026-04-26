@@ -26,7 +26,7 @@ squad version
 If you prefer the binary-first path (CLI-only use, scripting, CI):
 
 ```bash
-go install github.com/zsiec/squad/cmd/squad@latest    # or `brew install zsiec/tap/squad` once Phase 14 ships
+go install github.com/zsiec/squad/cmd/squad@latest
 squad install-plugin                                  # optional, but recommended for Claude Code users
 squad version
 ```

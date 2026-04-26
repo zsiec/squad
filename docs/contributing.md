@@ -104,8 +104,8 @@ When the PR merges, the [auto-archive workflow](recipes/github-actions.md) reads
 
 ## Scope
 
-- **v1** (Phases 0–14 of the master plan): the binary, plugin, hooks, multi-repo, GitHub Actions integration, full docs.
-- **v1.1**: more hooks, web UI auth, additional importers (deferred from v1).
+- **v1**: the binary, plugin, hooks, multi-repo, GitHub Actions integration, evidence ledger, statistics, agent-teams interop docs, full reference docs.
+- **v1.1**: more hooks, web UI auth, additional importers.
 - **v2**: cross-machine global.db sync, REST API, more integrations.
 
 The current state of v1 lives in `.squad/items/` of this repo.

@@ -17,7 +17,7 @@ Claims, chat, and file touches are **machine-local, operational, ephemeral.** Th
 - **One claim per agent per repo** by default. The configuration knob (`agent.claim_concurrency` in `.squad/config.yaml`) can lift it, but the default is 1 because a single agent juggling multiple claims is usually thrashing.
 - **Heartbeat keeps a claim live.** Every `squad tick`, `squad milestone`, `squad thinking`, etc. updates the `last_touch` timestamp on your active claim. A claim with no activity past the configured `hygiene.stale_claim_minutes` (default 60 min) is flagged by `squad doctor` as stale.
 - **`squad force-release <ID>`** takes over a stuck claim from a peer who isn't responding. The command requires `--reason` so the audit trail in `claim_history` records why the takeover happened. Good citizenship: post `squad ask @agent-XXXX "stealing X, ok?"` first if the peer is reachable.
-- **File-touch tracking** warns (does not block) when you start editing a file that another agent's claim is touching. `squad touch <path>` declares an active touch; `squad untouch <path>` releases it. The pre-edit hook (Phase 11, opt-in) automates this against Edit/Write tool calls.
+- **File-touch tracking** warns (does not block) when you start editing a file that another agent's claim is touching. `squad touch <path>` declares an active touch; `squad untouch <path>` releases it. The opt-in pre-edit hook automates this against Edit/Write tool calls.
 
 ## Lifecycle states
 

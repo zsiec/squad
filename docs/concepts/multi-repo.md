@@ -34,12 +34,12 @@ The path-fallback case is best-effort. If you later add a remote, the ID changes
 - `.squad/items/<ID>-<slug>.md` — item content, AC, body. Committed to git, travels with the codebase.
 - `.squad/done/` — closed items.
 - `.squad/config.yaml` — project-level config: ID prefixes, risk paths, verification commands. Committed.
-- `.squad/pending-prs.json` — PR ↔ item mappings recorded by `pr-link` (Phase 12). Committed; the GitHub Actions workflow reads it.
+- `.squad/pending-prs.json` — PR ↔ item mappings recorded by `pr-link`. Committed; the GitHub Actions workflow reads it.
 
 ## What stays global
 
 - `~/.squad/global.db` — claims, chat messages, file touches, agent registrations, item index. Machine-local, never committed.
-- `~/.squad/hooks/` — materialized hook scripts (Phase 11). Machine-local.
+- `~/.squad/hooks/` — materialized hook scripts. Machine-local.
 - `~/.squad/hygiene.lock` — sweep debounce file. Machine-local.
 
 ## Workspace queries

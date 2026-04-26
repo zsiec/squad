@@ -50,7 +50,7 @@ squad untouch internal/cache/flusher.go      # release when done; or `squad unto
 
 The first arg is the item ID the touches belong to; the rest are paths.
 
-If you install the `pre-edit-touch-check` hook (Phase 11; opt-in), the warning fires automatically when you Edit/Write a file another agent is touching. The hook only warns; it does not block. The right move when warned:
+If you install the opt-in `pre-edit-touch-check` hook, the warning fires automatically when you Edit/Write a file another agent is touching. The hook only warns; it does not block. The right move when warned:
 
 1. Stop and read what the peer is doing (`squad tail --thread <ITEM>` to see their thread).
 2. If the work overlaps, post `squad ask @agent-NAME "I'm about to touch X — conflict?"` and wait.

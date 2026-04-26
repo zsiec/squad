@@ -62,7 +62,7 @@ You have three reasonable paths:
 2. **Tracker authoritative, squad for active work only.** File items in squad as you start them, mark done when shipped, leave the tracker as the durable backlog. The translation layer is in your head.
 3. **Both, dual-recorded.** Heaviest path; only worth it during a transition.
 
-There's no "import from tracker X" command for the OSS trackers (Phase 9 deferred). If you genuinely need a bulk import, file an issue — until then, hand-file the 5–10 most active items and let the rest live in the old tracker.
+There's no "import from tracker X" command for the OSS trackers. If you genuinely need a bulk import, file an issue — until then, hand-file the 5–10 most active items and let the rest live in the old tracker.
 
 ## Reconciling CLAUDE.md
 
