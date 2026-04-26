@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 type Event struct {
@@ -32,54 +34,48 @@ func New(db *sql.DB, repoID string, now func() time.Time) *Recorder {
 
 func (r *Recorder) Record(ctx context.Context, e Event) error {
 	nowTs := r.now().Unix()
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	var present int
-	err = tx.QueryRowContext(ctx, `SELECT 1 FROM agents WHERE id = ?`, e.AgentID).Scan(&present)
-	if errors.Is(err, sql.ErrNoRows) {
-		return tx.Commit()
-	}
-	if err != nil {
-		return err
-	}
-
-	var duration sql.NullInt64
-	if pair := pairEvent(e.EventName); pair != "" {
-		var startTs int64
-		err := tx.QueryRowContext(ctx, `
-            SELECT ts FROM subagent_events s
-            WHERE s.subagent_id = ? AND s.event = ?
-              AND NOT EXISTS (
-                SELECT 1 FROM subagent_events e
-                WHERE e.subagent_id = s.subagent_id AND e.event = ? AND e.id > s.id
-              )
-            ORDER BY s.id DESC LIMIT 1`,
-			e.SubagentID, pair, e.EventName).Scan(&startTs)
-		if err == nil {
-			duration = sql.NullInt64{Int64: (nowTs - startTs) * 1000, Valid: true}
+	return store.WithTxRetry(ctx, r.db, func(tx *sql.Tx) error {
+		var present int
+		err := tx.QueryRowContext(ctx, `SELECT 1 FROM agents WHERE id = ?`, e.AgentID).Scan(&present)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
 		}
-	}
+		if err != nil {
+			return err
+		}
 
-	var subType sql.NullString
-	if e.Type != "" {
-		subType = sql.NullString{String: e.Type, Valid: true}
-	}
-	if _, err := tx.ExecContext(ctx, `
-        INSERT INTO subagent_events (repo_id, agent_id, subagent_id, subagent_type, event, ts, duration_ms)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		r.repoID, e.AgentID, e.SubagentID, subType, e.EventName, nowTs, duration); err != nil {
-		return err
-	}
+		var duration sql.NullInt64
+		if pair := pairEvent(e.EventName); pair != "" {
+			var startTs int64
+			err := tx.QueryRowContext(ctx, `
+                SELECT ts FROM subagent_events s
+                WHERE s.subagent_id = ? AND s.event = ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM subagent_events e
+                    WHERE e.subagent_id = s.subagent_id AND e.event = ? AND e.id > s.id
+                  )
+                ORDER BY s.id DESC LIMIT 1`,
+				e.SubagentID, pair, e.EventName).Scan(&startTs)
+			if err == nil {
+				duration = sql.NullInt64{Int64: (nowTs - startTs) * 1000, Valid: true}
+			}
+		}
 
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE agents SET last_tick_at = ? WHERE id = ?`, nowTs, e.AgentID); err != nil {
+		var subType sql.NullString
+		if e.Type != "" {
+			subType = sql.NullString{String: e.Type, Valid: true}
+		}
+		if _, err := tx.ExecContext(ctx, `
+            INSERT INTO subagent_events (repo_id, agent_id, subagent_id, subagent_type, event, ts, duration_ms)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			r.repoID, e.AgentID, e.SubagentID, subType, e.EventName, nowTs, duration); err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx,
+			`UPDATE agents SET last_tick_at = ? WHERE id = ?`, nowTs, e.AgentID)
 		return err
-	}
-	return tx.Commit()
+	})
 }
 
 func pairEvent(eventName string) string {
