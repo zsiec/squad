@@ -3,117 +3,69 @@
 [![CI](https://github.com/zsiec/squad/actions/workflows/ci.yml/badge.svg)](https://github.com/zsiec/squad/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> Project-management framework for software work done with AI coding agents.
+> Project management for software work done with AI coding agents.
 
-Atomic claims, typed chat verbs, file-touch tracking, hygiene sweeps, web dashboard, and an optional Claude Code plugin — shipped as a single static binary that works for solo and multi-agent setups.
+Squad gives Claude Code the durable coordination layer it lacks on its own — atomic claims, typed chat verbs, file-touch tracking, an evidence ledger, and a multi-agent dashboard. All of it is exposed through **36 MCP tools**, so Claude does the squad work for you. You describe what you want; squad's plumbing makes it happen.
 
 > ⚠️ **Status:** under active development, pre-1.0.
 
-## Install
+## Quick start
 
-The fastest path is via Claude Code's plugin system:
+**Step 1.** Install the plugin.
 
 ```bash
 claude install github.com/zsiec/squad
 ```
 
-This drops the manifest, registers the MCP server, wires the always-on hooks, and exposes squad's verbs as MCP tools. No further setup needed.
+That's all the install does — drops the manifest, registers the MCP server, wires the always-on hooks. Squad's tools become available to every Claude Code session in any repo.
 
-If you prefer to install the binary first (e.g. for CLI-only use, scripting, or CI):
+**Step 2.** Open Claude Code in your project and tell it what you want.
+
+> *"Claim the top ready item and walk me through it."*
+
+Claude calls `squad_next` to find the priority pick, `squad_claim` to lock it, prints the acceptance criteria, and flushes any pending peer chat into your context. You start working.
+
+**Step 3.** When the work is done, say so.
+
+> *"Mark this done with summary 'shipped retry logic'."*
+
+Claude calls `squad_done`. If the item declared `evidence_required: [test, review]`, Claude first records each verification with `squad_attest` — capturing the command output, the exit code, and a content hash so the proof survives. The item moves to `.squad/done/` and the next one's ready.
+
+That's the whole loop. You never run a squad command yourself.
+
+> If you prefer typing, `/work` is the slash-command equivalent of step 2.
+
+## Beyond the quick start
+
+A claim → work → done loop is the whole shape of squad. The next layer of the surface is what makes it durable past one session.
+
+**Items live in your repo, not in a tracker.** Every item is a markdown file under `.squad/items/<TYPE>-<NN>-<slug>.md` with YAML frontmatter (priority, type, evidence-required, blockers). They're git-tracked, so the queue travels with the repo. Ask Claude to file one — *"file a bug for the retry-on-503 panic"* — and `squad_new` scaffolds it. See [docs/concepts/the-loop.md](docs/concepts/the-loop.md).
+
+**Chat is durable and typed.** Squad's chat verbs (`ask`, `say`, `fyi`, `milestone`, `stuck`) write to a SQLite-backed bus that outlives any session. A teammate's question yesterday is still in your inbox today. The plugin's hooks deliver pending chat at session-start, between tool calls, and before context compaction — no polling. Concepts: [docs/concepts/chat-cadence.md](docs/concepts/chat-cadence.md).
+
+**Multiple agents on one repo, cleanly.** Atomic SQLite `BEGIN IMMEDIATE` claims mean two Claude Code sessions can't both grab the same item — exactly one wins, the other gets a clean error. File-touch tracking warns before peers collide on the same file. The hands-on walkthrough is at [docs/recipes/multi-agent-parallel-claude-sessions.md](docs/recipes/multi-agent-parallel-claude-sessions.md).
+
+**Evidence-gated done.** Items can declare `evidence_required: [test, review]` in frontmatter. `squad_done` refuses to close them without an attestation per kind, and each attestation captures the command, exit code, stdout, and a content hash. The ledger lives at `.squad/attestations/`. The reasoning behind it: [docs/concepts/the-loop.md](docs/concepts/the-loop.md).
+
+**Multi-repo views.** Squad keeps an operational DB at `~/.squad/global.db` covering every repo on the machine. Ask Claude *"what's ready across all my projects?"* and the workspace queries surface a unified ready stack and chat history. Concepts: [docs/concepts/multi-repo.md](docs/concepts/multi-repo.md).
+
+**Live dashboard.** Ask Claude to start `squad serve` (or run it yourself) and visit http://localhost:7777 — live SSE feed of who-has-what, item flow across repos, and an Insights panel charting verification rate, claim p99 latency, and WIP-cap violations over time. The same data is at `GET /api/stats` and `GET /metrics` (Prometheus exposition). Recipe: [docs/recipes/prometheus.md](docs/recipes/prometheus.md).
+
+**When things go wrong.** Ask Claude to run `squad_status` for a quick health check or `squad_doctor` for the full diagnostic — stale claims, ghost agents, orphan touches, broken refs, DB integrity. Common failure modes and recovery paths are at [docs/troubleshooting.md](docs/troubleshooting.md).
+
+**Without Claude Code.** Squad ships a full CLI for scripting, CI, and power-user use. `squad init`, `squad go`, `squad attest`, `squad doctor`, every chat verb. Install the binary on its own:
 
 ```bash
 go install github.com/zsiec/squad/cmd/squad@latest
-squad install-plugin   # registers MCP + hooks in ~/.claude/settings.json
-# brew install zsiec/tap/squad  # planned, post-v1.0.0
 ```
 
-Both paths converge on the same final state.
+The complete command reference is at [docs/reference/commands.md](docs/reference/commands.md).
 
-## Agent quickstart
+**Comparing to other tools.** Squad's nearest neighbor is Claude Code's own experimental [agent-teams](https://code.claude.com/docs/en/agent-teams), which is great for ephemeral single-session coordination. Squad is for work that outlives the session — multiple days, multiple machines, durable history. The full decision matrix is at [docs/concepts/squad-vs-agent-teams.md](docs/concepts/squad-vs-agent-teams.md).
 
-One command takes a fresh Claude Code session from zero to working:
+## Full documentation
 
-```bash
-squad go
-```
-
-This is idempotent. On first run it inits `.squad/`, registers a session-derived agent id, claims the top ready item, prints its acceptance criteria, and flushes any unread chat into your context. On re-run it resumes the same claim and re-flushes the mailbox.
-
-If you're using the Claude Code plugin, the `/work` slash command does the same thing.
-
-```bash
-# What just happened?
-squad whoami       # who am I in this repo?
-squad next         # what else is ready?
-squad tick         # any new chat since I last looked?
-```
-
-When you finish: `squad done <ID> --summary "one-line outcome"`.
-
-## Human quickstart
-
-For developers driving squad by hand (no agent, exploring the loop):
-
-```bash
-# 1. Initialize a repo
-cd ~/dev/your-project
-squad init                        # answers ≤3 questions
-
-# 2. Register and pick up your first item
-squad register                    # auto-derives a session-stable id
-squad next                        # see what's ready
-squad new feat "your first item"
-squad claim FEAT-001 --intent "first squad item"
-
-# 3. Do the work, then close
-# ... edit, test, commit ...
-squad done FEAT-001 --summary "shipped"
-```
-
-Total time: under five minutes from `go install` to first `done`.
-
-## What you get
-
-- **Atomic claims** backed by SQLite `BEGIN IMMEDIATE` — two agents racing for one item, exactly one wins.
-- **Typed chat verbs** (`thinking`, `milestone`, `stuck`, `fyi`, `ask @agent`) routing automatically to the right thread.
-- **File-touch tracking** so peers see your overlap before they edit the same file.
-- **Hygiene sweep** (`squad doctor`) for stale claims, orphan touches, broken refs, DB integrity.
-- **Web dashboard** (`squad serve`) with SSE — live who-has-what across every repo on your machine.
-- **Optional Claude Code plugin** with skills, slash commands, hook scripts (default-on + opt-in), and an MCP server (`squad mcp`) exposing the full verb surface — claim, done, attest, learning_propose, etc. — so agents call squad without spawning a shell.
-- **Multi-repo workspace** queries — one ready stack, one chat history across all your projects.
-- **GitHub Actions auto-archive** — merge a PR with a hidden item marker, the workflow moves it to `.squad/done/` automatically.
-
-## Cross-repo views
-
-Once `squad init` has run in two or more repos, the global DB knows about all of them. From any repo:
-
-```bash
-squad workspace status            # per-repo summary table
-squad workspace next --limit 10   # top P0/P1 across every repo
-squad workspace who               # every agent in every repo, last activity
-squad workspace list              # all known repos
-```
-
-## Stats
-
-`squad stats --json` prints a Snapshot with verification rate, claim p50/p90/p99,
-WIP-cap violations, reviewer disagreement, and (when available) repeat-mistake
-rate. `squad stats --tail` streams NDJSON for external aggregation.
-
-The dashboard exposes the same Snapshot at `GET /api/stats` and a Prometheus
-text exposition at `GET /metrics`. The Insights panel (S key, or the **STATS**
-button) renders verification rate over time, claim p99 over time, and WIP-cap
-violations.
-
-## Documentation
-
-- [docs/README.md](docs/README.md) — top-level entry point
-- [docs/adopting.md](docs/adopting.md) — full onboarding walkthrough
-- [docs/concepts/](docs/concepts/) — the loop, claims, chat, hygiene, multi-repo
-- [docs/reference/](docs/reference/) — commands, config, hooks, skills, slash commands, db schema
-- [docs/recipes/](docs/recipes/) — solo, multi-agent, GitHub Actions, adopting on existing project
-- [docs/troubleshooting.md](docs/troubleshooting.md)
-- [docs/contributing.md](docs/contributing.md)
+[docs/README.md](docs/README.md) is the entry point — concepts, references, recipes, troubleshooting, contributing — all linked from there.
 
 ## License
 
