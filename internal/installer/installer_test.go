@@ -3,8 +3,11 @@ package installer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
+
+	squad "github.com/zsiec/squad"
 )
 
 func TestInstall_CopiesAllFiles(t *testing.T) {
@@ -101,5 +104,39 @@ func TestInstall_LandsManifestUnderClaudePluginDir(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dst, "plugin.json")); !os.IsNotExist(err) {
 		t.Fatalf("legacy top-level plugin.json should not exist: %v", err)
+	}
+}
+
+func TestInstall_LegacyCommandAliasesPresent(t *testing.T) {
+	src, err := squad.PluginFS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := t.TempDir()
+	if err := Install(src, dst); err != nil {
+		t.Fatal(err)
+	}
+
+	aliases := map[string]string{
+		"commands/done.md":    "squad-done",
+		"commands/work.md":    "squad-work",
+		"commands/pick.md":    "squad-pick",
+		"commands/blocked.md": "squad-blocked",
+		"commands/review.md":  "squad-review",
+		"commands/handoff.md": "squad-handoff-cmd",
+		"commands/tick.md":    "squad-tick",
+		"commands/file.md":    "squad-file",
+	}
+	for path, target := range aliases {
+		raw, err := os.ReadFile(filepath.Join(dst, path))
+		if err != nil {
+			t.Errorf("%s: %v", path, err)
+			continue
+		}
+		body := strings.TrimSpace(string(raw))
+		want := "@invoke " + target
+		if !strings.HasPrefix(body, want) {
+			t.Errorf("%s: expected '@invoke %s' first line, got %q", path, target, body)
+		}
 	}
 }
