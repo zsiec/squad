@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 var ErrEmptyPath = errors.New("touch: path must not be empty")
@@ -46,40 +48,36 @@ func (t *Tracker) Add(ctx context.Context, agentID, itemID, path string) (confli
 	if len(path) > MaxPathLen {
 		return nil, ErrPathTooLong
 	}
-	tx, err := t.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	rows, err := tx.QueryContext(ctx, `
-		SELECT DISTINCT agent_id FROM touches
-		WHERE path = ? AND repo_id = ? AND released_at IS NULL AND agent_id != ?
-	`, path, t.repoID, agentID)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var a string
-		if err := rows.Scan(&a); err != nil {
-			rows.Close()
-			return nil, err
+	err = store.WithTxRetry(ctx, t.db, func(tx *sql.Tx) error {
+		conflicts = conflicts[:0]
+		rows, err := tx.QueryContext(ctx, `
+			SELECT DISTINCT agent_id FROM touches
+			WHERE path = ? AND repo_id = ? AND released_at IS NULL AND agent_id != ?
+		`, path, t.repoID, agentID)
+		if err != nil {
+			return err
 		}
-		conflicts = append(conflicts, a)
-	}
-	rows.Close()
+		for rows.Next() {
+			var a string
+			if err := rows.Scan(&a); err != nil {
+				rows.Close()
+				return err
+			}
+			conflicts = append(conflicts, a)
+		}
+		rows.Close()
 
-	var item sql.NullString
-	if itemID != "" {
-		item = sql.NullString{String: itemID, Valid: true}
-	}
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO touches (repo_id, agent_id, item_id, path, started_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, t.repoID, agentID, item, path, t.nowUnix()); err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(); err != nil {
+		var item sql.NullString
+		if itemID != "" {
+			item = sql.NullString{String: itemID, Valid: true}
+		}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO touches (repo_id, agent_id, item_id, path, started_at)
+			VALUES (?, ?, ?, ?, ?)
+		`, t.repoID, agentID, item, path, t.nowUnix())
+		return err
+	})
+	if err != nil {
 		return nil, err
 	}
 	return conflicts, nil
