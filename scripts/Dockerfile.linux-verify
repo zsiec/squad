@@ -1,0 +1,30 @@
+# Minimal linux image for verifying squad's systemd-user installer file-system
+# effects. systemctl is present (bundled with the systemd package) but the
+# container is NOT running systemd as PID 1 — that means systemctl invocations
+# will fail with "Failed to connect to bus" or similar, which the install code
+# tolerates because the file-system writes happen first.
+FROM debian:12-slim
+
+# Install systemd (which provides systemctl) and ca-certificates (Go binaries
+# may need it for HTTPS, though our smoke is loopback-only).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends systemd ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Run as a non-root user so XDG_RUNTIME_DIR semantics are realistic.
+RUN useradd -m -s /bin/bash squad
+USER squad
+WORKDIR /home/squad
+ENV HOME=/home/squad
+
+# Copy the squad binary in. The host build (squad-linux-amd64) gets dropped
+# at /usr/local/bin/squad inside the image.
+COPY --chown=squad:squad squad-linux-amd64 /home/squad/squad
+USER root
+RUN install -m 0755 /home/squad/squad /usr/local/bin/squad && rm /home/squad/squad
+USER squad
+
+COPY --chown=squad:squad verify-linux-install.sh /home/squad/verify.sh
+RUN chmod +x /home/squad/verify.sh
+
+ENTRYPOINT ["/home/squad/verify.sh"]
