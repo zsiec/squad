@@ -66,12 +66,19 @@ func TestServer_InvalidJSONReturnsParseError(t *testing.T) {
 	_ = srv.Serve(context.Background(), req, &out)
 
 	var resp struct {
+		ID    json.RawMessage `json:"id"`
 		Error struct {
 			Code int `json:"code"`
 		} `json:"error"`
 	}
-	_ = json.Unmarshal(out.Bytes(), &resp)
+	if err := json.Unmarshal(out.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, out.String())
+	}
 	if resp.Error.Code != -32700 {
 		t.Errorf("expected parse-error (-32700), got %d", resp.Error.Code)
+	}
+	// JSON-RPC 2.0 §5.1: parse-error responses MUST include id=null.
+	if got := string(resp.ID); got != "null" {
+		t.Errorf("id field = %q, want \"null\" (raw response: %s)", got, out.String())
 	}
 }

@@ -88,6 +88,7 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 		if err := json.Unmarshal(line, &req); err != nil {
 			_ = enc.Encode(rpcResponse{
 				JSONRPC: "2.0",
+				ID:      json.RawMessage("null"),
 				Error:   &rpcError{Code: errParseError, Message: err.Error()},
 			})
 			continue
