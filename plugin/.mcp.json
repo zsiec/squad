@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "squad": {
+      "command": "squad",
+      "args": ["mcp"],
+      "env": {
+        "SQUAD_MCP_SOURCE": "claude-code-plugin"
+      }
+    }
+  }
+}
