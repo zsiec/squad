@@ -61,10 +61,11 @@ const DefaultClaimConcurrency = 1
 const DefaultStaleClaimMinutes = 60
 
 type Defaults struct {
-	Priority string `yaml:"priority"`
-	Estimate string `yaml:"estimate"`
-	Risk     string `yaml:"risk"`
-	Area     string `yaml:"area"`
+	Priority         string   `yaml:"priority"`
+	Estimate         string   `yaml:"estimate"`
+	Risk             string   `yaml:"risk"`
+	Area             string   `yaml:"area"`
+	EvidenceRequired []string `yaml:"evidence_required"`
 }
 
 type VerificationConfig struct {

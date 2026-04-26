@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/mcp"
 )
@@ -217,14 +218,16 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 			if err != nil {
 				return nil, err
 			}
+			cfg, _ := config.Load(repoRoot)
 			return Done(ctx, DoneArgs{
 				DB: db, RepoID: repoID, AgentID: agent,
-				ItemID:   args.ItemID,
-				Summary:  args.Summary,
-				ItemsDir: itemsDirOf(repoRoot),
-				DoneDir:  doneDirOf(repoRoot),
-				RepoRoot: repoRoot,
-				Force:    args.Force,
+				ItemID:                  args.ItemID,
+				Summary:                 args.Summary,
+				ItemsDir:                itemsDirOf(repoRoot),
+				DoneDir:                 doneDirOf(repoRoot),
+				RepoRoot:                repoRoot,
+				Force:                   args.Force,
+				DefaultEvidenceRequired: cfg.Defaults.EvidenceRequired,
 			})
 		},
 	})

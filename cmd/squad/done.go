@@ -45,6 +45,10 @@ type DoneArgs struct {
 	DoneDir  string  `json:"done_dir,omitempty"`
 	RepoRoot string  `json:"repo_root,omitempty"`
 	Force    bool    `json:"force,omitempty"`
+	// DefaultEvidenceRequired is the repo-wide default consulted only when
+	// the per-item frontmatter omits evidence_required. A non-empty per-item
+	// list always wins outright (no merge).
+	DefaultEvidenceRequired []string `json:"default_evidence_required,omitempty"`
 	// Now is an optional clock for deterministic tests; nil means time.Now.
 	// The override-record body and the underlying ledger insert both honour
 	// this clock when set.
@@ -83,7 +87,11 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 		return nil, perr
 	}
 
-	required := requiredKinds(parsed.EvidenceRequired)
+	rawRequired := parsed.EvidenceRequired
+	if len(rawRequired) == 0 {
+		rawRequired = args.DefaultEvidenceRequired
+	}
+	required := requiredKinds(rawRequired)
 	var bypassed []attest.Kind
 	if len(required) > 0 {
 		L := attest.New(args.DB, args.RepoID, clock)
@@ -155,23 +163,24 @@ func newDoneCmd() *cobra.Command {
 			if derr != nil {
 				return derr
 			}
+			cfg, _ := config.Load(repoRoot)
 			if !skipVerify {
-				cfg, _ := config.Load(repoRoot)
 				if code := runVerification(cfg.Verification.PreCommit, repoRoot, cmd.OutOrStdout(), cmd.ErrOrStderr()); code != 0 {
 					os.Exit(code)
 				}
 			}
 
 			res, err := Done(ctx, DoneArgs{
-				DB:       bc.db,
-				RepoID:   bc.repoID,
-				AgentID:  bc.agentID,
-				ItemID:   itemID,
-				Summary:  summary,
-				ItemsDir: bc.itemsDir,
-				DoneDir:  bc.doneDir,
-				RepoRoot: repoRoot,
-				Force:    force,
+				DB:                      bc.db,
+				RepoID:                  bc.repoID,
+				AgentID:                 bc.agentID,
+				ItemID:                  itemID,
+				Summary:                 summary,
+				ItemsDir:                bc.itemsDir,
+				DoneDir:                 bc.doneDir,
+				RepoRoot:                repoRoot,
+				Force:                   force,
+				DefaultEvidenceRequired: cfg.Defaults.EvidenceRequired,
 			})
 			if err == nil {
 				if res.ForceOverride {

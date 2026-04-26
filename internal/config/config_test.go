@@ -125,6 +125,25 @@ func contains(s, sub string) bool {
 	return false
 }
 
+func TestLoad_DefaultsEvidenceRequired(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "defaults:\n  evidence_required: [test, review]\n"
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cfg.Defaults.EvidenceRequired
+	if len(got) != 2 || got[0] != "test" || got[1] != "review" {
+		t.Fatalf("EvidenceRequired=%v want [test review]", got)
+	}
+}
+
 func TestLoad_HygieneKnobs(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {

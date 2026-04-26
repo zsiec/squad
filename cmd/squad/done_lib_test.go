@@ -10,6 +10,7 @@ import (
 
 	"github.com/zsiec/squad/internal/attest"
 	"github.com/zsiec/squad/internal/claims"
+	"github.com/zsiec/squad/internal/config"
 )
 
 func TestDone_PureClosesClaimedItem(t *testing.T) {
@@ -144,6 +145,101 @@ func TestDone_PureSatisfiedEvidenceProceeds(t *testing.T) {
 	}
 	if res.ForceOverride {
 		t.Fatalf("force should be false: %+v", res)
+	}
+}
+
+func TestDone_PureFallsBackToDefaultEvidenceRequired(t *testing.T) {
+	env := newTestEnv(t)
+	writeMinimalItem(t, env.ItemsDir, "BUG-310")
+	if _, err := Claim(context.Background(), ClaimArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "BUG-310", ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+	}); err != nil {
+		t.Fatalf("Claim: %v", err)
+	}
+
+	_, err := Done(context.Background(), DoneArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "BUG-310", ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+		RepoRoot:                env.Root,
+		DefaultEvidenceRequired: []string{"test"},
+	})
+	var miss *EvidenceMissingError
+	if !errors.As(err, &miss) {
+		t.Fatalf("err=%v want *EvidenceMissingError", err)
+	}
+	if len(miss.Missing) != 1 || miss.Missing[0] != attest.KindTest {
+		t.Fatalf("Missing=%v want [test]", miss.Missing)
+	}
+}
+
+func TestDone_RoundTripsConfigDefaultsThroughDone(t *testing.T) {
+	env := newTestEnv(t)
+	writeMinimalItem(t, env.ItemsDir, "BUG-312")
+	if _, err := Claim(context.Background(), ClaimArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "BUG-312", ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+	}); err != nil {
+		t.Fatalf("Claim: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(env.Root, ".squad", "config.yaml"),
+		[]byte("defaults:\n  evidence_required: [test]\n"),
+		0o644,
+	); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(env.Root)
+	if err != nil {
+		t.Fatalf("config.Load: %v", err)
+	}
+
+	_, err = Done(context.Background(), DoneArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "BUG-312", ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+		RepoRoot:                env.Root,
+		DefaultEvidenceRequired: cfg.Defaults.EvidenceRequired,
+	})
+	var miss *EvidenceMissingError
+	if !errors.As(err, &miss) {
+		t.Fatalf("err=%v want *EvidenceMissingError", err)
+	}
+	if len(miss.Missing) != 1 || miss.Missing[0] != attest.KindTest {
+		t.Fatalf("Missing=%v want [test]", miss.Missing)
+	}
+}
+
+func TestDone_PerItemEvidenceWinsOverDefault(t *testing.T) {
+	env := newTestEnv(t)
+	itemPath := filepath.Join(env.ItemsDir, "BUG-311.md")
+	body := strings.ReplaceAll(evidenceItem, "BUG-301", "BUG-311")
+	if err := os.WriteFile(itemPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Claim(context.Background(), ClaimArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "BUG-311", ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+	}); err != nil {
+		t.Fatalf("Claim: %v", err)
+	}
+
+	_, err := Done(context.Background(), DoneArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "BUG-311", ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+		RepoRoot:                env.Root,
+		DefaultEvidenceRequired: []string{"manual"},
+	})
+	var miss *EvidenceMissingError
+	if !errors.As(err, &miss) {
+		t.Fatalf("err=%v want *EvidenceMissingError", err)
+	}
+	if len(miss.Missing) != 2 {
+		t.Fatalf("want 2 missing (per-item test+review), got %v", miss.Missing)
+	}
+	for _, k := range miss.Missing {
+		if k == attest.KindManual {
+			t.Fatalf("default 'manual' leaked into per-item-driven Missing: %v", miss.Missing)
+		}
 	}
 }
 
