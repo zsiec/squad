@@ -38,6 +38,9 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 	if cfg.SquadDir == "" {
 		cfg.SquadDir = ".squad"
 	}
+	if cfg.RepoID == "" {
+		cfg.RepoID = repoID
+	}
 	if cfg.pingInterval == 0 {
 		cfg.pingInterval = 15 * time.Second
 	}
@@ -74,6 +77,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/items", s.handleItemsList)
 	mux.HandleFunc("GET /api/items/{id}", s.handleItemDetail)
+	mux.HandleFunc("GET /api/items/{id}/attestations", s.handleAttestationsForItem)
 	mux.HandleFunc("GET /api/specs", s.handleSpecsList)
 	mux.HandleFunc("GET /api/specs/{name}", s.handleSpecDetail)
 	mux.HandleFunc("GET /api/epics", s.handleEpicsList)
