@@ -5,11 +5,6 @@ import (
 	"database/sql"
 )
 
-func computeVerification(_ context.Context, _ *sql.DB, _ string, _, _ int64, snap *Snapshot) error {
-	snap.Verification.ByKind = map[string]VerificationKindRow{}
-	return nil
-}
-
 func computeLearnings(_ context.Context, _ *sql.DB, _ string, _, _ int64, _ *Snapshot) error {
 	return nil
 }

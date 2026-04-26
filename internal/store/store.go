@@ -17,6 +17,7 @@ var additiveAlters = []string{
 	`ALTER TABLE items ADD COLUMN epic_id TEXT`,
 	`ALTER TABLE items ADD COLUMN parallel INTEGER NOT NULL DEFAULT 0`,
 	`ALTER TABLE items ADD COLUMN conflicts_with TEXT NOT NULL DEFAULT '[]'`,
+	`ALTER TABLE attestations ADD COLUMN review_disagreements INTEGER NOT NULL DEFAULT 0`,
 }
 
 func Open(path string) (*sql.DB, error) {
