@@ -1,37 +1,32 @@
 # Adopting squad
 
-This is the cold-start walkthrough. If you can finish it without DM-ing anyone for help, the docs did their job.
+This is the cold-start walkthrough. By the end you'll have squad installed, your first item closed, and a feel for the day-to-day rhythm. Total time target: under 5 minutes from install to first done.
+
+The default voice through this doc assumes you're driving squad through Claude Code — that's the recommended path. Each step also shows the terminal-only equivalent for scripts, CI, or anyone who'd rather work in a shell.
 
 ## TL;DR
 
-```bash
-claude install github.com/zsiec/squad      # or: go install github.com/zsiec/squad/cmd/squad@latest && squad install-plugin
-cd ~/dev/your-project
-squad go                      # init, register, claim top ready item (the example), print AC, flush chat
-# ... follow the steps inside the example item ...
-squad done EXAMPLE-001 --summary "loop complete"
-```
+1. `claude install github.com/zsiec/squad` — one-time install.
+2. Open Claude Code in a git repo and ask: *"Initialize squad here and walk me through the example item."*
+3. When the example is done, ask: *"Mark it done."*
 
-Total time target: under 5 minutes from install to first `squad done`.
+If you're not using Claude Code, the terminal equivalent is `squad init --yes && squad go` in the project's directory.
 
 ## Day 0 — install
 
-The fastest path is via Claude Code's plugin system, which lands the binary, the manifest, the MCP server registration, and the always-on hooks in one step:
+The fastest path is via Claude Code's plugin system. This drops the binary, registers the MCP server, wires the always-on hooks, and exposes squad's verbs to every Claude Code session — all in one step:
 
 ```bash
 claude install github.com/zsiec/squad
-squad version
 ```
 
-If you prefer the binary-first path (CLI-only use, scripting, CI):
+Verify:
 
 ```bash
-go install github.com/zsiec/squad/cmd/squad@latest
-squad install-plugin                                  # optional, but recommended for Claude Code users
 squad version
 ```
 
-Expected output: `0.2.0` or similar. If `squad: command not found`, your `$GOPATH/bin` isn't on PATH. Add it:
+Expected output: `0.2.0` or similar. If you see `squad: command not found`, your `$GOPATH/bin` isn't on `PATH`:
 
 ```bash
 export PATH="$(go env GOPATH)/bin:$PATH"
@@ -39,60 +34,57 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 
 Persist that in your shell rc.
 
-## Day 0 — initialize a repo
+If you'd rather install the binary alone (CLI-only use, scripting, CI):
 
 ```bash
-cd ~/dev/your-project           # must be a git repo (any state — even zero commits)
-squad init
+go install github.com/zsiec/squad/cmd/squad@latest
+squad install-plugin                # optional; only needed for Claude Code integration
 ```
 
-`init` asks ≤3 questions:
+## Day 0 — initialize a repo
 
-1. **Project name** — defaults to the directory basename. Press enter to accept.
-2. **ID prefixes** — comma-separated list. The prefix is the first segment of every item ID (`FEAT-001`, `BUG-007`, `TASK-042`, …), and `squad new <type> "<title>"` derives the prefix from `<type>`. Defaults `BUG,FEAT,TASK,CHORE` cover most projects; add a custom one (e.g. `OPS`, `DOCS`) only if you want to file items under that namespace. The set is appendable later, but renaming a prefix retroactively is manual — pick what you'll live with.
-3. **Install plugin?** — `Y` if you use Claude Code, `n` if you don't.
+Open Claude Code in your project (`cd ~/dev/your-project` first) and ask:
+
+> *"Initialize squad here."*
+
+Claude runs `squad init --yes` for you. The repo gets the default ID prefixes (`BUG,FEAT,TASK,CHORE`), the example item, and a managed block in `CLAUDE.md`. If you want to customize anything (project name, prefixes), run `squad init` interactively in a terminal instead — it asks ≤3 questions.
 
 What lands on disk:
 
-- `.squad/items/EXAMPLE-001-try-the-loop.md` — a tutorial item that walks through the loop while you do it.
+- `.squad/items/EXAMPLE-001-try-the-loop.md` — a tutorial item that walks the loop with you.
 - `.squad/items/`, `.squad/done/` — directories for items you'll file.
 - `.squad/config.yaml` — project config; tune later.
 - `AGENTS.md` — generic agent doctrine doc.
 - `CLAUDE.md` — managed block injected (or file created).
-- `.gitignore` — squad lines appended (only the patterns it owns; existing rules are left alone).
+- `.gitignore` — squad lines appended.
 
-Verify and commit:
+Commit it:
 
 ```bash
-git status                      # see what changed
-git diff CLAUDE.md              # see the managed block (if CLAUDE.md already existed)
+git status
 git add .squad/ AGENTS.md CLAUDE.md
 git commit -m "chore: adopt squad"
 ```
 
-## Day 0 — onboard with `squad go`
+The repo must be a git repository (any state — even zero commits is fine). Squad uses `git rev-parse` to derive a stable repo id; without a git repo, you'll get a clear error and `squad init` refuses to run.
 
-```bash
-squad go
-```
+## Day 0 — claim and walk through the example
 
-One command does init (if not already), registers a session-derived agent id, picks the top ready item (the example item on first run), claims it atomically, prints its acceptance criteria, and flushes any unread chat into your context.
+Ask Claude:
 
-`squad go` is idempotent — re-run it any time to resume the same claim. The session id is derived from your terminal session (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, etc.), so each terminal tab gets its own agent_id automatically.
+> *"Claim the example item and walk me through it."*
 
-If you want an explicit override — different display name, scripted setups — `squad register` accepts `--as <id> --name "..."`; otherwise let `squad go` derive both.
+Claude calls `squad_next` to find the priority pick (the example item, on a fresh init), `squad_claim` to lock it atomically, prints the acceptance criteria, and flushes any pending peer chat into your context. The example walks you through one full loop with no real work at stake.
 
-## Day 0 — your first item
+(Terminal equivalent: `squad go` does init-if-needed + register + claim + print AC + flush mailbox in one idempotent invocation.)
 
-`squad go` already opened EXAMPLE-001 for you and printed its AC. Follow the steps inside the item:
+## Day 0 — close the example
 
-1. Read the AC.
-2. Check off each box as you do it.
-3. Post `squad milestone` when an AC clears.
-4. Run any local tests the item names.
-5. `squad done EXAMPLE-001 --summary "loop complete"`.
+Read the AC, do what it says (post a `squad milestone`, run `squad whoami`, etc. — Claude can do these for you, or run them in a shell yourself). When the AC checks off, ask Claude:
 
-After `done`, the file moves to `.squad/done/`. Commit:
+> *"Mark EXAMPLE-001 done with summary 'loop complete'."*
+
+Claude calls `squad_done`. The file moves to `.squad/done/`. Commit:
 
 ```bash
 git add .squad/
@@ -101,67 +93,83 @@ git commit -m "chore: complete first squad loop"
 
 That's the whole cycle. Everything else is repetition.
 
+(Terminal: `squad done EXAMPLE-001 --summary "loop complete"`.)
+
 ## Day 1 — your first real item
 
-```bash
-squad new feat "the smallest real thing you can think of in this repo"
-```
+Ask Claude:
 
-It writes a frontmatter-only stub at `.squad/items/FEAT-001-...md`. Open it and fill in:
+> *"File a feat for [the smallest real thing you can think of in this repo]."*
+
+Claude calls `squad_new feat "..."`, which scaffolds a frontmatter-only stub at `.squad/items/FEAT-001-...md`. Then ask Claude to draft the acceptance criteria, or open the file yourself and fill in:
 
 - `## Problem` — what's wrong / what doesn't exist.
 - `## Acceptance criteria` — the list of testable things; **be specific**, not "works correctly."
 - `## Notes` — anything else.
 
-Then claim, work, test, review, done — same loop.
+Then: *"Claim FEAT-001 and start."*
 
-## Day 1 — install hooks (optional)
+(Terminal: `squad new feat "..."` then `squad claim FEAT-001 --intent "..."`.)
+
+## Day 1 — install optional hooks
+
+Six hooks are on by default after `claude install` (session-start, user-prompt-tick, pre-compact, stop-listen, post-tool-flush, session-end-cleanup). Five more are opt-in:
 
 ```bash
 squad install-hooks
 ```
 
-Interactive: asks about each hook. Recommended for solo:
+Interactive — asks about each. Recommended additions:
 
-- `session-start` — Y (default; ensures the session has a derived agent id on Claude Code launch)
-- `pre-commit-pm-traces` — Y if you tend to leak ticket IDs into commits
-- `pre-edit-touch-check` — n (no peers)
+- `pre-commit-pm-traces` — Y if you tend to leak ticket IDs into commits.
+- `pre-edit-touch-check` — Y if you're going multi-agent.
+- `async-rewake`, `stop-learning-prompt`, `loop-pre-bash-tick` — opt in if your team uses those workflows.
 
-For multi-agent, install `pre-edit-touch-check` too. See [reference/hooks.md](reference/hooks.md).
+See [reference/hooks.md](reference/hooks.md) for what each one does.
 
-## Day 2 — multi-agent (if applicable)
+## Day 2 — multi-agent
 
-Open a second Claude Code session in the same repo and run `squad go` in each. The SessionStart hook (if installed) keys the agent_id off `TERM_SESSION_ID` so each session gets a distinct ID automatically. If you skipped the hook, set a unique session env var per shell first (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, etc.) — without one, both shells share the same persisted agent-id file and the second registration overwrites the first:
+Open a second Claude Code session in the same repo, ideally in a different terminal tab so the `TERM_SESSION_ID` differs. Each session derives a distinct agent id automatically.
+
+In the second session, ask: *"Claim the next ready item."* Atomic SQLite `BEGIN IMMEDIATE` claims mean two sessions can't both grab the same item — exactly one wins, the other gets a clean error. File-touch tracking warns when you're about to edit a file the peer already touched.
+
+If both sessions share the same `TERM_SESSION_ID` (some terminal multiplexers do this), set a unique session var per shell first:
 
 ```bash
-SQUAD_SESSION_ID=second squad go
+SQUAD_SESSION_ID=blue squad install-plugin   # in shell A
+SQUAD_SESSION_ID=red  squad install-plugin   # in shell B
 ```
 
-Now both sessions can `claim` independently. Try claiming the same item from both — one wins, one gets a clear error. That's the lock at work. See [recipes/multi-agent-parallel-claude-sessions.md](recipes/multi-agent-parallel-claude-sessions.md) for the full guide.
+The full multi-agent walkthrough is at [recipes/multi-agent-parallel-claude-sessions.md](recipes/multi-agent-parallel-claude-sessions.md).
 
 ## Day 7 — hygiene
 
+Ask Claude:
+
+> *"Run a squad health check."*
+
+Claude calls `squad_status` for the quick view (claimed / ready / blocked / done counts). For the full diagnostic — stale claims, ghost agents, orphan touches, broken refs, DB integrity — run `squad doctor` in a terminal:
+
 ```bash
-squad doctor                    # should be clean if you've been releasing claims promptly
+squad doctor                # report findings; exit 0 either way
+squad doctor --strict       # exit non-zero if findings exist (CI use)
 ```
 
-If `doctor` flags stale claims (yours from sessions that crashed or that you forgot to release), follow its suggested commands. See [concepts/hygiene.md](concepts/hygiene.md).
-
-Run `squad doctor` weekly as a habit, even when nothing seems wrong. It also checks the global DB integrity.
+Run it weekly as a habit. If it flags stale claims, the output names the recovery command. See [concepts/hygiene.md](concepts/hygiene.md).
 
 ## When things go wrong
 
 See [troubleshooting.md](troubleshooting.md). The fastest path to a fix:
 
-1. `squad doctor` — clears 80% of issues.
-2. `squad workspace list` — confirms the repo is registered.
-3. File a `squad new bug "<symptom>"` against squad itself if the issue is a real bug. Your snag is the next person's snag.
+1. Ask Claude to run a health check (`squad_status`) — clears 80% of issues.
+2. Run `squad workspace list` in a terminal to confirm the repo is registered.
+3. File a bug against squad itself if the issue is a real bug. Your snag is the next person's snag.
 
 ## When you graduate
 
 You'll know you've adopted squad when:
 
-- You don't think about the loop anymore — you just do it.
+- You don't think about the loop anymore — you just describe what you want and Claude does the squad work.
 - You file items reflexively, without deliberating.
 - `squad doctor` is silent for a week at a time.
 - You can't remember what coordinating with peers was like before atomic claims.
