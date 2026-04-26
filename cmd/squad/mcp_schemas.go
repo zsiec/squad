@@ -99,7 +99,6 @@ const schemaRelease = `{
   "properties": {
     "item_id": {"type": "string"},
     "outcome": {"type": "string", "enum": ["released", "abandoned", "blocked"], "default": "released"},
-    "reason":  {"type": "string"},
     "agent_id": {"type": "string"}
   },
   "additionalProperties": false
