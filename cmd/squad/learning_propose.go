@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +15,82 @@ import (
 	"github.com/zsiec/squad/internal/learning"
 )
 
+// ErrSlugCollision signals that a learning with the requested slug already
+// exists in any state (proposed/approved/rejected) under any kind. The
+// SlugCollisionError carries the existing path so callers can render the
+// legacy "already exists at <path>" message.
+var ErrSlugCollision = errors.New("learning slug already in use")
+
+type SlugCollisionError struct {
+	Slug         string
+	ExistingPath string
+}
+
+func (e *SlugCollisionError) Error() string {
+	return fmt.Sprintf("learning with slug %q already exists at %s", e.Slug, e.ExistingPath)
+}
+
+func (e *SlugCollisionError) Is(target error) bool { return target == ErrSlugCollision }
+
+type LearningProposeArgs struct {
+	RepoRoot  string   `json:"repo_root"`
+	Kind      string   `json:"kind"`
+	Slug      string   `json:"slug"`
+	Title     string   `json:"title"`
+	Area      string   `json:"area"`
+	SessionID string   `json:"session_id,omitempty"`
+	Paths     []string `json:"paths,omitempty"`
+	CreatedBy string   `json:"created_by"`
+
+	Now func() time.Time `json:"-"`
+}
+
+type LearningProposeResult struct {
+	Path     string             `json:"path"`
+	Learning *learning.Learning `json:"learning"`
+}
+
+func LearningPropose(_ context.Context, args LearningProposeArgs) (*LearningProposeResult, error) {
+	kind, err := learning.ParseKind(args.Kind)
+	if err != nil {
+		return nil, err
+	}
+	if !validSlug(args.Slug) {
+		return nil, fmt.Errorf("slug %q must be kebab-case", args.Slug)
+	}
+	if args.Title == "" || args.Area == "" {
+		return nil, fmt.Errorf("--title and --area are required")
+	}
+	clock := args.Now
+	if clock == nil {
+		clock = time.Now
+	}
+
+	all, werr := learning.Walk(args.RepoRoot)
+	if werr != nil {
+		return nil, werr
+	}
+	for _, l := range all {
+		if l.Slug == args.Slug {
+			return nil, &SlugCollisionError{Slug: args.Slug, ExistingPath: l.Path}
+		}
+	}
+
+	path := learning.PathFor(args.RepoRoot, kind, learning.StateProposed, args.Slug)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, clock())
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		return nil, err
+	}
+	parsed, perr := learning.Parse(path)
+	if perr != nil {
+		return nil, perr
+	}
+	return &LearningProposeResult{Path: path, Learning: &parsed}, nil
+}
+
 func newLearningProposeCmd() *cobra.Command {
 	var title, area, sessionID string
 	var paths []string
@@ -21,42 +99,29 @@ func newLearningProposeCmd() *cobra.Command {
 		Short: "Stub a new learning artifact under .squad/learnings/<kind>s/proposed/",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kind, err := learning.ParseKind(args[0])
-			if err != nil {
-				return err
-			}
-			slug := args[1]
-			if !validSlug(slug) {
-				return fmt.Errorf("slug %q must be kebab-case", slug)
-			}
-			if title == "" || area == "" {
-				return fmt.Errorf("--title and --area are required")
-			}
 			root, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}
-			all, werr := learning.Walk(root)
-			if werr != nil {
-				return werr
-			}
-			for _, l := range all {
-				if l.Slug == slug {
-					return fmt.Errorf("learning with slug %q already exists at %s", slug, l.Path)
-				}
-			}
-			path := learning.PathFor(root, kind, learning.StateProposed, slug)
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				return err
-			}
 			agentID, _ := identity.AgentID()
-			if sessionID == "" {
-				sessionID = os.Getenv("SQUAD_SESSION_ID")
+			session := sessionID
+			if session == "" {
+				session = os.Getenv("SQUAD_SESSION_ID")
 			}
-			if err := os.WriteFile(path, []byte(stubBody(kind, slug, title, area, agentID, sessionID, paths)), 0o644); err != nil {
+			res, err := LearningPropose(cmd.Context(), LearningProposeArgs{
+				RepoRoot:  root,
+				Kind:      args[0],
+				Slug:      args[1],
+				Title:     title,
+				Area:      area,
+				SessionID: session,
+				Paths:     paths,
+				CreatedBy: agentID,
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), path)
+			fmt.Fprintln(cmd.OutOrStdout(), res.Path)
 			return nil
 		},
 	}
@@ -79,11 +144,11 @@ func validSlug(s string) bool {
 	return true
 }
 
-func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string) string {
+func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, now time.Time) string {
 	if len(paths) == 0 {
 		paths = []string{"internal/" + area + "/**"}
 	}
-	id := fmt.Sprintf("%s-%s-%s", k, time.Now().UTC().Format("2006-01-02"), slug)
+	id := fmt.Sprintf("%s-%s-%s", k, now.UTC().Format("2006-01-02"), slug)
 	var sb strings.Builder
 	sb.WriteString("---\n")
 	fmt.Fprintf(&sb, "id: %s\nkind: %s\nslug: %s\ntitle: %s\narea: %s\n", id, k, slug, title, area)
@@ -92,7 +157,7 @@ func stubBody(k learning.Kind, slug, title, area, agent, session string, paths [
 		fmt.Fprintf(&sb, "  - %s\n", p)
 	}
 	fmt.Fprintf(&sb, "created: %s\ncreated_by: %s\nsession: %s\nstate: proposed\nevidence: []\nrelated_items: []\n---\n\n",
-		time.Now().UTC().Format("2006-01-02"), agent, session)
+		now.UTC().Format("2006-01-02"), agent, session)
 	switch k {
 	case learning.KindGotcha:
 		sb.WriteString("## Looks like\n\n_What it appears to be on first read._\n\n")
