@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -51,6 +53,25 @@ func TestStatic_APIPathFallthroughIs405NotHTML(t *testing.T) {
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code == http.StatusOK {
 		t.Fatalf("POST /api/health should not 200; got %d", rec.Code)
+	}
+}
+
+func TestInsightsAssetServed(t *testing.T) {
+	s := New(newTestDB(t), "repo-1", Config{})
+	defer s.Close()
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/insights.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("status %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !bytes.Contains(body, []byte("renderInsights")) {
+		t.Errorf("renderInsights symbol missing")
 	}
 }
 

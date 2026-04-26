@@ -1522,6 +1522,39 @@ a.item-chip:hover {
 }
 .insights .insights-grid .card { margin: 0; }
 
+/* R7 stats tiles */
+.insights .insights-tile {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.insights .insights-tile h3 {
+  margin: 0 0 10px;
+  font: 500 10.5px/1 var(--font-mono);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.insights .insights-tile canvas {
+  flex: 1;
+  min-height: 220px;
+  max-height: 320px;
+}
+.insights .insights-tile-summary {
+  margin-top: 8px;
+  font: 500 11px/1.2 var(--font-mono);
+  color: var(--fg-mute);
+}
+.insights .insights-tile:nth-child(3) {
+  grid-column: 1 / -1;
+}
+@media (max-width: 720px) {
+  .insights .insights-grid { grid-template-columns: 1fr; }
+}
+
 /* KPIs */
 .insights .kpis {
   display: grid;
