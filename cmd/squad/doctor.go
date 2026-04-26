@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -86,9 +85,7 @@ func newDoctorCmd() *cobra.Command {
 					fmt.Fprintf(cmd.OutOrStdout(), "      fix: %s\n", f.Fix)
 				}
 			}
-			bc.Close()
-			os.Exit(1)
-			return nil
+			return fmt.Errorf("doctor: %d finding(s) — see output above", len(findings))
 		},
 	}
 }
