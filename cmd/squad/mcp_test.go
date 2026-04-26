@@ -46,6 +46,7 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_history", "squad_who", "squad_status",
 		"squad_touch", "squad_untouch", "squad_touches_list_others",
 		"squad_pr_link", "squad_pr_close",
+		"squad_doctor",
 	}
 	have := map[string]bool{}
 	for _, tt := range toolsResp.Result.Tools {
@@ -161,6 +162,54 @@ func mustWriteItem(t *testing.T, repoRoot, id, title string) {
 	path := filepath.Join(dir, id+".md")
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestMCP_DoctorRoundTrip ensures squad_doctor is registered and returns
+// a structured findings list. README documents this tool but it was missing
+// from registerTools, so tools/list omitted it and tools/call returned
+// method-not-found.
+func TestMCP_DoctorRoundTrip(t *testing.T) {
+	env := newTestEnv(t)
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_doctor","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				Findings []map[string]any `json:"findings"`
+				Total    int              `json:"total"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	// A fresh repo may have zero findings; assert the response shape is sane
+	// (Findings is non-nil and Total matches len) rather than the count.
+	if resp.Result.StructuredContent.Total != len(resp.Result.StructuredContent.Findings) {
+		t.Errorf("total = %d but findings len = %d",
+			resp.Result.StructuredContent.Total,
+			len(resp.Result.StructuredContent.Findings))
 	}
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,73 @@ import (
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/store"
 )
+
+// DoctorArgs is the input for Doctor. Mirrors bootClaimContext (db + repoID +
+// items dir) so MCP can invoke the same sweep CLI uses without re-deriving.
+type DoctorArgs struct {
+	DB       *sql.DB `json:"-"`
+	RepoID   string  `json:"-"`
+	RepoRoot string  `json:"-"`
+}
+
+// DoctorFinding is the structured per-finding payload MCP callers receive.
+// It carries the same fields the CLI prints in its bullet list, plus a
+// severity hint so dashboards can color-code without re-parsing.
+type DoctorFinding struct {
+	Severity string `json:"severity"`
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Fix      string `json:"fix,omitempty"`
+}
+
+// DoctorResult is the structured response shape for MCP callers. Total is
+// len(Findings) so callers can do a quick clean/dirty check without walking
+// the array.
+type DoctorResult struct {
+	Findings []DoctorFinding `json:"findings"`
+	Total    int             `json:"total"`
+}
+
+// Doctor runs the same hygiene sweep `squad doctor` runs from the CLI and
+// returns a structured findings list. Hook-drift detection is intentionally
+// skipped for MCP callers: it depends on knowing where the plugin is
+// installed, which is a CLI-side concern.
+func Doctor(ctx context.Context, args DoctorArgs) (*DoctorResult, error) {
+	if args.DB == nil || args.RepoID == "" || args.RepoRoot == "" {
+		return nil, errNoRepo
+	}
+	squadDir := filepath.Join(args.RepoRoot, ".squad")
+	adapter := itemsHygieneAdapter{squadDir: squadDir}
+	sw := hygiene.New(args.DB, args.RepoID, adapter)
+	if cfg, err := config.Load(args.RepoRoot); err == nil && cfg.Hygiene.StaleClaimMinutes > 0 {
+		sw = sw.WithStaleSeconds(int64(cfg.Hygiene.StaleClaimMinutes) * 60)
+	}
+	findings, err := sw.Sweep(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]DoctorFinding, 0, len(findings))
+	for _, f := range findings {
+		out = append(out, DoctorFinding{
+			Severity: severityName(f.Severity),
+			Code:     f.Code,
+			Message:  f.Message,
+			Fix:      f.Fix,
+		})
+	}
+	return &DoctorResult{Findings: out, Total: len(out)}, nil
+}
+
+func severityName(s hygiene.Severity) string {
+	switch s {
+	case hygiene.SeverityError:
+		return "error"
+	case hygiene.SeverityWarn:
+		return "warn"
+	default:
+		return "info"
+	}
+}
 
 // itemsHygieneAdapter walks .squad/items and .squad/done and reports each
 // item's id, path, status, and references for the hygiene Sweep.

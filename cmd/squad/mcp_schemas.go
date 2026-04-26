@@ -140,6 +140,13 @@ const schemaReviewRequest = `{
   "additionalProperties": false
 }`
 
+const schemaDoctor = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}`
+
 const schemaListItems = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

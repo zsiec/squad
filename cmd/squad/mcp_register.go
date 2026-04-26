@@ -400,6 +400,18 @@ func registerChatTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 
 func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	srv.Register(mcp.Tool{
+		Name:        "squad_doctor",
+		Description: "Run the hygiene sweep (stale claims, ghost agents, orphan touches, broken refs, integrity).",
+		InputSchema: json.RawMessage(schemaDoctor),
+		Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			return Doctor(ctx, DoctorArgs{DB: db, RepoID: repoID, RepoRoot: repoRoot})
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_list_items",
 		Description: "List items filtered by status/type/priority/agent.",
 		InputSchema: json.RawMessage(schemaListItems),
