@@ -1,7 +1,7 @@
 ---
 name: squad-tick
 description: Tick the squad team — surface mentions, file conflicts, knocks. Address mentions BEFORE continuing other work.
-args: ""
+argument-hint: ""
 allowed-tools:
   - Bash
 paths:

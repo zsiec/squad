@@ -1,7 +1,7 @@
 ---
 name: squad-done
 description: Evidence-gated close-out for an item. Requires test output paste, code review, and quality-bar pass before squad done runs.
-args: "<ITEM-ID>"
+argument-hint: "<ITEM-ID>"
 allowed-tools:
   - Bash
   - Read

@@ -1,7 +1,7 @@
 ---
 name: squad-file
 description: File a new item. Runs squad new with type and title, then injects the standard item template body for you to fill in.
-args: "<type> \"<title>\""
+argument-hint: "<type> \"<title>\""
 allowed-tools:
   - Bash
   - Edit

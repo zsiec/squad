@@ -1,7 +1,7 @@
 ---
 name: squad-work
 description: Onboard or resume in one step — squad go does init/register/claim/AC/mailbox.
-args: ""
+argument-hint: ""
 allowed-tools:
   - Bash
   - Read

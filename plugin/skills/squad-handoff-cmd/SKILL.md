@@ -1,7 +1,7 @@
 ---
 name: squad-handoff-cmd
 description: End-of-session 3-bullet brief plus claim release. Invokes the squad-handoff skill.
-args: ""
+argument-hint: ""
 allowed-tools:
   - Bash
   - Edit

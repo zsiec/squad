@@ -10,11 +10,12 @@ import (
 )
 
 type Frontmatter struct {
-	Name                   string   `yaml:"name"`
-	Description            string   `yaml:"description"`
-	AllowedTools           []string `yaml:"allowed-tools"`
-	Paths                  []string `yaml:"paths"`
-	DisableModelInvocation bool     `yaml:"disable-model-invocation"`
+	Name                   string         `yaml:"name"`
+	Description            string         `yaml:"description"`
+	ArgumentHint           string         `yaml:"argument-hint"`
+	AllowedTools           []string       `yaml:"allowed-tools"`
+	Paths                  []string       `yaml:"paths"`
+	DisableModelInvocation bool           `yaml:"disable-model-invocation"`
 	Hooks                  map[string]any `yaml:"hooks"`
 }
 
@@ -61,6 +62,34 @@ func TestEverySkillHasValidFrontmatter(t *testing.T) {
 		}
 		if f.Name != d {
 			t.Errorf("%s: name %q does not match dir name", d, f.Name)
+		}
+	}
+}
+
+func TestNoLegacyArgsField(t *testing.T) {
+	root := filepath.Join("..", "..", "plugin", "skills")
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatalf("read skills dir: %v", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		path := filepath.Join(root, e.Name(), "SKILL.md")
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		fm, _, err := splitFrontmatter(raw)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(fm), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "args:") {
+				t.Errorf("%s: uses legacy `args:` field; rename to `argument-hint:`", e.Name())
+			}
 		}
 	}
 }

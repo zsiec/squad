@@ -1,7 +1,7 @@
 ---
 name: squad-review
 description: Spawn superpowers:code-reviewer on an item with a self-contained briefing. Includes premise-validation latitude and working-tree hygiene clauses.
-args: "<ITEM-ID>"
+argument-hint: "<ITEM-ID>"
 allowed-tools:
   - Bash
   - Read

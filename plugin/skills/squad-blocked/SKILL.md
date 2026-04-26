@@ -1,7 +1,7 @@
 ---
 name: squad-blocked
 description: Mark an item blocked and inject the standard ## Blocker section template into the item file.
-args: "<ITEM-ID>"
+argument-hint: "<ITEM-ID>"
 allowed-tools:
   - Bash
   - Edit
