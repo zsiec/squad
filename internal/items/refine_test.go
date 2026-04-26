@@ -1,11 +1,16 @@
 package items
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zsiec/squad/internal/store"
+	_ "modernc.org/sqlite"
 )
 
 func TestWriteFeedback_InsertsAboveProblem(t *testing.T) {
@@ -159,6 +164,151 @@ func TestRewriteRecapture_AcceptsBOM(t *testing.T) {
 	}
 	if !strings.Contains(string(got), "### Round 1 — 2026-04-26") {
 		t.Fatalf("round 1 entry missing on BOM file:\n%s", got)
+	}
+}
+
+func TestRefine_FlipsStatusAndPersists(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	seeded := seedPromotableItem(t, ctx, db, squadDir, "r", "FEAT-700")
+
+	if err := Refine(ctx, db, "r", seeded.ID, "tighten the criteria"); err != nil {
+		t.Fatalf("refine: %v", err)
+	}
+
+	var dbStatus string
+	if err := db.QueryRow(
+		`SELECT status FROM items WHERE item_id=?`, seeded.ID,
+	).Scan(&dbStatus); err != nil {
+		t.Fatalf("db scan: %v", err)
+	}
+	if dbStatus != "needs-refinement" {
+		t.Fatalf("db status=%q want needs-refinement", dbStatus)
+	}
+	raw, err := os.ReadFile(seeded.Path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(raw), "## Reviewer feedback") {
+		t.Fatalf("body missing reviewer feedback section:\n%s", raw)
+	}
+	if !strings.Contains(string(raw), "tighten the criteria") {
+		t.Fatalf("body missing comment text:\n%s", raw)
+	}
+}
+
+func TestRefine_RejectsEmptyComments(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seeded := seedPromotableItem(t, ctx, db, squadDir, "r", "FEAT-701")
+
+	if err := Refine(ctx, db, "r", seeded.ID, ""); !errors.Is(err, ErrCommentsRequired) {
+		t.Fatalf("want ErrCommentsRequired, got: %v", err)
+	}
+	if err := Refine(ctx, db, "r", seeded.ID, "   "); !errors.Is(err, ErrCommentsRequired) {
+		t.Fatalf("whitespace-only comments should also fail: %v", err)
+	}
+}
+
+func TestRefine_RejectsWrongStatus(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	p := filepath.Join(squadDir, "items", "FEAT-702-thing.md")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	body := `---
+id: FEAT-702
+title: investigate the flaky auth test we have
+type: feat
+status: open
+priority: P2
+area: auth
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Acceptance criteria
+- [ ] x
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, _ := Parse(p)
+	if err := Persist(ctx, db, "r", it, false); err != nil {
+		t.Fatalf("persist: %v", err)
+	}
+	if err := Refine(ctx, db, "r", "FEAT-702", "please redo"); !errors.Is(err, ErrWrongStatusForRefine) {
+		t.Fatalf("want ErrWrongStatusForRefine, got: %v", err)
+	}
+}
+
+func TestRefine_AllowsNeedsRefinementStatus(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	p := filepath.Join(squadDir, "items", "FEAT-703-thing.md")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	body := `---
+id: FEAT-703
+title: investigate the flaky auth test we have
+type: feat
+status: needs-refinement
+priority: P2
+area: auth
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Reviewer feedback
+prior round
+
+## Acceptance criteria
+- [ ] x
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, _ := Parse(p)
+	if err := Persist(ctx, db, "r", it, false); err != nil {
+		t.Fatalf("persist: %v", err)
+	}
+	if err := Refine(ctx, db, "r", "FEAT-703", "another round"); err != nil {
+		t.Fatalf("refine: %v", err)
+	}
+	raw, _ := os.ReadFile(p)
+	if !strings.Contains(string(raw), "another round") {
+		t.Fatalf("body missing latest comments:\n%s", raw)
+	}
+}
+
+func TestRefine_MissingItemReturnsErrItemNotFound(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	if err := Refine(ctx, db, "r", "FEAT-999", "x"); !errors.Is(err, ErrItemNotFound) {
+		t.Fatalf("want ErrItemNotFound, got: %v", err)
 	}
 }
 

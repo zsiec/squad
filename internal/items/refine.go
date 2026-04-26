@@ -2,14 +2,55 @@ package items
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 var sectionHeader = regexp.MustCompile(`(?m)^## .+$`)
+
+var (
+	ErrCommentsRequired     = errors.New("refine: comments are required")
+	ErrWrongStatusForRefine = errors.New("refine: only captured or needs-refinement items can be refined")
+)
+
+func Refine(ctx context.Context, db *sql.DB, repoID, itemID, comments string) error {
+	if strings.TrimSpace(comments) == "" {
+		return ErrCommentsRequired
+	}
+	return store.WithTxRetry(ctx, db, func(tx *sql.Tx) error {
+		var path, status string
+		err := tx.QueryRowContext(ctx,
+			`SELECT path, status FROM items WHERE repo_id=? AND item_id=?`,
+			repoID, itemID,
+		).Scan(&path, &status)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrItemNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if status != "captured" && status != "needs-refinement" {
+			return fmt.Errorf("%w (status=%q)", ErrWrongStatusForRefine, status)
+		}
+		now := time.Now()
+		if err := RewriteWithFeedback(path, comments, "needs-refinement", now); err != nil {
+			return err
+		}
+		it, err := Parse(path)
+		if err != nil {
+			return err
+		}
+		return PersistOne(ctx, tx, repoID, it, false, now.Unix())
+	})
+}
 
 // RewriteWithFeedback reads the item file at path, transforms its body via
 // WriteFeedback(comments), and updates frontmatter status to newStatus and
