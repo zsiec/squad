@@ -9,5 +9,6 @@ func newLearningCmd() *cobra.Command {
 	cmd.AddCommand(newLearningApproveCmd())
 	cmd.AddCommand(newLearningRejectCmd())
 	cmd.AddCommand(newLearningAgentsMdSuggestCmd())
+	cmd.AddCommand(newLearningAgentsMdApproveCmd())
 	return cmd
 }
