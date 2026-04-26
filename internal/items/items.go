@@ -31,10 +31,11 @@ type Item struct {
 	RelatesTo  []string `yaml:"relates-to"`
 	References []string `yaml:"references"`
 
-	Epic          string   `yaml:"epic"`
-	DependsOn     []string `yaml:"depends_on"`
-	Parallel      bool     `yaml:"parallel"`
-	ConflictsWith []string `yaml:"conflicts_with"`
+	Epic             string   `yaml:"epic"`
+	DependsOn        []string `yaml:"depends_on"`
+	Parallel         bool     `yaml:"parallel"`
+	ConflictsWith    []string `yaml:"conflicts_with"`
+	EvidenceRequired []string `yaml:"evidence_required"`
 
 	ACTotal   int      `yaml:"-"`
 	ACChecked int      `yaml:"-"`

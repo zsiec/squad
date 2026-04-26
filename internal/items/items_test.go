@@ -137,3 +137,59 @@ func TestParse_R3FieldsRoundTrip(t *testing.T) {
 			it.Epic, it.Parallel, it.DependsOn, it.ConflictsWith)
 	}
 }
+
+func TestParse_EvidenceRequired(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "FEAT-001.md")
+	body := `---
+id: FEAT-001
+title: Test evidence_required parsing
+type: feature
+priority: P1
+area: core
+status: open
+created: 2026-04-25
+updated: 2026-04-25
+evidence_required: [test, review]
+---
+
+## Acceptance criteria
+- [ ] does the thing
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(it.EvidenceRequired) != 2 {
+		t.Fatalf("EvidenceRequired = %v, want 2 entries", it.EvidenceRequired)
+	}
+	if it.EvidenceRequired[0] != "test" || it.EvidenceRequired[1] != "review" {
+		t.Fatalf("EvidenceRequired = %v, want [test review]", it.EvidenceRequired)
+	}
+}
+
+func TestParse_EvidenceRequired_Empty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "FEAT-002.md")
+	body := `---
+id: FEAT-002
+title: No evidence required
+status: open
+---
+
+body
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(it.EvidenceRequired) != 0 {
+		t.Fatalf("EvidenceRequired = %v, want empty", it.EvidenceRequired)
+	}
+}
