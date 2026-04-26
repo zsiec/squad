@@ -26,6 +26,7 @@ const (
 	ViewStats
 	ViewLearnings
 	ViewSession
+	ViewInbox
 )
 
 func (v View) Name() string {
@@ -54,6 +55,8 @@ func (v View) Name() string {
 		return "learnings"
 	case ViewSession:
 		return "session"
+	case ViewInbox:
+		return "inbox"
 	}
 	return "?"
 }
@@ -87,11 +90,11 @@ type Model struct {
 // NewModel constructs a root model. eventCh may be nil for testing.
 func NewModel(c *client.Client, eventCh <-chan client.Event, scope string) Model {
 	views := map[View]tea.Model{}
-	for v := ViewItems; v <= ViewSession; v++ {
+	for v := ViewItems; v <= ViewInbox; v++ {
 		views[v] = StubView{label: v.Name() + " view (placeholder)"}
 	}
 	cmds := []components.Command{}
-	for v := ViewItems; v <= ViewSession; v++ {
+	for v := ViewItems; v <= ViewInbox; v++ {
 		cmds = append(cmds, components.Command{Name: v.Name(), Description: v.Name() + " view"})
 	}
 	return Model{
@@ -196,7 +199,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case components.PaletteSelectedMsg:
-		for v := ViewItems; v <= ViewSession; v++ {
+		for v := ViewItems; v <= ViewInbox; v++ {
 			if v.Name() == msg.Command {
 				m.current = v
 				return m, m.views[v].Init()
