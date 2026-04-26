@@ -2,6 +2,8 @@
 
 Each entry is **symptom → cause → fix.**
 
+The fixes are written as CLI commands because they're the most compact reference. If you're driving squad through Claude Code, ask Claude to run any of these for you (*"run squad doctor"*, *"check the workspace status"*) — Claude calls the equivalent MCP tool or runs the binary, depending on which is exposed.
+
 ## Stale claim blocks me from claiming
 
 **Symptom:** `squad claim FEAT-001` exits with "already claimed by agent-blue" but agent-blue hasn't been online for hours.

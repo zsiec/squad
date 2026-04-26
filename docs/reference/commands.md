@@ -2,6 +2,8 @@
 
 Every subcommand the `squad` binary ships, by group. Each entry shows the synopsis (auto-generated from `squad <verb> --help`), one-line description, and an example.
 
+> **Using Claude Code?** Almost every command listed here is also exposed as an MCP tool with the same name (`squad_<verb>`). Describe what you want — *"claim FEAT-001"*, *"mark this done"* — and Claude calls the tool for you. The CLI form below is the canonical reference and what Claude calls for you behind the scenes; you only need to type these yourself for scripts, CI, or when you'd rather work in a shell. See the **MCP** section at the bottom for the tool surface.
+
 To regenerate this page from the binary itself: `squad <verb> --help`.
 
 ## Identity

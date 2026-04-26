@@ -4,6 +4,8 @@
 
 This file is **per-repo**. Operational state (claims, chat, touches) lives in `~/.squad/global.db` and is machine-local.
 
+> Edit this file directly with your editor (Claude can do that too — *"set the WIP cap to 3 per agent"*). Squad reads it on every command; there's no daemon to restart.
+
 ## Top-level structure
 
 ```yaml

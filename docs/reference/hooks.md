@@ -1,6 +1,6 @@
 # Hooks reference
 
-Squad's Claude Code hooks are **opt-in per hook** via `squad install-hooks`. Six default to ON, five default to OFF (opt-in for specific use cases).
+Squad's Claude Code hooks are **opt-in per hook** via `squad install-hooks`. Six default to ON, five default to OFF (opt-in for specific use cases). Hooks fire automatically once installed — they're invoked by Claude Code at session boundaries, between tool calls, and around git operations; you never trigger them by hand.
 
 ## Quick reference
 
