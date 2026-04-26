@@ -75,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/items", s.handleItemsList)
 	mux.HandleFunc("GET /api/items/{id}", s.handleItemDetail)
 	mux.HandleFunc("GET /api/specs", s.handleSpecsList)
+	mux.HandleFunc("GET /api/specs/{name}", s.handleSpecDetail)
 	mux.HandleFunc("GET /api/agents", s.handleAgents)
 	mux.HandleFunc("GET /api/whoami", s.handleWhoami)
 	mux.HandleFunc("GET /api/claims", s.handleClaims)
