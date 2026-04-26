@@ -1,3 +1,7 @@
+// Package prmark maintains the PR ↔ item mapping that squad pr-link writes
+// into .squad/pending-prs.json, plus the hidden HTML marker embedded in PR
+// bodies so the merge auto-archive workflow can resolve a merged PR back
+// to its squad item.
 package prmark
 
 import "regexp"

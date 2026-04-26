@@ -77,7 +77,7 @@ func TestWake_TolerantOfDeadEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer live.Close()
+	defer func() { _ = live.Close() }()
 	var hits atomic.Int64
 	go func() {
 		for {

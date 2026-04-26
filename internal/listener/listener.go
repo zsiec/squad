@@ -1,3 +1,8 @@
+// Package listener implements squad's per-session loopback TCP listener.
+// The Stop hook (stop_listen.sh) starts one before the session ends; peers
+// dial it via the notify_endpoints rows in ~/.squad/global.db to wake the
+// session when there's pending chat. The listener exits when the session
+// proceeds or when fallback/max-lifetime expires.
 package listener
 
 import (

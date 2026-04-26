@@ -1,3 +1,8 @@
+// Package claims is the atomic claim ledger: who holds which item, since
+// when, and the takeover audit trail. Claims are acquired with SQLite's
+// BEGIN IMMEDIATE so two agents racing for the same item see exactly one
+// winner; the loser gets a clean "already claimed by X" error rather than
+// torn state. Released and force-released claims move to claim_history.
 package claims
 
 import (
@@ -122,7 +127,7 @@ LIMIT 1`
 				continue
 			}
 			if len(p) > maxTouchPathLen {
-				return fmt.Errorf("touch path too long (%d bytes, max %d): %s...", len(p), maxTouchPathLen, p[:64])
+				return fmt.Errorf("touch path too long (%d bytes, max %d, prefix=%s…)", len(p), maxTouchPathLen, p[:64])
 			}
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO touches (repo_id, agent_id, item_id, path, started_at)

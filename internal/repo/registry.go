@@ -1,3 +1,6 @@
+// Package repo discovers the working repo's identity (git-remote-derived id
+// with a path-based fallback), maintains the per-machine repos table, and
+// resolves canonical paths for cross-repo workspace queries.
 package repo
 
 import (

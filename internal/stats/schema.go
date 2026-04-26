@@ -1,7 +1,13 @@
+// Package stats computes operational statistics over the squad operational
+// DB: verification rate, claim-duration percentiles, WIP-violation counts,
+// reviewer disagreement rate, plus daily series for each. Pure read-side
+// aggregation; no new state. Surfaces are squad stats (CLI), /api/stats,
+// and /metrics (Prometheus).
 package stats
 
-// Schema discipline: changing any json tag is a breaking change for
-// downstream consumers. Bump CurrentSchemaVersion when the shape changes.
+// CurrentSchemaVersion is the on-the-wire version of the stats Snapshot.
+// Bump when the shape changes — every json tag is part of the contract;
+// renaming or removing one is a breaking change for downstream consumers.
 const CurrentSchemaVersion = 1
 
 type Snapshot struct {

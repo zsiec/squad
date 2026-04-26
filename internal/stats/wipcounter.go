@@ -14,7 +14,8 @@ func RecordWIPViolation(ctx context.Context, db *sql.DB, repoID, agentID string,
 	return err
 }
 
-// CountWIPViolations: since=0, until=0 means unbounded.
+// CountWIPViolations returns the total wip_violations rows in the time
+// window [since, until]. since=0, until=0 means unbounded.
 func CountWIPViolations(ctx context.Context, db *sql.DB, repoID string, since, until int64) (int64, error) {
 	return countViolations(ctx, db,
 		`SELECT COUNT(*) FROM wip_violations WHERE repo_id = ?`,

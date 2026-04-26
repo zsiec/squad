@@ -72,9 +72,9 @@ func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, error) {
 		if !args.Force && identity.PersistedAgentID() != id {
 			if other, ok, _ := lookupAgent(ctx, db, id); ok {
 				return nil, fmt.Errorf(
-					"%w: agent id %q is already registered (worktree=%s pid=%d). "+
-						"Re-using it from this session would re-point the agent row at you. "+
-						"Pass --force if you really mean to replace it, or pick a different id with --as.",
+					"%w: agent id %q is already registered (worktree=%s pid=%d) — "+
+						"re-using it from this session would re-point the agent row at you; "+
+						"pass --force if you really mean to replace it, or pick a different id with --as",
 					ErrAgentIDTaken, id, other.Worktree, other.PID)
 			}
 		}

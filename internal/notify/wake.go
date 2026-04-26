@@ -1,3 +1,7 @@
+// Package notify is the cross-session wake mechanism: peer chat publishers
+// look up active session listeners in notify_endpoints and dial each one's
+// loopback port to wake them. The endpoints rows are written by the
+// stop-listen hook and dropped by session-end-cleanup.
 package notify
 
 import (

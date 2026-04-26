@@ -58,7 +58,7 @@ func runListen(ctx context.Context, c *chat.Chat, agentID, repoID string,
 		fmt.Fprintf(os.Stderr, "squad listen: bind failed: %v\n", err)
 		return 4
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	if err := registry.Register(ctx, notify.Endpoint{
 		Instance: a.Instance, RepoID: repoID, Kind: notify.KindListen, Port: l.Port(),

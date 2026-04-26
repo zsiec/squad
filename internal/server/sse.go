@@ -8,11 +8,11 @@ import (
 	"github.com/zsiec/squad/internal/chat"
 )
 
-// seenIdCap bounds the dedupe map per-subscriber so a long-lived SSE
+// seenIDCap bounds the dedupe map per-subscriber so a long-lived SSE
 // connection doesn't grow unbounded over hours of activity. When we hit
 // the cap we drop the oldest half by walking the map and dropping ids
 // below the median; that keeps the cap O(1) without sorting.
-const seenIdCap = 4096
+const seenIDCap = 4096
 
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
@@ -90,7 +90,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 					if seen[f] {
 						continue
 					}
-					if len(seen) >= seenIdCap {
+					if len(seen) >= seenIDCap {
 						// Cap reached: keep only the upper half by id so
 						// recent publishes remain deduped while old ids
 						// get garbage-collected.

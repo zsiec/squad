@@ -12,9 +12,9 @@ import (
 
 var ErrEmptyPath = errors.New("touch: path must not be empty")
 
-// MaxPathLen caps the bytes squad stores for a touched path. POSIX PATH_MAX
-// is 4096 on Linux; anything longer almost certainly came from a hostile
-// caller trying to inflate the touches table.
+// ErrPathTooLong reports a touch path beyond MaxPathLen bytes — POSIX
+// PATH_MAX is 4096 on Linux, and anything longer almost certainly came
+// from a hostile caller trying to inflate the touches table.
 var ErrPathTooLong = errors.New("touch: path too long")
 
 const MaxPathLen = 4096

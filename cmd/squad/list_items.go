@@ -12,9 +12,10 @@ import (
 	"github.com/zsiec/squad/internal/items"
 )
 
-// Agent filtering joins against the claims table; DB+RepoID must be set when
-// Agent is non-empty. The error path remains as a fallback when callers can
-// only provide a filesystem-rooted view.
+// ListItemsArgs is the input for List. Agent filtering joins against the
+// claims table, so DB+RepoID must be set when Agent is non-empty. The
+// filesystem-only path remains as a fallback when callers can only provide
+// a directory-rooted view.
 type ListItemsArgs struct {
 	ItemsDir string `json:"items_dir"`
 	DoneDir  string `json:"done_dir"`

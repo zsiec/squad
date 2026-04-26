@@ -1,3 +1,7 @@
+// Package squad is the module root. It exists primarily to host the
+// embedded Claude Code plugin tree (manifest, skills, commands, hooks,
+// .mcp.json) that squad install-plugin materializes to ~/.claude/plugins/squad/.
+// Application code lives under cmd/squad and internal/.
 package squad
 
 import (

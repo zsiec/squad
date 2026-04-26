@@ -1,3 +1,8 @@
+// Package chat is squad's typed chat-verb layer: ask, say, fyi, milestone,
+// thinking, stuck, knock, answer, and the durable bus that backs them. The
+// verbs persist into messages rows in ~/.squad/global.db and stream over
+// SSE for the dashboard; this package owns the persistence, fan-out, and
+// dedup logic.
 package chat
 
 import (

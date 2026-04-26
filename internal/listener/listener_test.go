@@ -15,7 +15,7 @@ func TestListener_WakesOnExternalConnect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	if l.Port() == 0 {
 		t.Fatal("expected non-zero port after bind")
@@ -51,7 +51,7 @@ func TestListener_FallbackTickerFiresIfNoConnect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -70,7 +70,7 @@ func TestListener_ContextCancelExits(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -141,7 +141,7 @@ func TestListener_ConcurrentConnectsCoalesce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -180,7 +180,7 @@ func TestListener_WaitLoopReturnsOnConnectAfterMultipleFallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -228,7 +228,7 @@ func TestListener_NoFDLeakUnder500Connects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -1,3 +1,7 @@
+// Package mcp implements an MCP (Model Context Protocol) server over stdio.
+// Squad's CLI handlers are registered as tools so Claude Code can call them
+// without shelling out. The wire format follows JSON-RPC 2.0 and the MCP
+// spec at modelcontextprotocol.io.
 package mcp
 
 import (

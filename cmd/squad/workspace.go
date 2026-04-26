@@ -316,10 +316,10 @@ func renderNext(w io.Writer, rows []workspace.NextRow, currentAgent string) {
 	fmt.Fprintln(tw, "REPO\tID\tPRI\tEST\tCLAIM\tTITLE")
 	for _, r := range rows {
 		var claim string
-		switch {
-		case r.Claimed == "":
+		switch r.Claimed {
+		case "":
 			claim = "open"
-		case r.Claimed == currentAgent:
+		case currentAgent:
 			claim = "yours"
 		default:
 			claim = "@" + r.Claimed

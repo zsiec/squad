@@ -1,3 +1,6 @@
+// Package skills hosts a tiny YAML-frontmatter parser used by the test
+// scaffold under plugin/skills/*.md to validate that every shipped skill
+// declares name + description + body in the expected layout.
 package skills
 
 import (

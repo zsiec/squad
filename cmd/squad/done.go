@@ -58,12 +58,11 @@ type DoneResult struct {
 	BypassedKinds []attest.Kind `json:"bypassed_kinds,omitempty"`
 }
 
-// Verification gating stays in the cobra wrapper so it can stream gate
-// progress to the user's terminal in real time. The pure function would
-// have to either own writers (violating the "no cmd.Out/ErrWriter" rule)
-// or batch-print, which lose the live "  $ cmd / ok" feedback. Callers
-// outside the CLI that want gating can call runVerification themselves
-// before invoking Done.
+// Done releases the claim and rewrites the item file in done state. The
+// verification gating that decides whether close-out is allowed lives in
+// the cobra wrapper rather than here so it can stream gate progress to the
+// user's terminal in real time. Pure callers (CLI alternatives, tests) can
+// call runVerification themselves before invoking Done.
 func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 	clock := args.Now
 	if clock == nil {
@@ -169,8 +168,9 @@ func newDoneCmd() *cobra.Command {
 			var miss *EvidenceMissingError
 			if errors.As(err, &miss) {
 				return fmt.Errorf(
-					"%s: evidence_required not satisfied. Missing kinds: %s.\n"+
-						"Run `squad attest --item %s --kind <kind> --command \"...\"` for each, or pass --force to override (the override is recorded as a manual attestation).",
+					"%s: evidence_required not satisfied (missing kinds: %s) — "+
+						"run `squad attest %s --kind <kind> --command \"...\"` for each, "+
+						"or pass --force to override (the override is recorded as a manual attestation)",
 					miss.ItemID, joinKinds(miss.Missing), miss.ItemID)
 			}
 			if errors.Is(err, ErrItemNotFound) {

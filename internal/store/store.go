@@ -1,3 +1,7 @@
+// Package store opens the operational SQLite database at ~/.squad/global.db,
+// applies the embedded schema, and runs additive migrations. Higher-level
+// packages (items, claims, chat, hygiene, attest, stats) own their own
+// queries; this package just hands them a *sql.DB.
 package store
 
 import (

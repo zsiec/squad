@@ -1,3 +1,5 @@
+// Package config loads .squad/config.yaml — squad's per-repo settings for
+// hygiene cadence, WIP caps, verification gates, and similar knobs.
 package config
 
 import (

@@ -1,3 +1,7 @@
+// Package installer materializes the embedded plugin tree to
+// ~/.claude/plugins/squad/, merges squad's MCP server entry into
+// ~/.claude/settings.json, and registers the squad-managed Claude Code
+// hooks. All of this is reversible via the Uninstall and Unmerge helpers.
 package installer
 
 import (
@@ -71,7 +75,7 @@ func copyFile(src fs.FS, srcPath, dstPath string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err

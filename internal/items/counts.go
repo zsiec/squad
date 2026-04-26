@@ -1,3 +1,7 @@
+// Package items owns squad's on-disk item format (.squad/items/*.md with
+// YAML frontmatter), the walk that materializes them into memory, and the
+// rewrite helpers that mutate frontmatter atomically. Pure file-layer; the
+// claim ledger and DB indexing live elsewhere.
 package items
 
 import "time"

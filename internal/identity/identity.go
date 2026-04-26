@@ -1,3 +1,6 @@
+// Package identity derives a stable agent id from session-local
+// environment (TMUX_PANE, TERM_SESSION_ID, SQUAD_SESSION_ID, plus a
+// fallback hash) and persists it under ~/.squad/agent-id.txt for resume.
 package identity
 
 import (
