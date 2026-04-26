@@ -119,12 +119,15 @@ func TestE2E_SessionMessage(t *testing.T) {
 	// canonical evidence the POST landed is the messages-table row.
 	_ = cmd()
 
-	var body, thread, kind string
-	if err := db.QueryRow(`SELECT body, thread, kind FROM messages ORDER BY id DESC LIMIT 1`).Scan(&body, &thread, &kind); err != nil {
+	var body, thread, kind, mentions string
+	if err := db.QueryRow(`SELECT body, thread, kind, mentions FROM messages ORDER BY id DESC LIMIT 1`).Scan(&body, &thread, &kind, &mentions); err != nil {
 		t.Fatal(err)
 	}
-	if body != "ping" || thread != target || kind != "say" {
-		t.Errorf("got body=%q thread=%q kind=%q want ping/%s/say", body, thread, kind, target)
+	if body != "ping" || thread != "global" || kind != "say" {
+		t.Errorf("got body=%q thread=%q kind=%q want ping/global/say", body, thread, kind)
+	}
+	if !strings.Contains(mentions, target) {
+		t.Errorf("expected mentions to include %q, got %q", target, mentions)
 	}
 }
 
