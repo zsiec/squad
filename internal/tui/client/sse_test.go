@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +13,7 @@ func TestSSE_ParsesSingleEvent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.(http.Flusher).Flush()
-		_, _ = w.Write([]byte("event: item_changed\ndata: {\"id\":\"BUG-100\",\"kind\":\"updated\"}\n\n"))
+		_, _ = w.Write([]byte("event: item_changed\ndata: {\"kind\":\"item_changed\",\"payload\":{\"item_id\":\"BUG-100\",\"kind\":\"claimed\"}}\n\n"))
 		w.(http.Flusher).Flush()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -28,8 +29,15 @@ func TestSSE_ParsesSingleEvent(t *testing.T) {
 		if ev.Kind != "item_changed" {
 			t.Fatalf("kind=%s", ev.Kind)
 		}
-		if string(ev.Payload) == "" {
-			t.Fatal("empty payload")
+		var p struct {
+			ItemID string `json:"item_id"`
+			Kind   string `json:"kind"`
+		}
+		if err := json.Unmarshal(ev.Payload, &p); err != nil {
+			t.Fatalf("decode payload: %v (raw=%q)", err, ev.Payload)
+		}
+		if p.ItemID != "BUG-100" {
+			t.Fatalf("payload item_id=%q", p.ItemID)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for event")
@@ -41,7 +49,7 @@ func TestSSE_IgnoresPingComments(t *testing.T) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.(http.Flusher).Flush()
 		_, _ = w.Write([]byte(": ping\n\n"))
-		_, _ = w.Write([]byte("event: lag\ndata: {\"dropped\":3}\n\n"))
+		_, _ = w.Write([]byte("event: lag\ndata: {\"kind\":\"lag\",\"payload\":{\"dropped\":3}}\n\n"))
 		w.(http.Flusher).Flush()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -66,10 +74,10 @@ func TestSSE_ParsesMultipleEvents(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.(http.Flusher).Flush()
-		_, _ = w.Write([]byte("event: item_changed\ndata: {\"id\":\"A\"}\n\n"))
+		_, _ = w.Write([]byte("event: item_changed\ndata: {\"kind\":\"item_changed\",\"payload\":{\"item_id\":\"A\"}}\n\n"))
 		w.(http.Flusher).Flush()
 		time.Sleep(50 * time.Millisecond)
-		_, _ = w.Write([]byte("event: message_posted\ndata: {\"id\":1}\n\n"))
+		_, _ = w.Write([]byte("event: message_posted\ndata: {\"kind\":\"message_posted\",\"payload\":{\"id\":1}}\n\n"))
 		w.(http.Flusher).Flush()
 		time.Sleep(200 * time.Millisecond)
 	}))
@@ -88,6 +96,28 @@ func TestSSE_ParsesMultipleEvents(t *testing.T) {
 				t.Fatal("channel closed early")
 			}
 			got = append(got, ev.Kind)
+			switch ev.Kind {
+			case "item_changed":
+				var p struct {
+					ItemID string `json:"item_id"`
+				}
+				if err := json.Unmarshal(ev.Payload, &p); err != nil {
+					t.Fatalf("decode item_changed payload: %v (raw=%q)", err, ev.Payload)
+				}
+				if p.ItemID != "A" {
+					t.Fatalf("item_changed item_id=%q", p.ItemID)
+				}
+			case "message_posted":
+				var p struct {
+					ID int64 `json:"id"`
+				}
+				if err := json.Unmarshal(ev.Payload, &p); err != nil {
+					t.Fatalf("decode message_posted payload: %v (raw=%q)", err, ev.Payload)
+				}
+				if p.ID != 1 {
+					t.Fatalf("message_posted id=%d", p.ID)
+				}
+			}
 		case <-time.After(1 * time.Second):
 			t.Fatalf("timeout, got=%v", got)
 		}
