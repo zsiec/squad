@@ -3,6 +3,7 @@ package claims
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 )
 
@@ -61,6 +62,90 @@ func TestRelease_MarksAllItemTouchesReleased(t *testing.T) {
 	_ = db.QueryRow(`SELECT COUNT(*) FROM touches WHERE item_id='BUG-012' AND released_at IS NULL`).Scan(&active)
 	if active != 0 {
 		t.Fatalf("active touches=%d want 0", active)
+	}
+}
+
+func TestReleaseAllCount_ReleasesEverythingHeld(t *testing.T) {
+	s, db := newTestStore(t)
+	ctx := context.Background()
+	for _, id := range []string{"BUG-X", "BUG-Y", "BUG-Z"} {
+		if err := s.Claim(ctx, id, "agent-a", "", nil, false); err != nil {
+			t.Fatalf("claim %s: %v", id, err)
+		}
+	}
+
+	n, err := s.ReleaseAllCount(ctx, "agent-a", "released")
+	if err != nil {
+		t.Fatalf("ReleaseAllCount: %v", err)
+	}
+	if n != 3 {
+		t.Fatalf("released count=%d want 3", n)
+	}
+	var live int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE agent_id='agent-a'`).Scan(&live)
+	if live != 0 {
+		t.Fatalf("agent-a still holds %d claims", live)
+	}
+	var hist int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claim_history WHERE agent_id='agent-a' AND outcome='released'`).Scan(&hist)
+	if hist != 3 {
+		t.Fatalf("history rows=%d want 3", hist)
+	}
+}
+
+func TestReleaseAllCount_TolerantToVanishedRow(t *testing.T) {
+	s, db := newTestStore(t)
+	ctx := context.Background()
+	for _, id := range []string{"BUG-A", "BUG-B", "BUG-C"} {
+		if err := s.Claim(ctx, id, "agent-a", "", nil, false); err != nil {
+			t.Fatalf("claim %s: %v", id, err)
+		}
+	}
+	// peer (force_release / reaper / direct) yanks one of agent-a's claims
+	// between the snapshot read and the per-item delete.
+	if _, err := db.Exec(`DELETE FROM claims WHERE item_id='BUG-B'`); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := s.ReleaseAllCount(ctx, "agent-a", "released")
+	if err != nil {
+		t.Fatalf("ReleaseAllCount: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("released count=%d want 2", n)
+	}
+	var live int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM claims WHERE agent_id='agent-a'`).Scan(&live)
+	if live != 0 {
+		t.Fatalf("agent-a still holds %d claims", live)
+	}
+}
+
+func TestReleaseAllCount_NoErrorWhenPeerStealsClaimMidFlight(t *testing.T) {
+	s, _ := newTestStore(t)
+	ctx := context.Background()
+	const trials = 30
+	for trial := 0; trial < trials; trial++ {
+		ids := []string{"R-A", "R-B", "R-C", "R-D"}
+		for _, id := range ids {
+			if err := s.Claim(ctx, id, "agent-a", "", nil, false); err != nil {
+				t.Fatalf("trial %d claim %s: %v", trial, id, err)
+			}
+		}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = s.ForceRelease(ctx, "R-B", "agent-admin", "racing")
+			_, _ = s.ForceRelease(ctx, "R-D", "agent-admin", "racing")
+		}()
+		_, err := s.ReleaseAllCount(ctx, "agent-a", "released")
+		wg.Wait()
+		if err != nil {
+			t.Fatalf("trial %d: ReleaseAllCount returned error %v", trial, err)
+		}
+		// clean up any survivors via direct DB so the next trial starts clean
+		s.db.ExecContext(ctx, `DELETE FROM claims`)
 	}
 }
 

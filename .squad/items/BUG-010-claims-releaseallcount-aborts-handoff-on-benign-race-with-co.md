@@ -38,4 +38,30 @@ blocked-by: []
 Found during a parallel exploration sweep on 2026-04-26. Verified by reading `internal/claims/release.go`. Sibling to BUG-009 (multi-statement write atomicity).
 
 ## Resolution
-(Filled in when status → done.)
+
+### Reproduction
+
+`TestReleaseAllCount_NoErrorWhenPeerStealsClaimMidFlight` (30 trials of `agent-a` running `ReleaseAllCount` while a parallel goroutine `ForceRelease`s two of agent-a's items). Confirmed RED on the pre-fix code — trials 2/3/5 returned `claims: no active claim on item`, aborting handoff mid-loop. GREEN on the fix.
+
+### Root cause
+
+`ReleaseAllCount` ran the SELECT outside any tx, then per-item `Release` opened its own tx. Between SELECT and per-row Release, a peer (`ForceRelease`, reaper, etc.) could drop one of the listed items. The per-row `Release` then returned `ErrNotClaimed` / `ErrNotYours`, the loop short-circuited, and the user's handoff reported failure with claims still held.
+
+### Fix
+
+`internal/claims/release.go` — `ReleaseAllCount` now wraps the SELECT and per-row releases in a single `s.withTx`, calls `s.releaseInTx` directly, and tolerates per-row `ErrNotClaimed` / `ErrNotYours` (continues the loop). Returns the actual count released. The `released` counter is reset inside the closure so `WithTxRetry`'s retry-on-busy doesn't double-count.
+
+### Tests
+
+`internal/claims/release_test.go`:
+- `TestReleaseAllCount_ReleasesEverythingHeld` — happy path: 3 claims → count=3, history has 3 release rows.
+- `TestReleaseAllCount_TolerantToVanishedRow` — vanished-before-snapshot: row deleted before call returns count=2, no error.
+- `TestReleaseAllCount_NoErrorWhenPeerStealsClaimMidFlight` — 30 trials with concurrent `ForceRelease`. RED on old code, GREEN on fix.
+
+### Evidence
+
+```
+$ go test ./... -race
+... ok  github.com/zsiec/squad/internal/claims  ...
+```
+All packages pass.

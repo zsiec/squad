@@ -64,28 +64,45 @@ func (s *Store) ReleaseAll(ctx context.Context, agentID, outcome string) error {
 
 // ReleaseAllCount is like ReleaseAll but returns how many claims it
 // released. Used by handoff's MCP/CLI surface to report the count back.
+//
+// The snapshot read and per-row releases run inside a single transaction so a
+// peer cannot drop one of agent's claims between snapshot and per-item delete.
+// Per-row ErrNotClaimed / ErrNotYours are tolerated within the loop — handoff
+// is best-effort across the snapshot, not all-or-nothing.
 func (s *Store) ReleaseAllCount(ctx context.Context, agentID, outcome string) (int, error) {
 	if outcome == "" {
 		outcome = "released"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT item_id FROM claims WHERE repo_id = ? AND agent_id = ?`, s.repoID, agentID)
+	released := 0
+	err := s.withTx(ctx, func(tx *sql.Tx) error {
+		released = 0
+		rows, err := tx.QueryContext(ctx, `SELECT item_id FROM claims WHERE repo_id = ? AND agent_id = ?`, s.repoID, agentID)
+		if err != nil {
+			return fmt.Errorf("list claims: %w", err)
+		}
+		var items []string
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return err
+			}
+			items = append(items, id)
+		}
+		rows.Close()
+		for _, id := range items {
+			if err := s.releaseInTx(ctx, tx, id, agentID, outcome); err != nil {
+				if errors.Is(err, ErrNotClaimed) || errors.Is(err, ErrNotYours) {
+					continue
+				}
+				return err
+			}
+			released++
+		}
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("list claims: %w", err)
+		return 0, err
 	}
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		items = append(items, id)
-	}
-	rows.Close()
-	for _, id := range items {
-		if err := s.Release(ctx, id, agentID, outcome); err != nil {
-			return 0, err
-		}
-	}
-	return len(items), nil
+	return released, nil
 }
