@@ -39,7 +39,6 @@ func BeginImmediate(ctx context.Context, db *sql.DB) (*sql.Tx, error) {
 const (
 	txMaxRetries     = 6
 	txInitialBackoff = 5 * time.Millisecond
-	txMaxBackoff     = 250 * time.Millisecond
 )
 
 // errBusySentinel lets tests exercise the retry loop without colluding
@@ -77,9 +76,6 @@ func WithTxRetry(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error 
 			return ctx.Err()
 		}
 		backoff *= 2
-		if backoff > txMaxBackoff {
-			backoff = txMaxBackoff
-		}
 	}
 	return fmt.Errorf("withTxRetry: exhausted retries: %w", lastErr)
 }
