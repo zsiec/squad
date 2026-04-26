@@ -174,22 +174,39 @@ function connectSSE() {
     // EventSource auto-retries; we just reflect state.
   };
 
-  const handle = (kind, after) => (e) => {
-    const d = JSON.parse(e.data);
-    const p = d.payload;
-    onEvent(p, kind);
-    if (p.item_id) recordActivityTs(p.item_id, p.ts || Math.floor(Date.now() / 1000));
-    after?.(p);
+  // Server publishes item lifecycle as a single `item_changed` envelope with
+  // payload.kind ∈ {claimed, released, done, blocked, force_released, reassigned}.
+  // Map to the SPA's drawer/board vocabulary (claim/release/done/blocked/reassign).
+  const ITEM_CHANGED_TO_SPA = {
+    claimed:        'claim',
+    released:       'release',
+    done:           'done',
+    blocked:        'blocked',
+    force_released: 'release',
+    reassigned:     'reassign',
   };
 
-  es.addEventListener('claim',    handle('claim',    (p) => { refreshBoard().then(refreshChrome); populateThreadsSoon(); toastClaim(p); }));
-  es.addEventListener('release',  handle('release',  (p) => { refreshBoard().then(refreshChrome); populateThreadsSoon(); }));
-  es.addEventListener('done',     handle('done',     (p) => { refreshBoard().then(refreshChrome); toastDone(p); }));
-  es.addEventListener('blocked',  handle('blocked',  (p) => { refreshBoard().then(refreshChrome); }));
-  es.addEventListener('progress', handle('progress', (p) => { refreshBoard().then(refreshChrome); }));
-  es.addEventListener('reassign', handle('reassign', (p) => { refreshBoard().then(refreshChrome); }));
-  es.addEventListener('touch',    handle('touch',    ()  => { refreshClaimsAndAgents(); refreshHotness(); }));
-  es.addEventListener('untouch',  handle('untouch',  ()  => { refreshClaimsAndAgents(); refreshHotness(); }));
+  es.addEventListener('item_changed', (e) => {
+    const d = JSON.parse(e.data);
+    const p = d.payload || {};
+    const inner = p.kind || '';
+    const spaKind = ITEM_CHANGED_TO_SPA[inner] || inner;
+    onEvent(p, spaKind);
+    if (p.item_id) recordActivityTs(p.item_id, p.ts || Math.floor(Date.now() / 1000));
+    refreshBoard().then(refreshChrome);
+    if (spaKind === 'claim') {
+      populateThreadsSoon();
+      toastClaim(p);
+    } else if (spaKind === 'release') {
+      populateThreadsSoon();
+    } else if (spaKind === 'done') {
+      toastDone(p);
+    }
+  });
+
+  es.addEventListener('agent_status', () => {
+    refreshClaimsAndAgents();
+  });
 
   es.addEventListener('message', (e) => {
     const d = JSON.parse(e.data);
