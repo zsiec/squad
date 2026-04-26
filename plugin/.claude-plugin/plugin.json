@@ -21,8 +21,8 @@
     "multi-agent",
     "evidence-ledger"
   ],
-  "skills": "skills/",
-  "commands": "commands/",
-  "hooks": "hooks.json",
-  "mcpServers": ".mcp.json"
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "hooks": "./hooks.json",
+  "mcpServers": "./.mcp.json"
 }
