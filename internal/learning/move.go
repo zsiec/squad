@@ -37,7 +37,10 @@ func Promote(l Learning, target State) (string, error) {
 		return "", err
 	}
 	if err := os.Remove(l.Path); err != nil {
-		return "", err
+		if rmErr := os.Remove(dst); rmErr != nil {
+			return "", fmt.Errorf("remove src %s: %w; rollback of dst %s also failed: %v", l.Path, err, dst, rmErr)
+		}
+		return "", fmt.Errorf("remove src %s (rolled back dst %s): %w", l.Path, dst, err)
 	}
 	return dst, nil
 }
