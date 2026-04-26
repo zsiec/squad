@@ -8,10 +8,13 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	_ "modernc.org/sqlite"
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 //go:embed schema.sql
@@ -52,4 +55,64 @@ func BeginImmediate(ctx context.Context, db *sql.DB) (*sql.Tx, error) {
 		return nil, fmt.Errorf("begin immediate: %w", err)
 	}
 	return tx, nil
+}
+
+const (
+	txMaxRetries     = 6
+	txInitialBackoff = 5 * time.Millisecond
+	txMaxBackoff     = 250 * time.Millisecond
+)
+
+// errBusySentinel lets tests exercise the retry loop without colluding
+// with real SQLite contention; isBusyError treats it as a busy signal.
+var errBusySentinel = errors.New("store: simulated busy")
+
+func WithTxRetry(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+	backoff := txInitialBackoff
+	var lastErr error
+	for attempt := 0; attempt < txMaxRetries; attempt++ {
+		err := func() error {
+			tx, err := db.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = tx.Rollback() }()
+			if err := fn(tx); err != nil {
+				return err
+			}
+			return tx.Commit()
+		}()
+		if err == nil {
+			return nil
+		}
+		if !isBusyError(err) {
+			return err
+		}
+		lastErr = err
+		if attempt == txMaxRetries-1 {
+			break
+		}
+		select {
+		case <-time.After(backoff):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		backoff *= 2
+		if backoff > txMaxBackoff {
+			backoff = txMaxBackoff
+		}
+	}
+	return fmt.Errorf("withTxRetry: exhausted retries: %w", lastErr)
+}
+
+func isBusyError(err error) bool {
+	if errors.Is(err, errBusySentinel) {
+		return true
+	}
+	var sErr *sqlite.Error
+	if errors.As(err, &sErr) {
+		c := sErr.Code()
+		return c == sqlite3.SQLITE_BUSY || c == sqlite3.SQLITE_LOCKED
+	}
+	return false
 }
