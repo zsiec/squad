@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CGO_ENABLED: "0"
+
 jobs:
   test:
     strategy:
@@ -14,19 +17,35 @@ jobs:
         go: ["1.25"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build ./...
 
+  cross-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - { os: linux,  arch: amd64 }
+          - { os: linux,  arch: arm64 }
+          - { os: darwin, arch: amd64 }
+          - { os: darwin, arch: arm64 }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+      - run: GOOS=${{ matrix.target.os }} GOARCH=${{ matrix.target.arch }} go build ./...
+
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25"
       - run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
