@@ -81,6 +81,25 @@ func TestItems_InitFetchesAndPopulates(t *testing.T) {
 	}
 }
 
+func TestItems_RendersR3R4Columns(t *testing.T) {
+	items := []client.Item{
+		{ID: "BUG-1", Title: "x", Status: "claimed", Epic: "auth", Parallel: true,
+			DependsOn: []string{"BUG-99"}, EvidenceRequired: []string{"test"},
+			ClaimedBy: "alice", LastTouch: 1700000000},
+	}
+	f := newFixture(t, items)
+	c := client.New(f.srv.URL, "")
+	m := NewItems(c)
+	updated, _ := m.Update(runCmd(t, m.Init()))
+	mm := updated.(ItemsModel)
+	out := mm.View()
+	for _, want := range []string{"auth", "alice"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("View missing %q: %q", want, out)
+		}
+	}
+}
+
 func TestItems_ClaimKeyHitsClaimEndpoint(t *testing.T) {
 	items := []client.Item{{ID: "BUG-1", Title: "x", Status: "open"}}
 	f := newFixture(t, items)
