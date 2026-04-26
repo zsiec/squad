@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -14,6 +15,12 @@ import (
 	"github.com/zsiec/squad/internal/hygiene"
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/store"
+)
+
+const (
+	intakeStaleCaptureThreshold    = 30 * 24 * time.Hour
+	intakeInboxOverflowThreshold   = 50
+	intakeRejectedLogSizeThreshold = 500
 )
 
 // DoctorArgs is the input for Doctor. Mirrors bootClaimContext (db + repoID +
@@ -146,6 +153,8 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			intakeFindings := checkIntake(ctx, bc.db, bc.repoID, squadDir)
+			findings = append(findings, intakeFindings...)
 			hookFindings := checkHookDrift(cmd.OutOrStdout())
 			totalFindings := len(findings) + len(hookFindings)
 			if totalFindings == 0 {
@@ -170,6 +179,18 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&strict, "strict", false,
 		"exit non-zero if any findings exist; use this in CI to fail the job")
 	return cmd
+}
+
+// checkIntake runs the three intake-health checks (stale captures, inbox
+// overflow, rejected-log size) and returns their findings. Folded into the
+// main `findings` slice so the existing print loop and strict-mode counter
+// pick them up uniformly.
+func checkIntake(ctx context.Context, db *sql.DB, repoID, squadDir string) []hygiene.Finding {
+	var all []hygiene.Finding
+	all = append(all, hygiene.CheckStaleCaptures(ctx, db, repoID, intakeStaleCaptureThreshold)...)
+	all = append(all, hygiene.CheckInboxOverflow(ctx, db, repoID, intakeInboxOverflowThreshold)...)
+	all = append(all, hygiene.CheckRejectedLogSize(squadDir, intakeRejectedLogSizeThreshold)...)
+	return all
 }
 
 // checkHookDrift inspects the on-disk hook scripts (the user can edit these,
