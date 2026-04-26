@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 )
@@ -128,9 +129,14 @@ func TestSSE_ParsesMultipleEvents(t *testing.T) {
 }
 
 func TestSSE_AddsBearerToken(t *testing.T) {
-	var gotAuth string
+	var (
+		mu      sync.Mutex
+		gotAuth string
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		gotAuth = r.Header.Get("Authorization")
+		mu.Unlock()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.(http.Flusher).Flush()
 		// keep open briefly so subscribe loop has time to read header
@@ -144,7 +150,10 @@ func TestSSE_AddsBearerToken(t *testing.T) {
 
 	_ = c.SubscribeEvents(ctx)
 	time.Sleep(200 * time.Millisecond)
-	if gotAuth != "Bearer secret" {
-		t.Fatalf("auth=%q", gotAuth)
+	mu.Lock()
+	got := gotAuth
+	mu.Unlock()
+	if got != "Bearer secret" {
+		t.Fatalf("auth=%q", got)
 	}
 }
