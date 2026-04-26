@@ -58,8 +58,7 @@ func TestE2E_ClaimFlow(t *testing.T) {
 		t.Fatalf("expected BUG-100 in items view, got %q", out)
 	}
 
-	updated, cmd := mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
-	mm = updated.(views.ItemsModel)
+	_, cmd := mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from c key")
 	}
@@ -110,8 +109,7 @@ func TestE2E_SessionMessage(t *testing.T) {
 		updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
 		mm = updated.(views.SessionModel)
 	}
-	updated, cmd := mm.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	mm = updated.(views.SessionModel)
+	_, cmd := mm.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected cmd from Enter")
 	}

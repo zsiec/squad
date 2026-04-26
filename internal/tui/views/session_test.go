@@ -96,8 +96,7 @@ func TestSession_EnterSendsMessage(t *testing.T) {
 	}
 
 	// Enter to send
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updated.(SessionModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected cmd from Enter")
 	}

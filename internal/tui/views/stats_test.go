@@ -126,8 +126,7 @@ func TestStats_WKeyCyclesWindow(t *testing.T) {
 	updated, _ = m.Update(runCmd(t, m.Init()))
 	m = updated.(StatsModel)
 	// Press w — should cycle to next window and refetch
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
-	m = updated.(StatsModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
 	if cmd == nil {
 		t.Fatal("expected cmd from w key")
 	}

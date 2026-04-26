@@ -74,8 +74,7 @@ func TestChat_ReplyKeyEmitsReplyMsg(t *testing.T) {
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = updated.(ChatModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Fatal("expected cmd from r key")
 	}
@@ -98,8 +97,7 @@ func TestChat_JumpKeyEmitsJumpToItemMsg(t *testing.T) {
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	m = updated.(ChatModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	if cmd == nil {
 		t.Fatal("expected cmd from i key")
 	}

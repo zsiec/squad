@@ -53,8 +53,7 @@ func TestAgents_EnterEmitsOpenSessionMsg(t *testing.T) {
 	m := NewAgents(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(AgentsModel)
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updated.(AgentsModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from Enter")
 	}

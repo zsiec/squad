@@ -109,8 +109,7 @@ func TestItems_ClaimKeyHitsClaimEndpoint(t *testing.T) {
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
 	// Press 'c' on first row
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
-	m = updated.(ItemsModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
 	// Run the cmd to fire the POST
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from claim key")
@@ -128,8 +127,7 @@ func TestItems_ReleaseKeyHitsReleaseEndpoint(t *testing.T) {
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
-	m = updated.(ItemsModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from release key")
 	}
@@ -146,8 +144,7 @@ func TestItems_EnterEmitsDrillInMsg(t *testing.T) {
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
-	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	m = updated.(ItemsModel)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from enter")
 	}
