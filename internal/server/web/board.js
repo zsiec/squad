@@ -13,6 +13,7 @@ const countEls = {
   'in-progress': document.getElementById('count-in-progress'),
   ready:         document.getElementById('count-ready'),
   blocked:       document.getElementById('count-blocked'),
+  done:          document.getElementById('count-done'),
 };
 
 let activeTab = 'in-progress';
@@ -127,12 +128,17 @@ function renderBoard() {
     .filter(matches)
     .sort((a, b) => (a.priority || '').localeCompare(b.priority || ''));
   const blocked = items.filter((i) => i.status === 'blocked').filter(matches);
+  const done = items
+    .filter((i) => i.status === 'done')
+    .filter(matches)
+    .sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
 
-  const buckets = { 'in-progress': inProgress, ready, blocked };
+  const buckets = { 'in-progress': inProgress, ready, blocked, done };
 
   countEls['in-progress'].textContent = inProgress.length;
   countEls.ready.textContent          = ready.length;
   countEls.blocked.textContent        = blocked.length;
+  countEls.done.textContent           = done.length;
 
   const rows = buckets[activeTab] || [];
   boardBody.innerHTML = '';
@@ -198,7 +204,12 @@ function itemRow(it, claimByItem) {
     `<td class="cell-prog">${pct ? pct + '%' : ''}</td>`;
 
   const claimCell = tr.querySelector('.cell-claim');
-  if (claim) {
+  if (it.status === 'done') {
+    const dateSpan = document.createElement('span');
+    dateSpan.className = 'claim-name';
+    dateSpan.textContent = it.updated || it.created || '—';
+    claimCell.appendChild(dateSpan);
+  } else if (claim) {
     const agentId = claim.agent_id || '';
     const pretty = displayName(agentId, claim.display_name || claim.DisplayName);
     const ico = identicon(agentId, { size: 18, name: pretty });

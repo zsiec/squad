@@ -202,7 +202,17 @@ function drawP99(canvas, sumEl, series) {
 
 function drawWIP(canvas, sumEl, series, totalAttempted) {
   sumEl.textContent = `${totalAttempted} attempted in window`;
-  if (!series.length) return;
+  if (!series.length) {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '12px ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('no violations recorded', canvas.width / 2, canvas.height / 2);
+    return;
+  }
   const cfg = {
     type: 'bar',
     data: {

@@ -83,6 +83,30 @@ func TestItems_List_IncludesClaimInfoWhenClaimed(t *testing.T) {
 	}
 }
 
+func TestItems_List_IncludesCreatedAndUpdated(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
+	req := httptest.NewRequest(http.MethodGet, "/api/items", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code=%d", rec.Code)
+	}
+	var out []map[string]any
+	_ = json.NewDecoder(rec.Body).Decode(&out)
+	if len(out) == 0 {
+		t.Fatal("expected at least one item")
+	}
+	got := out[0]
+	if got["created"] != "2026-04-25" {
+		t.Errorf("created=%v want 2026-04-25", got["created"])
+	}
+	if got["updated"] != "2026-04-25" {
+		t.Errorf("updated=%v want 2026-04-25", got["updated"])
+	}
+}
+
 func TestItems_Detail(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})

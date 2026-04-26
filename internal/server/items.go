@@ -17,6 +17,8 @@ type itemListRow struct {
 	Status           string   `json:"status"`
 	Estimate         string   `json:"estimate"`
 	Risk             string   `json:"risk"`
+	Created          string   `json:"created"`
+	Updated          string   `json:"updated"`
 	ACTotal          int      `json:"ac_total"`
 	ACChecked        int      `json:"ac_checked"`
 	Progress         int      `json:"progress_pct"`
@@ -88,6 +90,7 @@ func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
 		row := itemListRow{
 			ID: it.ID, Title: it.Title, Type: it.Type, Priority: it.Priority,
 			Area: it.Area, Status: it.Status, Estimate: it.Estimate, Risk: it.Risk,
+			Created: it.Created, Updated: it.Updated,
 			ACTotal: it.ACTotal, ACChecked: it.ACChecked, Progress: it.ProgressPct(),
 			Epic: it.Epic, DependsOn: deps, Parallel: it.Parallel, EvidenceRequired: evReq,
 		}

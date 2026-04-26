@@ -165,6 +165,13 @@ export async function openAsync() {
     overlay.querySelector('#depgraph-sub').textContent =
       `${built.stats.itemsWithEdges}/${items.length} items in graph · ${built.stats.blockEdges} blocks · ${built.stats.relEdges} relates`;
     scroll.innerHTML = '';
+    if (!built.nodes.length) {
+      scroll.innerHTML = `<div class="depgraph-empty">
+        <strong>No dependencies declared</strong>
+        Items will appear here once they reference each other via <code>blocked-by</code> or <code>relates-to</code>.
+      </div>`;
+      return;
+    }
     scroll.appendChild(renderSVG(built.nodes, built.edges, built.layers));
   } catch (err) {
     scroll.innerHTML = `<div class="depgraph-error">error: ${escapeHtml(err.message)}</div>`;
@@ -254,13 +261,29 @@ function renderSVG(nodes, edges, layers) {
 
 function edgePath(a, b, nodeW, nodeH) {
   if (!a || !b) return null;
-  const x1 = a.x + nodeW;
-  const y1 = a.y + nodeH / 2;
-  const x2 = b.x;
-  const y2 = b.y + nodeH / 2;
-  // simple cubic bezier (right-to-left arc if direction reversed)
-  const dx = Math.max(20, Math.abs(x2 - x1) / 2);
-  return `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+  if (b.x > a.x) {
+    // forward edge: right of a → left of b
+    const x1 = a.x + nodeW;
+    const y1 = a.y + nodeH / 2;
+    const x2 = b.x;
+    const y2 = b.y + nodeH / 2;
+    const dx = Math.max(20, (x2 - x1) / 2);
+    return `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+  }
+  // same-layer or backward: route bottom of a → top of b with a side bow
+  const x1 = a.x + nodeW / 2;
+  const y1 = a.y + nodeH;
+  const x2 = b.x + nodeW / 2;
+  const y2 = b.y;
+  const sameRow = Math.abs(y2 - y1) < 4;
+  if (sameRow) {
+    const yMid = y1 + 30;
+    return `M ${x1} ${y1} C ${x1} ${yMid}, ${x2} ${yMid}, ${x2} ${y2}`;
+  }
+  const sameCol = Math.abs(x2 - x1) < 4;
+  const bowX = sameCol ? nodeW / 2 + 16 : 0;
+  const dy = Math.max(16, Math.abs(y2 - y1) / 2);
+  return `M ${x1} ${y1} C ${x1+bowX} ${y1+dy}, ${x2+bowX} ${y2-dy}, ${x2} ${y2}`;
 }
 
 function appendEdge(g, d, kind) {

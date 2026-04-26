@@ -1792,9 +1792,15 @@ a.item-chip:hover {
 
 .depgraph-svg {
   display: block;
-  min-width: 100%;
-  min-height: 100%;
+  margin: 16px;
 }
+.depgraph-empty {
+  padding: 60px 40px;
+  text-align: center;
+  color: var(--fg-mute);
+  font: 12px var(--font-mono);
+}
+.depgraph-empty strong { color: var(--fg-dim); display: block; margin-bottom: 6px; }
 .depgraph-svg .node {
   cursor: pointer;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
