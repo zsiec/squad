@@ -25,4 +25,8 @@ var All = []Hook{
 	{"async-rewake", "async_rewake.sh", false, "asyncRewake background hook: wake an idle session from outside the IDE within seconds.", "Opt-in until asyncRewake's contract stabilizes; spawns one background process per session.", "asyncRewake", "*"},
 	{"pre-commit-pm-traces", "pre_commit_pm_traces.sh", false, "Block git commit if backlog IDs leak into staged diff or commit message.", "Catches PM noise pre-commit; harmless if you follow the no-PM-traces rule.", "PreToolUse", "Bash"},
 	{"pre-edit-touch-check", "pre_edit_touch_check.sh", false, "Warn (do not block) if another agent is touching the same file.", "Useful in multi-agent setups; pure noise solo.", "PreToolUse", "Edit|Write"},
+	{"stop-learning-prompt", "stop_learning_prompt.sh", false,
+		"At session end, prompt the agent to file a learning if non-trivial code changed.",
+		"Adds ~50ms to Stop. Off by default; opt in if your team finds learnings worth filing.",
+		"Stop", "*"},
 }
