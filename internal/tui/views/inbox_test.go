@@ -188,6 +188,48 @@ func TestInbox_RejectModeEnterSubmits(t *testing.T) {
 	}
 }
 
+func TestInbox_RejectModeEmptyEnterShowsErrorAndKeepsOpen(t *testing.T) {
+	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
+	f := newInboxFixture(t, entries)
+	c := client.New(f.srv.URL, "")
+	m := NewInbox(c)
+	updated, _ := m.Update(runCmd(t, m.Init()))
+	m = updated.(InboxModel)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = updated.(InboxModel)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(InboxModel)
+	if cmd != nil {
+		if msg := cmd(); msg != nil {
+			if _, ok := msg.(inboxRejectResultMsg); ok {
+				t.Fatal("empty Enter should not fire reject")
+			}
+		}
+	}
+	if !m.InReject() {
+		t.Fatal("modal should stay open after empty submit")
+	}
+	out := m.View()
+	if !strings.Contains(out, "required") {
+		t.Fatalf("expected inline error containing 'required', got %q", out)
+	}
+}
+
+func TestInbox_RejectModalRendersInView(t *testing.T) {
+	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
+	f := newInboxFixture(t, entries)
+	c := client.New(f.srv.URL, "")
+	m := NewInbox(c)
+	updated, _ := m.Update(runCmd(t, m.Init()))
+	m = updated.(InboxModel)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	m = updated.(InboxModel)
+	out := m.View()
+	if !strings.Contains(out, "Reject reason") {
+		t.Fatalf("View missing modal header 'Reject reason': %q", out)
+	}
+}
+
 func TestInbox_RejectModeEscCancels(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)

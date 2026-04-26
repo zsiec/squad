@@ -36,8 +36,7 @@ type InboxModel struct {
 	entries     []client.InboxEntry
 	err         error
 	showError   string
-	rejectInput string
-	inReject    bool
+	rejectModal *components.ReasonModal
 	rejectingID string
 }
 
@@ -64,8 +63,11 @@ func (m InboxModel) fetch() tea.Cmd {
 	}
 }
 
-func (m InboxModel) InReject() bool      { return m.inReject }
+func (m InboxModel) InReject() bool      { return m.rejectModal != nil }
 func (m InboxModel) RejectingID() string { return m.rejectingID }
+func (m InboxModel) RejectModal() *components.ReasonModal {
+	return m.rejectModal
+}
 
 func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -100,7 +102,7 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetch()
 
 	case tea.KeyMsg:
-		if m.inReject {
+		if m.rejectModal != nil {
 			return m.updateReject(msg)
 		}
 		switch msg.String() {
@@ -116,9 +118,9 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if id == "" {
 				return m, nil
 			}
-			m.inReject = true
+			modal := components.NewReasonModal()
+			m.rejectModal = &modal
 			m.rejectingID = id
-			m.rejectInput = ""
 			m.showError = ""
 			return m, nil
 		case "e":
@@ -147,28 +149,17 @@ func (m InboxModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m InboxModel) updateReject(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.Type {
-	case tea.KeyEsc:
-		m.inReject = false
-		m.rejectInput = ""
-		m.rejectingID = ""
-		return m, nil
-	case tea.KeyEnter:
-		id, reason := m.rejectingID, m.rejectInput
-		m.inReject = false
-		m.rejectInput = ""
+	updated, _ := m.rejectModal.Update(msg)
+	m.rejectModal = &updated
+	if updated.Submitted() {
+		id, reason := m.rejectingID, updated.Value()
+		m.rejectModal = nil
 		m.rejectingID = ""
 		return m, m.rejectCmd(id, reason)
-	case tea.KeyBackspace:
-		if len(m.rejectInput) > 0 {
-			m.rejectInput = m.rejectInput[:len(m.rejectInput)-1]
-		}
-		return m, nil
-	case tea.KeyRunes:
-		m.rejectInput += string(msg.Runes)
-		return m, nil
-	case tea.KeySpace:
-		m.rejectInput += " "
+	}
+	if updated.Cancelled() {
+		m.rejectModal = nil
+		m.rejectingID = ""
 		return m, nil
 	}
 	return m, nil
@@ -182,8 +173,8 @@ func (m InboxModel) View() string {
 		return "loading..."
 	}
 	out := m.table.View()
-	if m.inReject {
-		out += "\nreject reason: " + m.rejectInput + "_"
+	if m.rejectModal != nil {
+		out += "\n" + m.rejectModal.View()
 		out += "\n(Enter=submit  Esc=cancel)"
 	}
 	if m.showError != "" {
