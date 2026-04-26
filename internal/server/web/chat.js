@@ -116,6 +116,13 @@ threadSelect.addEventListener('change', refreshMessages);
 
 attachMentionAutocomplete(composeInput, () => agentsProvider());
 
+const composeError = document.createElement('div');
+composeError.className = 'compose-error';
+composeError.hidden = true;
+composeError.setAttribute('role', 'alert');
+composeForm.insertAdjacentElement('afterend', composeError);
+composeInput.addEventListener('input', () => { composeError.hidden = true; });
+
 composeForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const body = composeInput.value.trim();
@@ -123,9 +130,11 @@ composeForm.addEventListener('submit', async (e) => {
   try {
     await postJSON('/api/messages', { thread: threadSelect.value, body });
     composeInput.value = '';
-    // keep focus for quick back-to-back messages
+    composeError.hidden = true;
     composeInput.focus();
   } catch (err) {
-    console.warn('send failed:', err);
+    composeError.textContent = 'send failed: ' + (err.message || String(err));
+    composeError.hidden = false;
+    composeInput.focus();
   }
 });

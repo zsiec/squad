@@ -38,4 +38,38 @@ This is the only place a human user produces data through the dashboard. Silent 
 Found during a parallel exploration sweep on 2026-04-26. Surface change should be minimal — likely 10–20 lines in `chat.js` plus a small CSS rule.
 
 ## Resolution
-(Filled in when status → done.)
+
+### Fix
+
+`internal/server/web/chat.js` — append a `<div class="compose-error">` after the form. On send failure: set its text to `send failed: <message>` and reveal; refocus input. On success: hide it. On user typing in the input: hide it (so a stale error doesn't linger while the user retries). Input value is preserved on failure (existing behavior — the success-path clear sits after the awaited POST so it never runs on throw).
+
+`internal/server/web/style.css` — `.compose-error` rule with red text on a faint `--danger` tint.
+
+### Reproduction / evidence
+
+Playwright with route-stub on `POST /api/messages` → 500:
+
+```
+state after failed send: {
+  "inputValue": "this should fail",
+  "errVisible": true,
+  "errText": "send failed: /api/messages: 500 — simulated server error"
+}
+still visible after input? false
+```
+
+Screenshot at `/tmp/browser-test/chat-error.png` shows the red banner under the compose box with the message preserved.
+
+### AC verification
+
+- [x] Input retains the unsent message on failure.
+- [x] Inline error appears next to the compose box with actionable detail.
+- [x] Success path clears the input as before.
+- [x] No regression in success path — Enter still posts; focus is preserved on both paths.
+
+### Evidence
+
+```
+$ go test ./...
+... (all packages ok)
+```

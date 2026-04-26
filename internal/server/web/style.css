@@ -875,6 +875,14 @@ details.body-section summary:hover { color: var(--fg); }
   font: 13px var(--font-sans);
 }
 .compose input:focus { outline: none; border-color: var(--accent-dim); }
+.compose-error {
+  padding: 6px 10px 8px;
+  font: 11px var(--font-mono);
+  color: var(--danger);
+  border-top: 1px solid var(--divider);
+  background: rgba(216, 80, 80, 0.06);
+}
+.compose-error[hidden] { display: none; }
 .btn-send {
   padding: 8px 14px;
   background: transparent;
