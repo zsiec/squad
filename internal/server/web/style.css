@@ -2338,6 +2338,7 @@ a.item-chip:hover {
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   overflow-y: auto;
+  position: relative;
 }
 .nav-sidebar[hidden] { display: none; }
 .workspace:has(.nav-sidebar:not([hidden])) { grid-template-columns: 280px 240px 1fr 320px; }
@@ -2434,6 +2435,7 @@ a.item-chip:hover {
   padding: 0;
   overflow-y: auto;
 }
+.nav-detail[hidden] { display: none; }
 .nav-detail-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 12px;
