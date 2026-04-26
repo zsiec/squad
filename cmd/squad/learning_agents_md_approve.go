@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/learning"
 	"github.com/zsiec/squad/internal/repo"
 )
 
@@ -45,7 +46,7 @@ func newLearningAgentsMdApproveCmd() *cobra.Command {
 			if err := os.MkdirAll(filepath.Dir(applied), 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(applied, rewriteState(body, "applied"), 0o644); err != nil {
+			if err := os.WriteFile(applied, learning.RewriteState(body, learning.State("applied")), 0o644); err != nil {
 				return err
 			}
 			if err := os.Remove(proposed); err != nil {
@@ -63,10 +64,6 @@ func extractDiff(body []byte) string {
 		return ""
 	}
 	return string(m[1])
-}
-
-func rewriteState(body []byte, target string) []byte {
-	return regexp.MustCompile(`(?m)^state:[^\n]*$`).ReplaceAll(body, []byte("state: "+target))
 }
 
 func gitApply(repoRoot, diff string, stderr io.Writer) error {

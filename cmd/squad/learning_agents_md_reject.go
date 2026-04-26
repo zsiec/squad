@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/learning"
 	"github.com/zsiec/squad/internal/repo"
 )
 
@@ -33,7 +34,7 @@ func newLearningAgentsMdRejectCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("read proposal: %w", err)
 			}
-			rewritten := rewriteState(body, "rejected")
+			rewritten := learning.RewriteState(body, learning.State("rejected"))
 			footer := fmt.Sprintf("\n\n## Rejection note (%s)\n\n%s\n",
 				time.Now().UTC().Format("2006-01-02"), strings.TrimSpace(reason))
 			rewritten = append(rewritten, []byte(footer)...)

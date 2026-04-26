@@ -9,6 +9,13 @@ import (
 
 var stateLineRe = regexp.MustCompile(`(?m)^state:[^\n]*$`)
 
+// RewriteState replaces the frontmatter state: line with "state: <target>".
+// Used by Promote and by AGENTS.md proposal commands that move proposals
+// between agents-md/{proposed,applied,rejected}/ outside the Promote path.
+func RewriteState(body []byte, target State) []byte {
+	return stateLineRe.ReplaceAll(body, []byte("state: "+string(target)))
+}
+
 // Promote moves a learning to a new state directory and rewrites its
 // frontmatter state: line atomically (write to .tmp, rename).
 func Promote(l Learning, target State) (string, error) {
@@ -27,7 +34,7 @@ func Promote(l Learning, target State) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rewritten := stateLineRe.ReplaceAll(body, []byte("state: "+string(target)))
+	rewritten := RewriteState(body, target)
 	tmp := dst + ".tmp"
 	if err := os.WriteFile(tmp, rewritten, 0o644); err != nil {
 		return "", err
