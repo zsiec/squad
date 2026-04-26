@@ -210,9 +210,19 @@ async function probeAuth() {
   }
 }
 
+let currentES = null;
+function disconnectSSE() {
+  if (currentES) {
+    try { currentES.close(); } catch {}
+    currentES = null;
+  }
+}
+
 function connectSSE() {
+  if (currentES) return;
   const url = '/api/events' + (token ? '?token=' + encodeURIComponent(token) : '');
   const es = new EventSource(url);
+  currentES = es;
   setConn('connecting');
 
   es.onopen = () => setConn('connected');
@@ -322,3 +332,9 @@ function populateThreadsSoon() {
 }
 
 connectSSE();
+
+window.addEventListener('beforeunload', disconnectSSE);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') disconnectSSE();
+  else connectSSE();
+});

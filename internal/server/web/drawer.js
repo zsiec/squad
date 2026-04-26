@@ -66,6 +66,17 @@ closeBtn.addEventListener('click', () => {
   state.onClose?.(id);
 });
 
+// Delegated click handler — drawerBody.innerHTML gets replaced on every
+// open/refresh, so per-node listeners would re-bind on every render.
+// Bind once on the stable parent and route by data-id.
+drawerBody.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-id]');
+  if (!chip || !drawerBody.contains(chip)) return;
+  if (chip.matches('.dep-chip, .similar-row')) {
+    openItem(chip.dataset.id);
+  }
+});
+
 if (copyMdBtn) {
   copyMdBtn.addEventListener('click', async () => {
     if (!loadedItem) return;
@@ -156,12 +167,7 @@ function renderDrawer(it, activity) {
     });
   });
 
-  // wire deps
-  drawerBody.querySelectorAll('.dep-chip').forEach((c) => {
-    c.addEventListener('click', () => openItem(c.dataset.id));
-  });
-
-  // wire mutation buttons
+  // dep-chip clicks delegated on drawerBody (see top of file)
   wireItemActions(drawerBody, it);
 
   // lazy-load evidence list once the section is mounted
@@ -170,10 +176,7 @@ function renderDrawer(it, activity) {
   // lazy-load PR + commit links — done items only
   if (it.status === 'done') loadCodeLinks(it.id, drawerBody);
 
-  // wire similar-row clicks
-  drawerBody.querySelectorAll('.similar-row').forEach((r) => {
-    r.addEventListener('click', () => openItem(r.dataset.id));
-  });
+  // similar-row clicks delegated on drawerBody (see top of file)
 
   // async: annotate references with hotness (how many LIVE agents currently hold each file)
   annotateReferenceHotness(drawerBody);
