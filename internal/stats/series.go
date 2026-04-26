@@ -38,7 +38,7 @@ func loadVerifySeries(ctx context.Context, db *sql.DB, repoID string, since, unt
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)
 		GROUP BY bucket ORDER BY bucket`, repoID, since, until, until)
 	if err != nil {
-		return nil // schema mismatch is not fatal; series stays empty
+		return err
 	}
 	defer rows.Close()
 	for rows.Next() {
