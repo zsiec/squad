@@ -37,7 +37,7 @@ func TestRunAsk_StoresAskKindAndMention(t *testing.T) {
 
 func TestRunAnswer_PrependsReRef(t *testing.T) {
 	f := newChatFixture(t)
-	if code := runSayBody(context.Background(), f.chat, f.agentID, sayArgs{Body: "first ask"}, &bytes.Buffer{}); code != 0 {
+	if code := runSayBody(context.Background(), f.chat, f.agentID, sayCmdFlags{Body: "first ask"}, &bytes.Buffer{}); code != 0 {
 		t.Fatalf("setup say exit=%d", code)
 	}
 	if code := runAnswerBody(context.Background(), f.chat, f.agentID, []string{"1", "my", "reply"}); code != 0 {
