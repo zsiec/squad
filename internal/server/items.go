@@ -68,9 +68,13 @@ func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
 	rows.Close()
 
 	statusFilter := r.URL.Query().Get("status")
+	epicFilter := r.URL.Query().Get("epic")
 	out := make([]itemListRow, 0, len(all))
 	for _, it := range all {
 		if statusFilter != "" && it.Status != statusFilter {
+			continue
+		}
+		if epicFilter != "" && it.Epic != epicFilter {
 			continue
 		}
 		deps := it.DependsOn

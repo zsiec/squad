@@ -67,7 +67,7 @@ export function itemsSnapshot()  { return cached.items; }
 export function agentsSnapshot() { return cached.agents; }
 export function cacheSnapshot()  { return cached; }
 
-let filter = { q: '', area: '', type: '', priority: '', view: '' };
+let filter = { q: '', area: '', type: '', priority: '', view: '', epic: '' };
 let meAgentId = '';
 export function setMeAgentId(id) { meAgentId = id; }
 export function setFilter(partial) {
@@ -95,6 +95,7 @@ function renderBoard() {
     if (filter.area && it.area !== filter.area) return false;
     if (filter.type && it.type !== filter.type) return false;
     if (filter.priority && it.priority !== filter.priority) return false;
+    if (filter.epic && (it.epic || '') !== filter.epic) return false;
     if (filter.view === 'mine') {
       const c = claimByItem.get(it.id);
       if (!c || c.agent_id !== meAgentId) return false;

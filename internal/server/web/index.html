@@ -36,6 +36,15 @@
         <span class="topbar-btn-icon">⬡</span>
         <span class="topbar-btn-label">GRAPH</span>
       </button>
+      <button id="nav-toggle-btn" class="topbar-btn" title="Toggle navigation">
+        <span class="topbar-btn-icon">☰</span>
+        <span class="topbar-btn-label">NAV</span>
+      </button>
+      <button id="inbox-btn" class="topbar-btn" title="Inbox">
+        <span class="topbar-btn-icon">📥</span>
+        <span class="topbar-btn-label">INBOX</span>
+        <span id="inbox-count" class="topbar-btn-count" hidden>0</span>
+      </button>
       <span id="palette-trigger" class="palette-trigger" title="Search (⌘K)">
         <kbd>⌘</kbd><kbd>K</kbd>
       </span>
@@ -45,6 +54,15 @@
   </header>
 
   <main class="workspace" data-drawer="closed">
+    <!-- Navigation sidebar (specs/epics/items hierarchy) -->
+    <aside class="nav-sidebar" id="nav-sidebar" hidden>
+      <div class="nav-header">
+        <h2>Navigation</h2>
+        <button class="icon-btn" id="nav-close" aria-label="Close">✕</button>
+      </div>
+      <div class="nav-tree" id="nav-tree"></div>
+      <div class="nav-detail" id="nav-detail" hidden></div>
+    </aside>
     <!-- Left rail: agents -->
     <aside class="rail rail-agents">
       <div class="rail-header">

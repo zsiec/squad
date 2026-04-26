@@ -13,6 +13,8 @@ import { initInsights, open as openInsights } from './insights.js';
 import { initDepGraph, openAsync as openDepGraph } from './depgraph.js';
 import { initSavedViews } from './savedviews.js';
 import { openNewItemModal, setOnMutated as setOnActionMutated } from './actions.js';
+import { initSidebar } from './sidebar.js';
+import { initInbox, refreshCount as refreshInboxCount } from './inbox.js';
 
 // clock
 clock(document.getElementById('clock'));
@@ -56,6 +58,8 @@ document.getElementById('palette-trigger')?.addEventListener('click', openPalett
 document.getElementById('insights-btn')?.addEventListener('click', openInsights);
 document.getElementById('depgraph-btn')?.addEventListener('click', openDepGraph);
 document.getElementById('new-item-btn')?.addEventListener('click', openNewItemModal);
+initSidebar({ onItem: (id) => { openItem(id); setSelected(id); } });
+initInbox({ onChange: () => { refreshBoard().then(refreshChrome); } });
 
 // after any item mutation: refresh board + drawer; optionally open the new item.
 setOnActionMutated(async (id, opts) => {
@@ -228,6 +232,10 @@ function connectSSE() {
 
   es.addEventListener('agent_status', () => {
     refreshClaimsAndAgents();
+  });
+
+  es.addEventListener('inbox_changed', () => {
+    refreshInboxCount();
   });
 
   es.addEventListener('message', (e) => {
