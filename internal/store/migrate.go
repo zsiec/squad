@@ -165,11 +165,11 @@ func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
 		{2, "items_extras"},
 		{3, "subagent_events"},
 	}
-	nowTs := time.Now().Unix()
+	nowTS := time.Now().Unix()
 	for _, l := range legacy {
 		if _, err := db.ExecContext(ctx,
 			`INSERT OR IGNORE INTO migration_versions (version, name, applied_at) VALUES (?, ?, ?)`,
-			l.version, "legacy-"+l.name, nowTs); err != nil {
+			l.version, "legacy-"+l.name, nowTS); err != nil {
 			return err
 		}
 	}

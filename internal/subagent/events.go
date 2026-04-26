@@ -33,7 +33,7 @@ func New(db *sql.DB, repoID string, now func() time.Time) *Recorder {
 }
 
 func (r *Recorder) Record(ctx context.Context, e Event) error {
-	nowTs := r.now().Unix()
+	nowTS := r.now().Unix()
 	return store.WithTxRetry(ctx, r.db, func(tx *sql.Tx) error {
 		var present int
 		err := tx.QueryRowContext(ctx, `SELECT 1 FROM agents WHERE id = ?`, e.AgentID).Scan(&present)
@@ -46,7 +46,7 @@ func (r *Recorder) Record(ctx context.Context, e Event) error {
 
 		var duration sql.NullInt64
 		if pair := pairEvent(e.EventName); pair != "" {
-			var startTs int64
+			var startTS int64
 			err := tx.QueryRowContext(ctx, `
                 SELECT ts FROM subagent_events s
                 WHERE s.subagent_id = ? AND s.event = ?
@@ -55,9 +55,9 @@ func (r *Recorder) Record(ctx context.Context, e Event) error {
                     WHERE e.subagent_id = s.subagent_id AND e.event = ? AND e.id > s.id
                   )
                 ORDER BY s.id DESC LIMIT 1`,
-				e.SubagentID, pair, e.EventName).Scan(&startTs)
+				e.SubagentID, pair, e.EventName).Scan(&startTS)
 			if err == nil {
-				duration = sql.NullInt64{Int64: (nowTs - startTs) * 1000, Valid: true}
+				duration = sql.NullInt64{Int64: (nowTS - startTS) * 1000, Valid: true}
 			}
 		}
 
@@ -68,12 +68,12 @@ func (r *Recorder) Record(ctx context.Context, e Event) error {
 		if _, err := tx.ExecContext(ctx, `
             INSERT INTO subagent_events (repo_id, agent_id, subagent_id, subagent_type, event, ts, duration_ms)
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			r.repoID, e.AgentID, e.SubagentID, subType, e.EventName, nowTs, duration); err != nil {
+			r.repoID, e.AgentID, e.SubagentID, subType, e.EventName, nowTS, duration); err != nil {
 			return err
 		}
 
 		_, err = tx.ExecContext(ctx,
-			`UPDATE agents SET last_tick_at = ? WHERE id = ?`, nowTs, e.AgentID)
+			`UPDATE agents SET last_tick_at = ? WHERE id = ?`, nowTS, e.AgentID)
 		return err
 	})
 }
