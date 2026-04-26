@@ -37,3 +37,5 @@ Both paths converge. `squad go` is idempotent — first run inits `.squad/` and 
 - **Lookup** for commands, config, hooks, skills, slash commands, and the DB schema: [reference/](reference/).
 - **Snag?** [troubleshooting.md](troubleshooting.md).
 - **Contribute?** [contributing.md](contributing.md).
+- **Comparing to agent-teams?** [concepts/squad-vs-agent-teams.md](concepts/squad-vs-agent-teams.md).
+- **Migrating from agent-teams?** [recipes/migrating-from-agent-teams.md](recipes/migrating-from-agent-teams.md).
