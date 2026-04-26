@@ -48,6 +48,7 @@ func PersistOne(ctx context.Context, tx *sql.Tx, repoID string, it Item, archive
 	if err != nil {
 		return err
 	}
+	// json.Marshal returns "null" for a nil slice; coerce to "[]" so json_each works on the column.
 	if len(it.ConflictsWith) == 0 {
 		confJSON = []byte("[]")
 	}
