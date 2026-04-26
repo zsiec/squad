@@ -87,6 +87,47 @@ func runE2ECmd(t *testing.T, cmd tea.Cmd) tea.Msg {
 	return cmd()
 }
 
+func TestE2E_SessionMessage(t *testing.T) {
+	ts, db := e2eFixture(t)
+	c := client.New(ts.URL, "")
+
+	// Pre-seed an agent row so the whoami response is non-empty.
+	now := time.Now().Unix()
+	if _, err := db.Exec(`INSERT INTO agents (id, repo_id, display_name, worktree, pid, started_at, last_tick_at, status) VALUES ('agent-tui', ?, 'me', '/tmp/wt', 1, ?, ?, 'active')`,
+		e2eRepoID, now, now); err != nil {
+		t.Fatal(err)
+	}
+
+	// Thread must be 'global' or PREFIX-NUMBER (server-side regex). Use
+	// BUG-100 as a stand-in target — the session view doesn't care that
+	// the target is an item rather than an agent for messaging purposes.
+	const target = "BUG-100"
+	m := views.NewSession(c, target)
+	updated, _ := m.Update(runE2ECmd(t, m.Init()))
+	mm := updated.(views.SessionModel)
+
+	for _, r := range "ping" {
+		updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		mm = updated.(views.SessionModel)
+	}
+	updated, cmd := mm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	mm = updated.(views.SessionModel)
+	if cmd == nil {
+		t.Fatal("expected cmd from Enter")
+	}
+	// Run the send. Result msg is unexported (sessionSendOKMsg); the
+	// canonical evidence the POST landed is the messages-table row.
+	_ = cmd()
+
+	var body, thread, kind string
+	if err := db.QueryRow(`SELECT body, thread, kind FROM messages ORDER BY id DESC LIMIT 1`).Scan(&body, &thread, &kind); err != nil {
+		t.Fatal(err)
+	}
+	if body != "ping" || thread != target || kind != "say" {
+		t.Errorf("got body=%q thread=%q kind=%q want ping/%s/say", body, thread, kind, target)
+	}
+}
+
 // suppress unused imports in case future test variants drop them.
 var _ = context.Background
 var _ = time.Second
