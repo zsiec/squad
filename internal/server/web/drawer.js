@@ -214,7 +214,7 @@ function renderDrawer(it, activity) {
     const msg = input.value.trim();
     if (!msg) return;
     try {
-      await postJSON('/api/say', { thread: e.target.dataset.thread, body: msg });
+      await postJSON('/api/messages', { thread: e.target.dataset.thread, body: msg });
       input.value = '';
       input.focus();
     } catch (err) {

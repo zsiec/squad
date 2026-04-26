@@ -121,7 +121,7 @@ composeForm.addEventListener('submit', async (e) => {
   const body = composeInput.value.trim();
   if (!body) return;
   try {
-    await postJSON('/api/say', { thread: threadSelect.value, body });
+    await postJSON('/api/messages', { thread: threadSelect.value, body });
     composeInput.value = '';
     // keep focus for quick back-to-back messages
     composeInput.focus();
