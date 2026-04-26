@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/store"
@@ -249,5 +250,36 @@ func TestClaim_RecordsConflictsWithAsTouches(t *testing.T) {
 	want := []string{"internal/auth/login.go", "internal/auth/session.go"}
 	if !reflect.DeepEqual(paths, want) {
 		t.Errorf("paths=%v want %v", paths, want)
+	}
+}
+
+// Two repos sharing one global DB must be able to independently claim the
+// same item_id (e.g. every repo's seeded EXAMPLE-001). The claims PK is
+// (repo_id, item_id), not item_id alone.
+func TestClaim_SameItemIDInDifferentRepos(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "global.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	now := func() time.Time { return time.Date(2026, 4, 26, 12, 0, 0, 0, time.UTC) }
+	repoA := New(db, "repo-A", now)
+	repoB := New(db, "repo-B", now)
+
+	ctx := context.Background()
+	if err := repoA.Claim(ctx, "EXAMPLE-001", "agent-1", "trying the loop", nil, false); err != nil {
+		t.Fatalf("repo-A claim: %v", err)
+	}
+	if err := repoB.Claim(ctx, "EXAMPLE-001", "agent-2", "trying the loop", nil, false); err != nil {
+		t.Fatalf("repo-B claim: %v", err)
+	}
+
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM claims WHERE item_id = 'EXAMPLE-001'`).Scan(&n); err != nil {
+		t.Fatalf("count claims: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("want 2 claim rows for EXAMPLE-001, got %d", n)
 	}
 }

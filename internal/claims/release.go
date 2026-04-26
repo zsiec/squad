@@ -21,7 +21,7 @@ func (s *Store) releaseInTx(ctx context.Context, tx *sql.Tx, itemID, agentID, ou
 
 	var holder string
 	var claimedAt int64
-	row := tx.QueryRowContext(ctx, `SELECT agent_id, claimed_at FROM claims WHERE item_id=?`, itemID)
+	row := tx.QueryRowContext(ctx, `SELECT agent_id, claimed_at FROM claims WHERE repo_id=? AND item_id=?`, s.repoID, itemID)
 	if err := row.Scan(&holder, &claimedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotClaimed
@@ -38,7 +38,7 @@ func (s *Store) releaseInTx(ctx context.Context, tx *sql.Tx, itemID, agentID, ou
 	`, s.repoID, itemID, agentID, claimedAt, now, outcome); err != nil {
 		return fmt.Errorf("history insert: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM claims WHERE item_id=?`, itemID); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM claims WHERE repo_id=? AND item_id=?`, s.repoID, itemID); err != nil {
 		return fmt.Errorf("delete claim: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -68,7 +68,7 @@ func (s *Store) ReleaseAllCount(ctx context.Context, agentID, outcome string) (i
 	if outcome == "" {
 		outcome = "released"
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT item_id FROM claims WHERE agent_id = ?`, agentID)
+	rows, err := s.db.QueryContext(ctx, `SELECT item_id FROM claims WHERE repo_id = ? AND agent_id = ?`, s.repoID, agentID)
 	if err != nil {
 		return 0, fmt.Errorf("list claims: %w", err)
 	}

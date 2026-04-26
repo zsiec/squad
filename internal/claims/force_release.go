@@ -13,7 +13,7 @@ func (s *Store) ForceRelease(ctx context.Context, itemID, byAgent, reason string
 	}
 	err = s.withTx(ctx, func(tx *sql.Tx) error {
 		var claimedAt int64
-		row := tx.QueryRowContext(ctx, `SELECT agent_id, claimed_at FROM claims WHERE item_id=?`, itemID)
+		row := tx.QueryRowContext(ctx, `SELECT agent_id, claimed_at FROM claims WHERE repo_id=? AND item_id=?`, s.repoID, itemID)
 		if scanErr := row.Scan(&priorHolder, &claimedAt); scanErr != nil {
 			if errors.Is(scanErr, sql.ErrNoRows) {
 				return ErrNotClaimed
@@ -27,7 +27,7 @@ func (s *Store) ForceRelease(ctx context.Context, itemID, byAgent, reason string
 		`, s.repoID, itemID, priorHolder, claimedAt, now); err != nil {
 			return fmt.Errorf("history: %w", err)
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM claims WHERE item_id=?`, itemID); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM claims WHERE repo_id=? AND item_id=?`, s.repoID, itemID); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, `

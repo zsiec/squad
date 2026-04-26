@@ -71,7 +71,7 @@ func (c *Chat) Digest(ctx context.Context, agentID string) (Digest, error) {
 	}
 
 	rows, err := c.db.QueryContext(ctx,
-		`SELECT item_id FROM claims WHERE agent_id = ?`, agentID)
+		`SELECT item_id FROM claims WHERE repo_id = ? AND agent_id = ?`, c.repoID, agentID)
 	if err != nil {
 		return dg, err
 	}
