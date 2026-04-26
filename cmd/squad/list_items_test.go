@@ -101,7 +101,7 @@ func TestListItems_DefaultLimitCappedAt200(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItems: %v", err)
 	}
-	if rows == nil {
-		// empty dir is fine; we just want no panic and no error
+	if len(rows) != 0 {
+		t.Fatalf("empty dir produced %d rows", len(rows))
 	}
 }
