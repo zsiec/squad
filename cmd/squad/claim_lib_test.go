@@ -98,3 +98,40 @@ func TestClaim_PureRejectsConcurrencyCap(t *testing.T) {
 		t.Fatalf("unexpected fields: %+v", cap)
 	}
 }
+
+func TestClaim_PureRejectsConcurrencyCapRecordsWIPViolation(t *testing.T) {
+	env := newTestEnv(t)
+	writeMinimalItem(t, env.ItemsDir, "BUG-204")
+	writeMinimalItem(t, env.ItemsDir, "BUG-205")
+
+	if _, err := Claim(context.Background(), ClaimArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID:   "BUG-204",
+		ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+		ConcurrencyCap: 1,
+	}); err != nil {
+		t.Fatalf("first Claim: %v", err)
+	}
+
+	_, err := Claim(context.Background(), ClaimArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID:   "BUG-205",
+		ItemsDir: env.ItemsDir, DoneDir: env.DoneDir,
+		ConcurrencyCap: 1,
+	})
+	var capErr *ConcurrencyExceededError
+	if !errors.As(err, &capErr) {
+		t.Fatalf("err=%v want *ConcurrencyExceededError", err)
+	}
+
+	var n int64
+	if err := env.DB.QueryRow(
+		`SELECT COUNT(*) FROM wip_violations WHERE repo_id = ? AND agent_id = ?`,
+		env.RepoID, env.AgentID,
+	).Scan(&n); err != nil {
+		t.Fatalf("count wip_violations: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("got %d wip_violations rows, want 1", n)
+	}
+}

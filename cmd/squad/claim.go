@@ -14,6 +14,7 @@ import (
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/repo"
+	"github.com/zsiec/squad/internal/stats"
 )
 
 // ConcurrencyExceededError signals the agent has already met or exceeded its
@@ -72,6 +73,7 @@ func Claim(ctx context.Context, args ClaimArgs) (*ClaimResult, error) {
 		if err := args.DB.QueryRowContext(ctx,
 			`SELECT COUNT(*) FROM claims WHERE agent_id = ? AND repo_id = ?`,
 			args.AgentID, args.RepoID).Scan(&n); err == nil && n >= args.ConcurrencyCap {
+			_ = stats.RecordWIPViolation(ctx, args.DB, args.RepoID, args.AgentID, int64(n), int64(args.ConcurrencyCap))
 			return nil, &ConcurrencyExceededError{
 				AgentID: args.AgentID,
 				Held:    n,

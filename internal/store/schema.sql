@@ -159,3 +159,14 @@ CREATE INDEX IF NOT EXISTS idx_attestations_item ON attestations(repo_id, item_i
 CREATE INDEX IF NOT EXISTS idx_attestations_kind ON attestations(repo_id, item_id, kind);
 DROP INDEX IF EXISTS idx_attestations_dedup;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_attestations_dedup ON attestations(repo_id, item_id, kind, output_hash);
+
+CREATE TABLE IF NOT EXISTS wip_violations (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id         TEXT NOT NULL,
+  agent_id        TEXT NOT NULL,
+  attempted_at    INTEGER NOT NULL,
+  held_at_attempt INTEGER NOT NULL,
+  cap_at_attempt  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wip_violations_repo_ts  ON wip_violations(repo_id, attempted_at);
+CREATE INDEX IF NOT EXISTS idx_wip_violations_agent_ts ON wip_violations(agent_id, attempted_at);
