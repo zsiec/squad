@@ -34,6 +34,7 @@ type Server struct {
 	rl          map[string][]time.Time
 	pump        *messagesPump
 	claimsPump  *claimsPump
+	agentsPump  *agentsPump
 }
 
 func New(db *sql.DB, repoID string, cfg Config) *Server {
@@ -61,6 +62,8 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 	s.pump.start()
 	s.claimsPump = newClaimsPump(db, repoID, c.Bus())
 	s.claimsPump.start()
+	s.agentsPump = newAgentsPump(db, repoID, c.Bus())
+	s.agentsPump.start()
 	return s
 }
 
@@ -72,6 +75,9 @@ func (s *Server) Close() {
 	}
 	if s.claimsPump != nil {
 		s.claimsPump.stop()
+	}
+	if s.agentsPump != nil {
+		s.agentsPump.stop()
 	}
 }
 
