@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -223,5 +224,164 @@ func TestWorkspaceStatus(t *testing.T) {
 	}
 	if *gotURL != "/api/workspace/status" {
 		t.Fatalf("url=%q", *gotURL)
+	}
+}
+
+func TestClaim_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	var gotMethod string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		gotMethod = r.Method
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.Claim(context.Background(), "BUG-100", &ClaimReq{Intent: "fixing", Long: false}); err != nil {
+		t.Fatal(err)
+	}
+	if gotMethod != "POST" || gotURL != "/api/items/BUG-100/claim" {
+		t.Fatalf("method=%s url=%q", gotMethod, gotURL)
+	}
+	if gotBody["intent"] != "fixing" {
+		t.Fatalf("body=%v", gotBody)
+	}
+}
+
+func TestRelease_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.Release(context.Background(), "BUG-100", "released"); err != nil {
+		t.Fatal(err)
+	}
+	if gotURL != "/api/items/BUG-100/release" {
+		t.Fatalf("url=%q", gotURL)
+	}
+}
+
+func TestDone_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.Done(context.Background(), "BUG-100", true); err != nil {
+		t.Fatal(err)
+	}
+	if gotURL != "/api/items/BUG-100/done" {
+		t.Fatalf("url=%q", gotURL)
+	}
+	if gotBody["evidence_force"] != true {
+		t.Fatalf("body=%v", gotBody)
+	}
+}
+
+func TestBlocked_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.Blocked(context.Background(), "BUG-100", "waiting on infra"); err != nil {
+		t.Fatal(err)
+	}
+	if gotURL != "/api/items/BUG-100/blocked" {
+		t.Fatalf("url=%q", gotURL)
+	}
+	if gotBody["reason"] != "waiting on infra" {
+		t.Fatalf("body=%v", gotBody)
+	}
+}
+
+func TestHandoff_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.Handoff(context.Background(), "BUG-100", &HandoffReq{To: "agent-other", Summary: "ctx for next"}); err != nil {
+		t.Fatal(err)
+	}
+	if gotURL != "/api/items/BUG-100/handoff" {
+		t.Fatalf("url=%q", gotURL)
+	}
+	if gotBody["to"] != "agent-other" {
+		t.Fatalf("body=%v", gotBody)
+	}
+}
+
+func TestTouch_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.Touch(context.Background(), "BUG-100"); err != nil {
+		t.Fatal(err)
+	}
+	if gotURL != "/api/items/BUG-100/touch" {
+		t.Fatalf("url=%q", gotURL)
+	}
+}
+
+func TestForceRelease_HitsCorrectURL(t *testing.T) {
+	var gotURL string
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotURL = r.URL.RequestURI()
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"ok":true,"prior_holder":"agent-old"}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	resp, err := c.ForceRelease(context.Background(), "BUG-100", "stale")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotURL != "/api/items/BUG-100/force-release" {
+		t.Fatalf("url=%q", gotURL)
+	}
+	if gotBody["reason"] != "stale" {
+		t.Fatalf("body=%v", gotBody)
+	}
+	if resp.PriorHolder != "agent-old" {
+		t.Fatalf("prior_holder=%q", resp.PriorHolder)
+	}
+}
+
+func TestPostMessage_PassesKind(t *testing.T) {
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	if err := c.PostMessage(context.Background(), &PostMessageReq{Thread: "BUG-100", Body: "?", Kind: "ask"}); err != nil {
+		t.Fatal(err)
+	}
+	if gotBody["kind"] != "ask" {
+		t.Fatalf("kind=%v", gotBody["kind"])
 	}
 }
