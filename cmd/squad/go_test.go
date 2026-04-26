@@ -148,6 +148,74 @@ func TestGoCmd_RegistersAgentWhenAbsent(t *testing.T) {
 	}
 }
 
+// Regression: the SessionStart plugin hook calls
+// `squad register --no-repo-check`, which writes the agent row with
+// repo_id="_unscoped". The dashboard filters /api/agents by repo_id and
+// excludes those rows, so the AGENTS panel showed 0 agents even after
+// `squad go` was invoked. `squad go` must upgrade an existing _unscoped
+// row to the discovered repo's id.
+func TestGoCmd_UpgradesUnscopedAgentFromHookRegistration(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-go-upgrade-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+
+	initCmd := newInitCmd()
+	initCmd.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := initCmd.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	t.Chdir(repoDir)
+
+	regCmd := newRootCmd()
+	var regOut bytes.Buffer
+	regCmd.SetOut(&regOut)
+	regCmd.SetErr(&regOut)
+	regCmd.SetArgs([]string{"register", "--no-repo-check"})
+	if err := regCmd.Execute(); err != nil {
+		t.Fatalf("register --no-repo-check: %v\n%s", err, regOut.String())
+	}
+
+	db, err := store.Open(filepath.Join(state, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pre string
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT repo_id FROM agents WHERE id LIKE 'agent-%'`).Scan(&pre); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	db.Close()
+	if pre != "_unscoped" {
+		t.Fatalf("setup precondition: expected _unscoped after --no-repo-check, got %q", pre)
+	}
+
+	goCmd := newRootCmd()
+	var out bytes.Buffer
+	goCmd.SetOut(&out)
+	goCmd.SetErr(&out)
+	goCmd.SetArgs([]string{"go"})
+	_ = goCmd.Execute()
+
+	db2, err := store.Open(filepath.Join(state, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db2.Close()
+	var got string
+	if err := db2.QueryRowContext(context.Background(),
+		`SELECT repo_id FROM agents WHERE id LIKE 'agent-%'`).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got == "_unscoped" {
+		t.Fatalf("squad go should have upgraded the _unscoped agent row, but repo_id=%q", got)
+	}
+}
+
 func TestGoCmd_DoesNotReregisterOnSecondRun(t *testing.T) {
 	repo := t.TempDir()
 	state := t.TempDir()

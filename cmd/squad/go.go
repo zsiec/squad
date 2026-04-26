@@ -168,11 +168,15 @@ func ensureRegistered(out, errOut io.Writer) error {
 	if err != nil {
 		return err
 	}
-	known, err := agentExists(id)
+	repoID, known, err := agentRepoID(id)
 	if err != nil {
 		return err
 	}
-	if known {
+	// Re-register if the row is missing OR pinned to _unscoped — the
+	// SessionStart plugin hook registers with --no-repo-check before any
+	// repo-aware command runs, leaving the row unscoped. The dashboard
+	// /api/agents query filters by repo_id, so unscoped rows never appear.
+	if known && repoID != unscopedRepoID {
 		return nil
 	}
 	return runRegisterWithOpts(out, errOut, "", "", false, false)
@@ -262,16 +266,20 @@ func reorderByScope(ready []items.Item, squadDir, scopeSpec string) []items.Item
 	return append(in, out...)
 }
 
-func agentExists(id string) (bool, error) {
+func agentRepoID(id string) (string, bool, error) {
 	db, err := store.OpenDefault()
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	defer db.Close()
-	var n int
-	if err := db.QueryRowContext(context.Background(),
-		`SELECT COUNT(*) FROM agents WHERE id = ?`, id).Scan(&n); err != nil {
-		return false, err
+	var repoID string
+	err = db.QueryRowContext(context.Background(),
+		`SELECT repo_id FROM agents WHERE id = ?`, id).Scan(&repoID)
+	if err == sql.ErrNoRows {
+		return "", false, nil
 	}
-	return n > 0, nil
+	if err != nil {
+		return "", false, err
+	}
+	return repoID, true, nil
 }
