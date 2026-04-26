@@ -132,6 +132,7 @@ function renderDrawer(it, activity) {
     ${acSection(it)}
     ${bodySection(sections)}
     ${stateTimelineSection(it, activity)}
+    ${codeSectionPlaceholder(it)}
     ${similarItemsSection(it)}
     <section class="drawer-section">
       <div class="drawer-section-head">Activity <span class="count" id="activity-count"></span></div>
@@ -165,6 +166,9 @@ function renderDrawer(it, activity) {
 
   // lazy-load evidence list once the section is mounted
   loadEvidence(it.id, drawerBody);
+
+  // lazy-load PR + commit links — done items only
+  if (it.status === 'done') loadCodeLinks(it.id, drawerBody);
 
   // wire similar-row clicks
   drawerBody.querySelectorAll('.similar-row').forEach((r) => {
@@ -500,6 +504,59 @@ function dateToTs(d) {
   if (!d) return 0;
   const dt = new Date(d + 'T12:00:00Z');
   return Math.floor(dt.getTime() / 1000);
+}
+
+// ---- code links (PR + commits, done items only) -------------------------
+function codeSectionPlaceholder(it) {
+  if (it.status !== 'done') return '';
+  return `
+    <section class="drawer-section" id="drawer-code" data-state="loading">
+      <div class="drawer-section-head">Code</div>
+      <div class="code-skel"></div>
+    </section>`;
+}
+
+async function loadCodeLinks(itemID, root) {
+  const host = root.querySelector('#drawer-code');
+  if (!host) return;
+  let data;
+  try {
+    data = await fetchJSON(`/api/items/${encodeURIComponent(itemID)}/links`);
+  } catch (err) {
+    // Silently drop the section on failure — the user has no action they
+    // can take. The dashboard's network indicator already covers connectivity.
+    host.remove();
+    return;
+  }
+  const pr = data?.pr || null;
+  const commits = data?.commits || [];
+  if (!pr && !commits.length) {
+    host.remove();
+    return;
+  }
+
+  const parts = [];
+  if (pr) {
+    const branchSafe = escapeHtml(pr.branch || '');
+    const labelText = pr.number ? `PR #${pr.number} ${pr.branch || ''}` : `Branch ${pr.branch || ''}`;
+    if (pr.url) {
+      parts.push(`<a class="code-row code-pr" href="${escapeHtml(pr.url)}" target="_blank" rel="noopener">${escapeHtml(labelText)}</a>`);
+    } else {
+      parts.push(`<div class="code-row code-pr">${escapeHtml(labelText)}</div>`);
+    }
+  }
+  for (const c of commits) {
+    const short = (c.sha || '').slice(0, 7);
+    parts.push(`
+      <a class="code-row code-commit" href="${escapeHtml(c.url || '#')}" target="_blank" rel="noopener">
+        <code class="code-sha">${escapeHtml(short)}</code>
+        <span class="code-subject">${escapeHtml(c.subject || '')}</span>
+      </a>`);
+  }
+  host.dataset.state = 'loaded';
+  host.innerHTML = `
+    <div class="drawer-section-head">Code</div>
+    <div class="code-list">${parts.join('')}</div>`;
 }
 
 function fmtRelShort(ts, now) {

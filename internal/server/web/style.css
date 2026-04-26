@@ -2634,4 +2634,27 @@ a.item-chip:hover {
 .ev-hash  { color: var(--fg-dim); }
 .ev-when  { color: var(--fg-dim); }
 .ev-agent { color: var(--fg-dim); font-size: 10px; }
+
+/* Code section: PR + commit links shown for done items. */
+.code-list  { display: flex; flex-direction: column; gap: 4px; }
+.code-row   {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 8px; border-radius: 4px;
+  color: var(--fg); text-decoration: none;
+  font-size: 12px; line-height: 1.4;
+}
+a.code-row:hover { background: var(--bg-hover); color: var(--fg); }
+.code-pr     { font-weight: 500; }
+.code-sha    { color: var(--fg-dim); font-family: var(--mono); font-size: 11px; flex: 0 0 auto; }
+.code-subject { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.code-skel   {
+  height: 20px; margin: 4px 8px; border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-elev) 0%, var(--bg-hover) 50%, var(--bg-elev) 100%);
+  background-size: 200% 100%;
+  animation: code-skel-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes code-skel-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
 .ev-empty, .ev-loading { padding: 6px 14px; color: var(--fg-dim); font: 11px var(--font-mono); }
