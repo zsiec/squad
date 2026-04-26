@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +11,15 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+func readMigration(t *testing.T, name string) *fstest.MapFile {
+	t.Helper()
+	body, err := fs.ReadFile(defaultMigrationsFS, "migrations/"+name)
+	if err != nil {
+		t.Fatalf("read %s: %v", name, err)
+	}
+	return &fstest.MapFile{Data: body}
+}
 
 func openEmptyDBNoMigrate(t *testing.T) *sql.DB {
 	t.Helper()
@@ -134,5 +144,53 @@ func TestMigrate_BootstrapsLegacyDB(t *testing.T) {
 	}
 	if maxV < 3 {
 		t.Fatalf("want at least version 3 seeded, got %d", maxV)
+	}
+}
+
+func TestMigrate_AppliesIntakeProvenance(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	var have int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pragma_table_info('items') WHERE name='captured_by'`,
+	).Scan(&have); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if have != 1 {
+		t.Fatalf("want captured_by column; got %d hits", have)
+	}
+	var maxV int
+	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
+		t.Fatalf("max: %v", err)
+	}
+	if maxV < 4 {
+		t.Fatalf("want at least version 4 applied; got %d", maxV)
+	}
+}
+
+func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	legacy := fstest.MapFS{
+		"migrations/001_initial.sql":         readMigration(t, "001_initial.sql"),
+		"migrations/002_items_extras.sql":    readMigration(t, "002_items_extras.sql"),
+		"migrations/003_subagent_events.sql": readMigration(t, "003_subagent_events.sql"),
+	}
+	if err := Migrate(context.Background(), db, legacy); err != nil {
+		t.Fatalf("legacy migrate: %v", err)
+	}
+	if _, err := db.Exec(`DROP TABLE migration_versions`); err != nil {
+		t.Fatalf("drop: %v", err)
+	}
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("re-migrate must succeed: %v", err)
+	}
+	var maxV int
+	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
+		t.Fatalf("max: %v", err)
+	}
+	if maxV != 4 {
+		t.Fatalf("want version 4 after bootstrap; got %d", maxV)
 	}
 }

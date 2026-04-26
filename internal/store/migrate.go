@@ -134,17 +134,11 @@ func applyMigration(ctx context.Context, db *sql.DB, f migrationFile) error {
 	return tx.Commit()
 }
 
-// bootstrapLegacyVersions seeds migration_versions for DBs created by the
-// pre-Task-5 schema-and-alters mechanism, so we don't try to reapply 001/002/003
-// against a DB whose schema already reflects them.
-//
-// The pre-Task-5 Open() always applied schema.sql + all additiveAlters as a
-// unit, so the only valid legacy state is "all three migrations' effects are
-// present". We anchor that detection on items.epic_id (added by 002): if the
-// column exists, the DB went through the full pre-Task-5 pipeline. Otherwise
-// (fresh DB, or partial test fixture) we let the migrations run normally —
-// each statement uses IF NOT EXISTS so creating already-existing objects is
-// safe, and ALTER TABLE will only run against tables 001 just created.
+// bootstrapLegacyVersions seeds migration_versions for DBs whose schema
+// already reflects earlier migrations but has no migration_versions rows —
+// either pre-Task-5 DBs created by the schema-and-alters mechanism, or DBs
+// whose migration_versions table was dropped. We anchor each version on a
+// column or table that migration uniquely created.
 func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
 	var seeded int
 	_ = db.QueryRowContext(ctx, `SELECT count(*) FROM migration_versions`).Scan(&seeded)
@@ -157,13 +151,20 @@ func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
 	if hasEpicID == 0 {
 		return nil
 	}
-	legacy := []struct {
+	type legacyRow struct {
 		version int
 		name    string
-	}{
+	}
+	legacy := []legacyRow{
 		{1, "initial"},
 		{2, "items_extras"},
 		{3, "subagent_events"},
+	}
+	var hasCapturedBy int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pragma_table_info('items') WHERE name='captured_by'`).Scan(&hasCapturedBy)
+	if hasCapturedBy > 0 {
+		legacy = append(legacy, legacyRow{4, "intake_provenance"})
 	}
 	nowTS := time.Now().Unix()
 	for _, l := range legacy {
