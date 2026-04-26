@@ -96,6 +96,9 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 				Limit:          args.Limit,
 				IncludeClaimed: args.IncludeClaimed,
 			})
+			if errors.Is(err, ErrNoReadyItems) {
+				return NextResult{Items: []NextRow{}, Total: 0}, nil
+			}
 			if err != nil {
 				return nil, err
 			}

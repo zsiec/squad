@@ -94,6 +94,52 @@ func TestMCP_ClaimRoundTrip(t *testing.T) {
 	}
 }
 
+func TestMCP_NextOnEmptyQueueReturnsEmpty(t *testing.T) {
+	env := newTestEnv(t)
+	// setupSquadRepo seeds EXAMPLE-001 as a tutorial item; remove it so the
+	// queue is genuinely empty for this regression test.
+	_ = os.Remove(filepath.Join(env.ItemsDir, "EXAMPLE-001-try-the-loop.md"))
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_next","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				Items []map[string]any `json:"items"`
+				Total int              `json:"total"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error on empty queue: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error on empty queue: %s", lines[1])
+	}
+	if resp.Result.StructuredContent.Total != 0 {
+		t.Fatalf("total = %d, want 0", resp.Result.StructuredContent.Total)
+	}
+	if len(resp.Result.StructuredContent.Items) != 0 {
+		t.Fatalf("items len = %d, want 0", len(resp.Result.StructuredContent.Items))
+	}
+}
+
 func mustWriteItem(t *testing.T, repoRoot, id, title string) {
 	t.Helper()
 	dir := filepath.Join(repoRoot, ".squad", "items")
