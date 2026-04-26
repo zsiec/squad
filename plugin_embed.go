@@ -11,6 +11,7 @@ import (
 //
 //go:embed plugin/.claude-plugin/plugin.json
 //go:embed plugin/.mcp.json
+//go:embed plugin/hooks.json
 //go:embed plugin/skills
 //go:embed all:plugin/commands
 //go:embed plugin/hooks/*.sh
