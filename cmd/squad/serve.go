@@ -84,8 +84,10 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 	defer db.Close()
 
 	repoID := ""
+	repoRoot := ""
 	if wd, werr := os.Getwd(); werr == nil {
 		if root, rerr := repo.Discover(wd); rerr == nil {
+			repoRoot = root
 			if id, ierr := repo.IDFor(root); ierr == nil {
 				repoID = id
 				if squadDir == ".squad" {
@@ -96,7 +98,10 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 	}
 
 	s := server.New(db, repoID, server.Config{
-		Host: bind, Port: port, SquadDir: squadDir, RepoID: repoID, Token: token,
+		Host: bind, Port: port,
+		SquadDir: squadDir, RepoID: repoID,
+		LearningsRoot: repoRoot,
+		Token:         token,
 	})
 	defer s.Close()
 
