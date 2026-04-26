@@ -17,8 +17,9 @@ import (
 
 // ProtocolVersion advertised in the initialize handshake. Bump when the spec
 // version squad targets changes; Claude Code negotiates the actual wire
-// version so older clients still work.
-const ProtocolVersion = "2025-11-25"
+// version so older clients still work. The value here must match a real MCP
+// spec date — Claude Code rejects fabricated versions during the handshake.
+const ProtocolVersion = "2025-06-18"
 
 type ServerInfo struct {
 	Name    string

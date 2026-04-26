@@ -9,6 +9,22 @@ import (
 	"testing"
 )
 
+// TestProtocolVersion guards against drifting back to a fabricated date.
+// Real MCP spec dates: 2024-11-05, 2025-03-26, 2025-06-18. Squad targets the
+// latest stable release; bumping is fine, but the value must be a real spec
+// date — Claude Code rejects fabricated versions during the handshake.
+func TestProtocolVersion(t *testing.T) {
+	known := map[string]bool{
+		"2024-11-05": true,
+		"2025-03-26": true,
+		"2025-06-18": true,
+	}
+	if !known[ProtocolVersion] {
+		t.Fatalf("ProtocolVersion = %q, must be one of the published MCP spec dates: %v",
+			ProtocolVersion, []string{"2024-11-05", "2025-03-26", "2025-06-18"})
+	}
+}
+
 func TestServer_RespondsToInitialize(t *testing.T) {
 	srv := NewServer(ServerInfo{Name: "squad", Version: "test"})
 	req := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}` + "\n")
