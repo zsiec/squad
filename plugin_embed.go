@@ -8,7 +8,7 @@ import (
 // Explicit patterns rather than `all:plugin` so the Go source under
 // plugin/hooks/ (the embed registry + tests) does not ship to user installs.
 //
-//go:embed plugin/plugin.json
+//go:embed plugin/.claude-plugin/plugin.json
 //go:embed plugin/skills
 //go:embed plugin/commands
 //go:embed plugin/hooks/*.sh

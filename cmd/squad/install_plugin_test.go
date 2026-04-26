@@ -22,7 +22,7 @@ func TestInstallPlugin_CreatesDestDir(t *testing.T) {
 		t.Fatalf("Execute: %v\nstderr: %s", err, stderr.String())
 	}
 
-	manifest := filepath.Join(tmp, "plugins", "squad", "plugin.json")
+	manifest := filepath.Join(tmp, "plugins", "squad", ".claude-plugin", "plugin.json")
 	if _, err := os.Stat(manifest); err != nil {
 		t.Fatalf("manifest should exist at %s: %v", manifest, err)
 	}
