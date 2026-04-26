@@ -109,8 +109,8 @@ func runNew(args []string, stdout io.Writer, opts items.Options) int {
 	if db, derr := store.OpenDefault(); derr == nil {
 		defer db.Close()
 		if repoID, rerr := repo.IDFor(root); rerr == nil {
-			if w, werr := items.Walk(squadDir); werr == nil {
-				_ = items.Mirror(context.Background(), db, repoID, w)
+			if parsed, perr := items.Parse(path); perr == nil {
+				_ = items.Persist(context.Background(), db, repoID, parsed, false)
 			}
 		}
 	}

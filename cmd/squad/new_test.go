@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/repo"
+	"github.com/zsiec/squad/internal/store"
 )
 
 func TestRunNew_WritesFileAndPrintsPath(t *testing.T) {
@@ -34,6 +36,55 @@ func TestRunNew_WritesFileAndPrintsPath(t *testing.T) {
 	}
 	if _, err := os.Stat(out); err != nil {
 		t.Fatalf("output file missing: %v", err)
+	}
+}
+
+func TestRunNew_PersistsItemRowImmediately(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
+	t.Chdir(dir)
+	var stdout bytes.Buffer
+	code := runNew([]string{"bug", "Persist me"}, &stdout, items.Options{})
+	if code != 0 {
+		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
+	}
+	created := strings.TrimSpace(stdout.String())
+	parsed, err := items.Parse(created)
+	if err != nil {
+		t.Fatalf("parse created file: %v", err)
+	}
+
+	db, err := store.OpenDefault()
+	if err != nil {
+		t.Fatalf("open default db: %v", err)
+	}
+	defer db.Close()
+	canonical, err := repo.Discover(dir)
+	if err != nil {
+		t.Fatalf("discover: %v", err)
+	}
+	repoID, err := repo.IDFor(canonical)
+	if err != nil {
+		t.Fatalf("repo id: %v", err)
+	}
+	var title string
+	if err := db.QueryRow(
+		`SELECT title FROM items WHERE repo_id=? AND item_id=?`,
+		repoID, parsed.ID,
+	).Scan(&title); err != nil {
+		t.Fatalf("items row missing after runNew: %v", err)
+	}
+	if title != "Persist me" {
+		t.Errorf("title=%q want %q", title, "Persist me")
 	}
 }
 
