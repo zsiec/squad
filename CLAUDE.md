@@ -9,7 +9,7 @@
 ## Codebase orientation
 
 ```
-cmd/squad/                       # binary entry; one file per cobra subcommand (135+ files)
+cmd/squad/                       # binary entry; one file per cobra subcommand (135+ files, incl. tui.go)
 internal/store/                  # SQLite layer; schema.sql + additive migrations
 internal/items/                  # item file format, lock, walk, rewrite
 internal/claims/                 # atomic claim ledger
@@ -31,6 +31,12 @@ internal/server/                 # dashboard HTTP + SSE; web SPA at internal/ser
 internal/mcp/                    # MCP server for Claude Code (R6)
 internal/installer/              # plugin install state machine
 internal/skills/                 # skill frontmatter parser (test scaffold)
+internal/tui/                    # bubbletea TUI (`squad tui`)
+internal/tui/client/             # HTTP+SSE client — sole storage-layer access for TUI
+internal/tui/views/              # per-view tea.Model implementations (12 views)
+internal/tui/components/         # shared table, palette, statusbar
+internal/tui/daemon/             # OS-specific service installers (launchd / systemd-user)
+internal/tui/theme/              # lipgloss styles
 plugin/                          # Claude Code plugin (manifest, hooks, skills, commands) (R6)
 templates/github-actions/        # CI templates emitted by `squad init`
 docs/                            # README, adopting, concepts, recipes, reference, troubleshooting
@@ -72,6 +78,10 @@ Trust internal invariants. Validate only at system boundaries: user input, exter
 ### No premature abstraction
 
 Three similar lines is fine. Wait until you have three real callers before extracting. A wrong abstraction costs more than some duplication.
+
+### TUI import boundary
+
+The TUI's view modules (`internal/tui/views/**`) must NOT import storage-layer packages (`internal/store`, `internal/items`, etc.) — only `internal/tui/client` may speak to the wire. Enforced by `TestImportBoundary` in `internal/tui/architecture_test.go`.
 
 ### Evidence requirement before claiming done
 
