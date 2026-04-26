@@ -39,12 +39,17 @@ type ListItemsRow struct {
 	Agent    string `json:"agent,omitempty"`
 }
 
+type ListItemsResult struct {
+	Items []ListItemsRow `json:"items"`
+	Count int            `json:"count"`
+}
+
 const (
 	listItemsDefaultLimit = 50
 	listItemsMaxLimit     = 200
 )
 
-func ListItems(ctx context.Context, args ListItemsArgs) ([]ListItemsRow, error) {
+func ListItems(ctx context.Context, args ListItemsArgs) (*ListItemsResult, error) {
 	if args.Agent != "" && (args.DB == nil || args.RepoID == "") {
 		return nil, fmt.Errorf("list_items: agent filter requires DB and RepoID")
 	}
@@ -125,7 +130,7 @@ func ListItems(ctx context.Context, args ListItemsArgs) ([]ListItemsRow, error) 
 			Agent:    holders[it.ID],
 		})
 	}
-	return rows, nil
+	return &ListItemsResult{Items: rows, Count: len(rows)}, nil
 }
 
 func claimHolders(ctx context.Context, db *sql.DB, repoID string) (map[string]string, error) {

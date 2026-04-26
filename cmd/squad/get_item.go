@@ -17,7 +17,11 @@ type GetItemArgs struct {
 	ItemID   string `json:"item_id"`
 }
 
-func GetItem(_ context.Context, args GetItemArgs) (*items.Item, error) {
+type GetItemResult struct {
+	Item *items.Item `json:"item"`
+}
+
+func GetItem(_ context.Context, args GetItemArgs) (*GetItemResult, error) {
 	path := findItemPath(args.ItemsDir, args.ItemID)
 	if path == "" {
 		return nil, ErrItemNotFound
@@ -26,5 +30,5 @@ func GetItem(_ context.Context, args GetItemArgs) (*items.Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &it, nil
+	return &GetItemResult{Item: &it}, nil
 }

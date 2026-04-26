@@ -408,7 +408,7 @@ func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot strin
 			if err := requireRepo(repoRoot, repoID); err != nil {
 				return nil, err
 			}
-			rows, err := ListItems(ctx, ListItemsArgs{
+			res, err := ListItems(ctx, ListItemsArgs{
 				ItemsDir: itemsDirOf(repoRoot),
 				DoneDir:  doneDirOf(repoRoot),
 				DB:       db,
@@ -422,7 +422,7 @@ func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot strin
 			if err != nil {
 				return nil, err
 			}
-			return map[string]any{"items": rows, "count": len(rows)}, nil
+			return res, nil
 		},
 	})
 

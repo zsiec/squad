@@ -18,11 +18,11 @@ func TestGetItem_ReturnsParsedItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem: %v", err)
 	}
-	if got == nil || got.ID != "FEAT-001" {
+	if got == nil || got.Item == nil || got.Item.ID != "FEAT-001" {
 		t.Fatalf("got=%+v want ID=FEAT-001", got)
 	}
-	if got.Title != "example" {
-		t.Fatalf("title=%q", got.Title)
+	if got.Item.Title != "example" {
+		t.Fatalf("title=%q", got.Item.Title)
 	}
 }
 

@@ -29,21 +29,24 @@ func TestListItems_FiltersAndSort(t *testing.T) {
 	writeItem(t, doneDir, "FEAT-004.md",
 		"---\nid: FEAT-004\ntitle: d\ntype: feat\npriority: P1\nstatus: done\ncreated: 2026-04-22\n---\n")
 
-	rows, err := ListItems(context.Background(), ListItemsArgs{
+	res, err := ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: itemsDir,
 		DoneDir:  doneDir,
 	})
 	if err != nil {
 		t.Fatalf("ListItems: %v", err)
 	}
-	if len(rows) != 4 {
-		t.Fatalf("len=%d want 4 rows: %+v", len(rows), rows)
+	if len(res.Items) != 4 {
+		t.Fatalf("len=%d want 4 rows: %+v", len(res.Items), res.Items)
 	}
-	if rows[0].ID != "BUG-002" {
-		t.Fatalf("first row %q want BUG-002 (P0 sorts first)", rows[0].ID)
+	if res.Count != 4 {
+		t.Fatalf("Count=%d want 4", res.Count)
+	}
+	if res.Items[0].ID != "BUG-002" {
+		t.Fatalf("first row %q want BUG-002 (P0 sorts first)", res.Items[0].ID)
 	}
 
-	rows, err = ListItems(context.Background(), ListItemsArgs{
+	res, err = ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: itemsDir,
 		DoneDir:  doneDir,
 		Type:     "bug",
@@ -51,11 +54,11 @@ func TestListItems_FiltersAndSort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItems(type=bug): %v", err)
 	}
-	if len(rows) != 1 || rows[0].ID != "BUG-002" {
-		t.Fatalf("type filter wrong: %+v", rows)
+	if len(res.Items) != 1 || res.Items[0].ID != "BUG-002" {
+		t.Fatalf("type filter wrong: %+v", res.Items)
 	}
 
-	rows, err = ListItems(context.Background(), ListItemsArgs{
+	res, err = ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: itemsDir,
 		DoneDir:  doneDir,
 		Status:   "done",
@@ -63,11 +66,11 @@ func TestListItems_FiltersAndSort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItems(status=done): %v", err)
 	}
-	if len(rows) != 1 || rows[0].ID != "FEAT-004" {
-		t.Fatalf("status=done filter wrong: %+v", rows)
+	if len(res.Items) != 1 || res.Items[0].ID != "FEAT-004" {
+		t.Fatalf("status=done filter wrong: %+v", res.Items)
 	}
 
-	rows, err = ListItems(context.Background(), ListItemsArgs{
+	res, err = ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: itemsDir,
 		DoneDir:  doneDir,
 		Priority: "P1",
@@ -75,11 +78,11 @@ func TestListItems_FiltersAndSort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItems(priority=P1): %v", err)
 	}
-	if len(rows) != 2 {
-		t.Fatalf("priority=P1 expected 2 rows: %+v", rows)
+	if len(res.Items) != 2 {
+		t.Fatalf("priority=P1 expected 2 rows: %+v", res.Items)
 	}
 
-	rows, err = ListItems(context.Background(), ListItemsArgs{
+	res, err = ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: itemsDir,
 		DoneDir:  doneDir,
 		Limit:    2,
@@ -87,8 +90,11 @@ func TestListItems_FiltersAndSort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItems(limit=2): %v", err)
 	}
-	if len(rows) != 2 {
-		t.Fatalf("limit=2 wrong: %+v", rows)
+	if len(res.Items) != 2 {
+		t.Fatalf("limit=2 wrong: %+v", res.Items)
+	}
+	if res.Count != 2 {
+		t.Fatalf("Count=%d want 2 (Count tracks len(Items) post-truncation)", res.Count)
 	}
 }
 
@@ -111,7 +117,7 @@ func TestListItems_AgentFilterFiltersByClaim(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rows, err := ListItems(context.Background(), ListItemsArgs{
+	res, err := ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: env.ItemsDir,
 		DoneDir:  env.DoneDir,
 		DB:       env.DB,
@@ -121,11 +127,11 @@ func TestListItems_AgentFilterFiltersByClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListItems(agent=agent-alice): %v", err)
 	}
-	if len(rows) != 1 || rows[0].ID != "BUG-501" {
-		t.Fatalf("agent filter wrong: %+v", rows)
+	if len(res.Items) != 1 || res.Items[0].ID != "BUG-501" {
+		t.Fatalf("agent filter wrong: %+v", res.Items)
 	}
-	if rows[0].Agent != "agent-alice" {
-		t.Fatalf("Agent field not populated: %+v", rows[0])
+	if res.Items[0].Agent != "agent-alice" {
+		t.Fatalf("Agent field not populated: %+v", res.Items[0])
 	}
 }
 
@@ -142,14 +148,17 @@ func TestListItems_AgentFilterRequiresDB(t *testing.T) {
 
 func TestListItems_DefaultLimitCappedAt200(t *testing.T) {
 	itemsDir := t.TempDir()
-	rows, err := ListItems(context.Background(), ListItemsArgs{
+	res, err := ListItems(context.Background(), ListItemsArgs{
 		ItemsDir: itemsDir,
 		Limit:    500,
 	})
 	if err != nil {
 		t.Fatalf("ListItems: %v", err)
 	}
-	if len(rows) != 0 {
-		t.Fatalf("empty dir produced %d rows", len(rows))
+	if len(res.Items) != 0 {
+		t.Fatalf("empty dir produced %d rows", len(res.Items))
+	}
+	if res.Count != 0 {
+		t.Fatalf("Count=%d want 0", res.Count)
 	}
 }
