@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -14,12 +16,93 @@ import (
 	"github.com/zsiec/squad/internal/repo"
 )
 
-func lookupClaimHolder(ctx context.Context, bc *claimContext, itemID string) string {
+// ConcurrencyExceededError signals the agent has already met or exceeded its
+// agent.claim_concurrency cap. Carries the values the cobra wrapper renders
+// for users.
+type ConcurrencyExceededError struct {
+	AgentID string
+	Held    int
+	Cap     int
+}
+
+func (e *ConcurrencyExceededError) Error() string {
+	return fmt.Sprintf("%s already holds %d claim(s); agent.claim_concurrency=%d", e.AgentID, e.Held, e.Cap)
+}
+
+// ClaimHeldError augments claims.ErrClaimTaken with the holding agent (when
+// looked up successfully) so callers can render "X is already claimed by Y"
+// without re-querying.
+type ClaimHeldError struct {
+	ItemID string
+	Holder string
+}
+
+func (e *ClaimHeldError) Error() string {
+	if e.Holder != "" {
+		return fmt.Sprintf("%s is already claimed by %s", e.ItemID, e.Holder)
+	}
+	return fmt.Sprintf("%s is already claimed", e.ItemID)
+}
+
+func (e *ClaimHeldError) Unwrap() error { return claims.ErrClaimTaken }
+
+type ClaimArgs struct {
+	DB             *sql.DB  `json:"-"`
+	RepoID         string   `json:"repo_id"`
+	AgentID        string   `json:"agent_id"`
+	ItemID         string   `json:"item_id"`
+	Intent         string   `json:"intent,omitempty"`
+	Touches        []string `json:"touches,omitempty"`
+	Long           bool     `json:"long,omitempty"`
+	ItemsDir       string   `json:"items_dir,omitempty"`
+	DoneDir        string   `json:"done_dir,omitempty"`
+	ConcurrencyCap int      `json:"concurrency_cap,omitempty"`
+}
+
+type ClaimResult struct {
+	ItemID    string `json:"item_id"`
+	AgentID   string `json:"agent_id"`
+	Intent    string `json:"intent,omitempty"`
+	ClaimedAt int64  `json:"claimed_at"`
+}
+
+func Claim(ctx context.Context, args ClaimArgs) (*ClaimResult, error) {
+	if args.ConcurrencyCap > 0 {
+		var n int
+		if err := args.DB.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM claims WHERE agent_id = ? AND repo_id = ?`,
+			args.AgentID, args.RepoID).Scan(&n); err == nil && n >= args.ConcurrencyCap {
+			return nil, &ConcurrencyExceededError{
+				AgentID: args.AgentID,
+				Held:    n,
+				Cap:     args.ConcurrencyCap,
+			}
+		}
+	}
+
+	store := claims.New(args.DB, args.RepoID, nil)
+	err := store.Claim(ctx, args.ItemID, args.AgentID, args.Intent, args.Touches, args.Long,
+		claims.ClaimWithPreflight(args.ItemsDir, args.DoneDir))
+	if err == nil {
+		return &ClaimResult{
+			ItemID:    args.ItemID,
+			AgentID:   args.AgentID,
+			Intent:    args.Intent,
+			ClaimedAt: time.Now().Unix(),
+		}, nil
+	}
+	if errors.Is(err, claims.ErrClaimTaken) {
+		holder := lookupClaimHolderDB(ctx, args.DB, args.RepoID, args.ItemID)
+		return nil, &ClaimHeldError{ItemID: args.ItemID, Holder: holder}
+	}
+	return nil, err
+}
+
+func lookupClaimHolderDB(ctx context.Context, db *sql.DB, repoID, itemID string) string {
 	var agent string
-	err := bc.db.QueryRowContext(ctx,
+	if err := db.QueryRowContext(ctx,
 		`SELECT agent_id FROM claims WHERE item_id = ? AND repo_id = ?`,
-		itemID, bc.repoID).Scan(&agent)
-	if err != nil {
+		itemID, repoID).Scan(&agent); err != nil {
 		return ""
 	}
 	return agent
@@ -53,34 +136,36 @@ func newClaimCmd() *cobra.Command {
 				}
 			}
 
-			// Enforce agent.claim_concurrency from config. Documented as
-			// default 1 since Phase 6 but QA round 4 surfaced that nothing
-			// actually checked it.
-			if cap := claimConcurrencyCap(); cap > 0 {
-				var n int
-				if err := bc.db.QueryRowContext(ctx,
-					`SELECT COUNT(*) FROM claims WHERE agent_id = ? AND repo_id = ?`,
-					bc.agentID, bc.repoID).Scan(&n); err == nil && n >= cap {
-					fmt.Fprintf(cmd.ErrOrStderr(),
-						"%s already holds %d claim(s); agent.claim_concurrency=%d in .squad/config.yaml.\n"+
-							"  release one first, or raise the cap (set claim_concurrency: 100 to effectively disable).\n",
-						bc.agentID, n, cap)
-					os.Exit(1)
-				}
-			}
-
-			err = bc.store.Claim(ctx, itemID, bc.agentID, intent, touchList, long,
-				claims.ClaimWithPreflight(bc.itemsDir, bc.doneDir))
+			res, err := Claim(ctx, ClaimArgs{
+				DB:             bc.db,
+				RepoID:         bc.repoID,
+				AgentID:        bc.agentID,
+				ItemID:         itemID,
+				Intent:         intent,
+				Touches:        touchList,
+				Long:           long,
+				ItemsDir:       bc.itemsDir,
+				DoneDir:        bc.doneDir,
+				ConcurrencyCap: claimConcurrencyCap(),
+			})
 			if err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "claimed %s\n", itemID)
+				fmt.Fprintf(cmd.OutOrStdout(), "claimed %s\n", res.ItemID)
 				return nil
 			}
-			if errors.Is(err, claims.ErrClaimTaken) {
-				holder := lookupClaimHolder(ctx, bc, itemID)
-				if holder != "" {
-					fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed by %s\n", itemID, holder)
+			var capErr *ConcurrencyExceededError
+			if errors.As(err, &capErr) {
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"%s already holds %d claim(s); agent.claim_concurrency=%d in .squad/config.yaml.\n"+
+						"  release one first, or raise the cap (set claim_concurrency: 100 to effectively disable).\n",
+					capErr.AgentID, capErr.Held, capErr.Cap)
+				os.Exit(1)
+			}
+			var heldErr *ClaimHeldError
+			if errors.As(err, &heldErr) {
+				if heldErr.Holder != "" {
+					fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed by %s\n", heldErr.ItemID, heldErr.Holder)
 				} else {
-					fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed\n", itemID)
+					fmt.Fprintf(cmd.ErrOrStderr(), "%s is already claimed\n", heldErr.ItemID)
 				}
 				os.Exit(1)
 			}
