@@ -15,7 +15,7 @@ Squad and [Claude Code's experimental agent-teams](https://code.claude.com/docs/
 | **Lifetime** | Single session. Tasks vanish when the lead exits. | Durable. Items survive sessions, restarts, machine swaps. |
 | **Storage** | Files under `~/.claude/tasks/<team>/` (file-locked). | `.squad/items/*.md` (git-committed) + `~/.squad/global.db` (operational). |
 | **Hosts** | Single host. No network sync built in. | Cross-host. Items travel with the repo; operational state is per-machine. |
-| **Resumption** | None. New session = new team. | First-class. `squad work` reattaches in one command. |
+| **Resumption** | None. New session = new team. | First-class. `squad go` reattaches in one command. |
 | **Lead role** | Fixed for the life of the team. | No lead role. Agents are peers; coordination is via claim ledger. |
 | **Membership** | No hard limit per upstream docs; 3-5 teammates is the recommended range. Lead-spawned. | Unbounded (subject to WIP cap per agent identity). |
 | **Repo awareness** | None. Tasks are session-scoped, not repo-scoped. | Items, claims, hygiene all repo-scoped. |
@@ -24,7 +24,7 @@ Squad and [Claude Code's experimental agent-teams](https://code.claude.com/docs/
 | **Verification primitive** | None native. | Evidence ledger (`squad attest`) with DoD-gated `squad done`. |
 | **Hygiene / stale claims** | None. | `squad doctor`, stale-claim sweeps, force-release. |
 | **Claim semantics** | File lock per task. | Atomic SQLite `BEGIN IMMEDIATE` per item, with takeover audit trail. |
-| **Onboarding cost** | One env var + lead spawn. | One `squad init` + `squad work`. |
+| **Onboarding cost** | One env var + lead spawn. | One `squad init` + `squad go`. |
 | **Cost when wrong** | Lose the session, lose the work coordination. | Operational overhead for short bursts. |
 
 ## When agent-teams is the right tool
