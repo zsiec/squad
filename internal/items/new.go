@@ -29,11 +29,15 @@ title: %s
 type: %s
 priority: %s
 area: %s
-status: open
+status: %s
 estimate: %s
 risk: %s
 created: %s
 updated: %s
+captured_by: %s
+captured_at: %d
+accepted_by: %s
+accepted_at: %d
 references: []
 relates-to: []
 blocked-by: []
@@ -60,10 +64,12 @@ What changed, file references, anything a future maintainer needs to know.
 // Options carries the optional knobs `squad new` exposes via flags or config.
 // Empty fields fall through to the built-in defaults (P2 / 1h / low / <fill-in>).
 type Options struct {
-	Priority string
-	Estimate string
-	Risk     string
-	Area     string
+	Priority   string
+	Estimate   string
+	Risk       string
+	Area       string
+	Ready      bool
+	CapturedBy string
 }
 
 func New(squadDir, prefix, title string) (string, error) {
@@ -90,7 +96,19 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 		risk := nonEmpty(opts.Risk, "low")
 		area := nonEmpty(opts.Area, "<fill-in>")
 		now := time.Now().UTC().Format("2006-01-02")
-		body := fmt.Sprintf(stubTemplate, id, yamlInline(title), t, priority, area, estimate, risk, now, now)
+		nowUnix := time.Now().Unix()
+		status := "captured"
+		acceptedBy := ""
+		acceptedAt := int64(0)
+		if opts.Ready {
+			status = "open"
+			acceptedBy = opts.CapturedBy
+			acceptedAt = nowUnix
+		}
+		body := fmt.Sprintf(stubTemplate,
+			id, yamlInline(title), t, priority, area, status, estimate, risk, now, now,
+			yamlInline(opts.CapturedBy), nowUnix, yamlInline(acceptedBy), acceptedAt,
+		)
 		path = filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err

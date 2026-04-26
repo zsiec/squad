@@ -149,6 +149,79 @@ func TestNew_NoDuplicateIDsUnderConcurrency(t *testing.T) {
 	}
 }
 
+func TestNewWithOptions_DefaultsToCaptured(t *testing.T) {
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	if err := os.MkdirAll(squadDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	path, err := NewWithOptions(squadDir, "FEAT", "thing", Options{
+		CapturedBy: "agent-9f3a",
+	})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if it.Status != "captured" {
+		t.Fatalf("status=%q want captured", it.Status)
+	}
+	if it.CapturedBy != "agent-9f3a" {
+		t.Fatalf("CapturedBy=%q want agent-9f3a", it.CapturedBy)
+	}
+	if it.CapturedAt == 0 {
+		t.Fatalf("CapturedAt unset")
+	}
+	if it.AcceptedBy != "" || it.AcceptedAt != 0 {
+		t.Fatalf("AcceptedBy/At should be empty for captured item: by=%q at=%d", it.AcceptedBy, it.AcceptedAt)
+	}
+}
+
+func TestNewWithOptions_ReadyFlagCreatesOpen(t *testing.T) {
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	os.MkdirAll(squadDir, 0o755)
+	path, err := NewWithOptions(squadDir, "FEAT", "thing", Options{
+		CapturedBy: "agent-9f3a",
+		Ready:      true,
+	})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	it, _ := Parse(path)
+	if it.Status != "open" {
+		t.Fatalf("status=%q want open", it.Status)
+	}
+	if it.AcceptedBy != "agent-9f3a" || it.AcceptedAt == 0 {
+		t.Fatalf("ready item should have accepted_by/at stamped: by=%q at=%d", it.AcceptedBy, it.AcceptedAt)
+	}
+	if it.CapturedBy != "agent-9f3a" || it.CapturedAt == 0 {
+		t.Fatalf("ready item should also have captured_by/at stamped: by=%q at=%d", it.CapturedBy, it.CapturedAt)
+	}
+}
+
+func TestNewWithOptions_NoCapturedByIsAllowed(t *testing.T) {
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	os.MkdirAll(squadDir, 0o755)
+	path, err := NewWithOptions(squadDir, "FEAT", "thing", Options{})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	it, _ := Parse(path)
+	if it.Status != "captured" {
+		t.Fatalf("status=%q want captured", it.Status)
+	}
+	if it.CapturedBy != "" {
+		t.Fatalf("CapturedBy=%q want empty when caller didn't supply", it.CapturedBy)
+	}
+	if it.CapturedAt == 0 {
+		t.Fatalf("CapturedAt should still be stamped (current time) even without CapturedBy")
+	}
+}
+
 func TestNew_IncrementsAcrossActiveAndDone(t *testing.T) {
 	dir := t.TempDir()
 	for _, sub := range []string{"items", "done"} {
