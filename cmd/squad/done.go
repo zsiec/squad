@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -18,8 +19,105 @@ import (
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/items"
-	"github.com/zsiec/squad/internal/repo"
 )
+
+// EvidenceMissingError signals that the item declares evidence_required and
+// at least one of those kinds has no successful attestation. The wrapper
+// renders the existing user-facing message; MCP callers can inspect Missing
+// directly.
+type EvidenceMissingError struct {
+	ItemID  string
+	Missing []attest.Kind
+}
+
+func (e *EvidenceMissingError) Error() string {
+	return fmt.Sprintf("%s: evidence_required not satisfied. Missing kinds: %s", e.ItemID, joinKinds(e.Missing))
+}
+
+type DoneArgs struct {
+	DB       *sql.DB `json:"-"`
+	RepoID   string  `json:"repo_id"`
+	AgentID  string  `json:"agent_id"`
+	ItemID   string  `json:"item_id"`
+	Summary  string  `json:"summary,omitempty"`
+	ItemsDir string  `json:"items_dir,omitempty"`
+	DoneDir  string  `json:"done_dir,omitempty"`
+	RepoRoot string  `json:"repo_root,omitempty"`
+	Force    bool    `json:"force,omitempty"`
+	// Now is an optional clock for deterministic tests; nil means time.Now.
+	// The override-record body and the underlying ledger insert both honour
+	// this clock when set.
+	Now func() time.Time `json:"-"`
+}
+
+type DoneResult struct {
+	ItemID        string        `json:"item_id"`
+	Summary       string        `json:"summary,omitempty"`
+	ClosedAt      int64         `json:"closed_at"`
+	ForceOverride bool          `json:"force_override,omitempty"`
+	BypassedKinds []attest.Kind `json:"bypassed_kinds,omitempty"`
+}
+
+// Verification gating stays in the cobra wrapper so it can stream gate
+// progress to the user's terminal in real time. The pure function would
+// have to either own writers (violating the "no cmd.Out/ErrWriter" rule)
+// or batch-print, which lose the live "  $ cmd / ok" feedback. Callers
+// outside the CLI that want gating can call runVerification themselves
+// before invoking Done.
+func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
+	clock := args.Now
+	if clock == nil {
+		clock = time.Now
+	}
+
+	itemPath := ""
+	if args.ItemsDir != "" {
+		itemPath = findItemPath(args.ItemsDir, args.ItemID)
+	}
+	if itemPath == "" {
+		return nil, fmt.Errorf("%w: %s in %s", ErrItemNotFound, args.ItemID, args.ItemsDir)
+	}
+
+	parsed, perr := items.Parse(itemPath)
+	if perr != nil {
+		return nil, perr
+	}
+
+	required := requiredKinds(parsed.EvidenceRequired)
+	var bypassed []attest.Kind
+	if len(required) > 0 {
+		L := attest.New(args.DB, args.RepoID, clock)
+		missing, mErr := L.MissingKinds(ctx, args.ItemID, required)
+		if mErr != nil {
+			return nil, mErr
+		}
+		if len(missing) > 0 {
+			if !args.Force {
+				return nil, &EvidenceMissingError{ItemID: args.ItemID, Missing: missing}
+			}
+			if err := recordForceOverride(ctx, L, args.RepoRoot, args.AgentID, args.ItemID, missing, clock); err != nil {
+				return nil, err
+			}
+			bypassed = missing
+		}
+	}
+
+	store := claims.New(args.DB, args.RepoID, clock)
+	if err := store.Done(ctx, args.ItemID, args.AgentID, claims.DoneOpts{
+		Summary:  args.Summary,
+		ItemPath: itemPath,
+		DoneDir:  args.DoneDir,
+	}); err != nil {
+		return nil, err
+	}
+	return &DoneResult{
+		ItemID:        args.ItemID,
+		Summary:       args.Summary,
+		ClosedAt:      clock().Unix(),
+		ForceOverride: len(bypassed) > 0,
+		BypassedKinds: bypassed,
+	}, nil
+}
 
 func newDoneCmd() *cobra.Command {
 	var summary string
@@ -38,62 +136,48 @@ func newDoneCmd() *cobra.Command {
 			}
 			defer bc.Close()
 
+			repoRoot, derr := discoverRepoRoot()
+			if derr != nil {
+				return derr
+			}
 			if !skipVerify {
-				wd, _ := os.Getwd()
-				if root, derr := repo.Discover(wd); derr == nil {
-					cfg, _ := config.Load(root)
-					if code := runVerification(cfg.Verification.PreCommit, root, cmd.OutOrStdout(), cmd.ErrOrStderr()); code != 0 {
-						os.Exit(code)
-					}
+				cfg, _ := config.Load(repoRoot)
+				if code := runVerification(cfg.Verification.PreCommit, repoRoot, cmd.OutOrStdout(), cmd.ErrOrStderr()); code != 0 {
+					os.Exit(code)
 				}
 			}
 
-			itemPath := findItemPath(bc.itemsDir, itemID)
-			if itemPath == "" {
-				// QA r6 H #6: Done() previously accepted an empty ItemPath and
-				// committed a release without rewriting/moving the file —
-				// users saw 'done <ID>' on stdout but the file stayed in
-				// items/ untouched. Refuse upfront so the user knows to fix
-				// the underlying parse error first (or the missing file).
+			res, err := Done(ctx, DoneArgs{
+				DB:       bc.db,
+				RepoID:   bc.repoID,
+				AgentID:  bc.agentID,
+				ItemID:   itemID,
+				Summary:  summary,
+				ItemsDir: bc.itemsDir,
+				DoneDir:  bc.doneDir,
+				RepoRoot: repoRoot,
+				Force:    force,
+			})
+			if err == nil {
+				if res.ForceOverride {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: --force override recorded for %s (bypassed: %s)\n",
+						res.ItemID, joinKinds(res.BypassedKinds))
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "done %s\n", res.ItemID)
+				return nil
+			}
+			var miss *EvidenceMissingError
+			if errors.As(err, &miss) {
+				return fmt.Errorf(
+					"%s: evidence_required not satisfied. Missing kinds: %s.\n"+
+						"Run `squad attest --item %s --kind <kind> --command \"...\"` for each, or pass --force to override (the override is recorded as a manual attestation).",
+					miss.ItemID, joinKinds(miss.Missing), miss.ItemID)
+			}
+			if errors.Is(err, ErrItemNotFound) {
 				fmt.Fprintf(cmd.ErrOrStderr(),
 					"%s: no parseable item file found in %s. Fix the file (squad doctor will list malformed_item findings) or move it back from done/, then re-run squad done.\n",
 					itemID, bc.itemsDir)
 				os.Exit(1)
-			}
-
-			parsed, perr := items.Parse(itemPath)
-			if perr != nil {
-				return perr
-			}
-			required := requiredKinds(parsed.EvidenceRequired)
-			if len(required) > 0 {
-				L := attest.New(bc.db, bc.repoID, nil)
-				missing, mErr := L.MissingKinds(ctx, itemID, required)
-				if mErr != nil {
-					return mErr
-				}
-				if len(missing) > 0 {
-					if !force {
-						return fmt.Errorf(
-							"%s: evidence_required not satisfied. Missing kinds: %s.\n"+
-								"Run `squad attest --item %s --kind <kind> --command \"...\"` for each, or pass --force to override (the override is recorded as a manual attestation).",
-							itemID, joinKinds(missing), itemID)
-					}
-					if err := recordForceOverride(ctx, L, bc, itemID, missing); err != nil {
-						return err
-					}
-					fmt.Fprintf(cmd.ErrOrStderr(), "warning: --force override recorded for %s (bypassed: %s)\n", itemID, joinKinds(missing))
-				}
-			}
-
-			err = bc.store.Done(ctx, itemID, bc.agentID, claims.DoneOpts{
-				Summary:  summary,
-				ItemPath: itemPath,
-				DoneDir:  bc.doneDir,
-			})
-			if err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "done %s\n", itemID)
-				return nil
 			}
 			if errors.Is(err, claims.ErrNotYours) {
 				fmt.Fprintln(cmd.ErrOrStderr(), "not your claim")
@@ -131,12 +215,11 @@ func joinKinds(ks []attest.Kind) string {
 	return strings.Join(parts, ", ")
 }
 
-func recordForceOverride(ctx context.Context, L *attest.Ledger, bc *claimContext, itemID string, missing []attest.Kind) error {
+func recordForceOverride(ctx context.Context, L *attest.Ledger, repoRoot, agentID, itemID string, missing []attest.Kind, clock func() time.Time) error {
 	body := fmt.Sprintf(
 		"FORCE OVERRIDE for %s\nbypassed_kinds: %s\nagent: %s\nat: %s\n",
-		itemID, joinKinds(missing), bc.agentID, time.Now().UTC().Format(time.RFC3339),
+		itemID, joinKinds(missing), agentID, clock().UTC().Format(time.RFC3339),
 	)
-	repoRoot := filepath.Dir(filepath.Dir(bc.itemsDir))
 	attDir := filepath.Join(repoRoot, ".squad", "attestations")
 	hash := L.Hash([]byte(body))
 	if err := os.MkdirAll(attDir, 0o755); err != nil {
@@ -153,7 +236,7 @@ func recordForceOverride(ctx context.Context, L *attest.Ledger, bc *claimContext
 		ExitCode:   0,
 		OutputHash: hash,
 		OutputPath: out,
-		AgentID:    bc.agentID,
+		AgentID:    agentID,
 	}); err != nil {
 		return err
 	}
