@@ -94,6 +94,17 @@ squad workspace who               # every agent in every repo, last activity
 squad workspace list              # all known repos
 ```
 
+## Stats
+
+`squad stats --json` prints a Snapshot with verification rate, claim p50/p90/p99,
+WIP-cap violations, reviewer disagreement, and (when available) repeat-mistake
+rate. `squad stats --tail` streams NDJSON for external aggregation.
+
+The dashboard exposes the same Snapshot at `GET /api/stats` and a Prometheus
+text exposition at `GET /metrics`. The Insights panel (S key, or the **STATS**
+button) renders verification rate over time, claim p99 over time, and WIP-cap
+violations.
+
 ## Documentation
 
 - [docs/README.md](docs/README.md) — top-level entry point
