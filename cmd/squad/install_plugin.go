@@ -51,6 +51,14 @@ func newInstallPluginCmd() *cobra.Command {
 				return nil
 			}
 
+			legacy := filepath.Join(pluginDir, "plugin.json")
+			if _, err := os.Stat(legacy); err == nil {
+				fmt.Fprintf(cmd.OutOrStdout(),
+					"legacy plugin.json detected at %s; the new layout will replace it.\n"+
+						"  if any external configs reference it, update to %s.\n",
+					legacy, filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
+			}
+
 			assets, err := squad.PluginFS()
 			if err != nil {
 				return fmt.Errorf("load embedded plugin assets: %w", err)

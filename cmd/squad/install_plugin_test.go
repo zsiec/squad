@@ -146,6 +146,41 @@ func TestInstallPlugin_RegistersAlwaysOnHooks(t *testing.T) {
 	}
 }
 
+func TestInstallPlugin_WarnsOnLegacyManifestPath(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
+
+	legacyDir := filepath.Join(tmp, "plugins", "squad")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(legacyDir, "plugin.json"),
+		[]byte(`{"name":"squad","version":"0.1.0"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := newInstallPluginCmd()
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{"--register-mcp=false", "--skip-hooks"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	combined := stdout.String() + stderr.String()
+	if !strings.Contains(combined, "legacy plugin.json detected") {
+		t.Errorf("expected legacy-warning in output; got:\n%s\n%s", stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(legacyDir, "plugin.json")); !os.IsNotExist(err) {
+		t.Errorf("legacy plugin.json should be cleaned up by atomic install")
+	}
+	if _, err := os.Stat(filepath.Join(legacyDir, ".claude-plugin", "plugin.json")); err != nil {
+		t.Errorf("new manifest missing: %v", err)
+	}
+}
+
 func TestInstallPlugin_RegistersMCPServer(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
