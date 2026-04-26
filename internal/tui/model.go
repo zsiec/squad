@@ -154,10 +154,16 @@ func paletteSelMsgFor(cmd string) tea.Msg {
 }
 
 func (m Model) Init() tea.Cmd {
-	if m.eventCh == nil {
-		return nil
+	// Kick the active view's initial fetch (e.g. Items hits /api/items here).
+	// Without this the default landing view sits at "loading..." forever
+	// because no Cmd ever fires the fetch on startup. tea.Program's main
+	// loop only invokes Init on the root model, so the root must explicitly
+	// chain through to the current view.
+	cmds := []tea.Cmd{m.views[m.current].Init()}
+	if m.eventCh != nil {
+		cmds = append(cmds, waitForEvent(m.eventCh))
 	}
-	return waitForEvent(m.eventCh)
+	return tea.Batch(cmds...)
 }
 
 // waitForEvent reads one event from the channel and emits it as a tea.Msg.
