@@ -53,3 +53,7 @@ Cross-machine claim sync is **out of scope for v1.** v2 may add it (the design d
 - **Two agents claim simultaneously.** SQLite `BEGIN IMMEDIATE` serializes the transactions; one commits, the other gets `unique_constraint`-equivalent and the `squad claim` command exits with a clear "already claimed by X" message. No corruption, no torn state.
 - **Agent crashes mid-claim.** No release runs, so the claim stays open with a stale heartbeat. The next `squad doctor` run flags it; a peer can `squad force-release` after confirming.
 - **Claim across worktrees in the same repo.** Each worktree's `.squad/items/` may differ if the items are in different branches, but the DB is shared. Claiming the same `<ID>` from two worktrees still races against the DB, so only one wins — even if the other worktree doesn't have that file checked out.
+
+## See also
+
+- [squad-vs-agent-teams.md](squad-vs-agent-teams.md) — claim semantics compared to agent-teams' file-locked tasks.

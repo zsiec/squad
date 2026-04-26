@@ -66,3 +66,7 @@ squad workspace status --repo id1,id2,id3  # explicit list
 - **Same repo on two machines.** Items sync via git like normal. Claims do not — the global DB is per-machine, so registering on machine B does not see machine A's claim. This is by design (cross-machine claim sync is v2).
 - **Multiple users on a shared machine.** Each user has their own `~/.squad/global.db` (it's under `$HOME`), so claims and chat are private per OS user. Item files in the repo are shared via git in the usual way.
 - **`squad init` in a non-git directory.** Squad warns and asks for a `git init` first. The repo_id needs *something* stable; a directory that may be moved or renamed is not it.
+
+## See also
+
+- [squad-vs-agent-teams.md](squad-vs-agent-teams.md) — when to use squad vs. Claude Code's agent-teams.
