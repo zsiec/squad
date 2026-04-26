@@ -32,7 +32,6 @@ const schemaNext = `{
   "type": "object",
   "properties": {
     "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 5},
-    "agent_id": {"type": "string"},
     "include_claimed": {"type": "boolean"}
   },
   "additionalProperties": false
