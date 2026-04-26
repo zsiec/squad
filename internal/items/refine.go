@@ -17,8 +17,10 @@ import (
 var sectionHeader = regexp.MustCompile(`(?m)^## .+$`)
 
 var (
-	ErrCommentsRequired     = errors.New("refine: comments are required")
-	ErrWrongStatusForRefine = errors.New("refine: only captured or needs-refinement items can be refined")
+	ErrCommentsRequired        = errors.New("refine: comments are required")
+	ErrWrongStatusForRefine    = errors.New("refine: only captured or needs-refinement items can be refined")
+	ErrWrongStatusForRecapture = errors.New("recapture: only needs-refinement items can be recaptured")
+	ErrClaimNotHeld            = errors.New("recapture: claim not held by this agent")
 )
 
 func Refine(ctx context.Context, db *sql.DB, repoID, itemID, comments string) error {
@@ -49,6 +51,55 @@ func Refine(ctx context.Context, db *sql.DB, repoID, itemID, comments string) er
 			return err
 		}
 		return PersistOne(ctx, tx, repoID, it, false, now.Unix())
+	})
+}
+
+func Recapture(ctx context.Context, db *sql.DB, repoID, itemID, agentID string) error {
+	return store.WithTxRetry(ctx, db, func(tx *sql.Tx) error {
+		var path, status string
+		err := tx.QueryRowContext(ctx,
+			`SELECT path, status FROM items WHERE repo_id=? AND item_id=?`,
+			repoID, itemID,
+		).Scan(&path, &status)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrItemNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if status != "needs-refinement" {
+			return fmt.Errorf("%w (status=%q)", ErrWrongStatusForRecapture, status)
+		}
+
+		var holder string
+		err = tx.QueryRowContext(ctx,
+			`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
+			repoID, itemID,
+		).Scan(&holder)
+		if errors.Is(err, sql.ErrNoRows) || (err == nil && holder != agentID) {
+			return ErrClaimNotHeld
+		}
+		if err != nil {
+			return err
+		}
+
+		now := time.Now()
+		date := now.UTC().Format("2006-01-02")
+		if err := RewriteRecapture(path, date, "captured", now); err != nil {
+			return err
+		}
+		it, err := Parse(path)
+		if err != nil {
+			return err
+		}
+		if err := PersistOne(ctx, tx, repoID, it, false, now.Unix()); err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx,
+			`DELETE FROM claims WHERE repo_id=? AND item_id=?`,
+			repoID, itemID,
+		)
+		return err
 	})
 }
 

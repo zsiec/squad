@@ -9,8 +9,6 @@ import (
 	"github.com/zsiec/squad/internal/items"
 )
 
-var errItemNotFound = errors.New("item not found")
-
 func (s *Server) handleItemsRefine(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {

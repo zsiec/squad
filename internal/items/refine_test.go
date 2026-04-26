@@ -2,6 +2,7 @@ package items
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -309,6 +310,207 @@ func TestRefine_MissingItemReturnsErrItemNotFound(t *testing.T) {
 	defer db.Close()
 	if err := Refine(ctx, db, "r", "FEAT-999", "x"); !errors.Is(err, ErrItemNotFound) {
 		t.Fatalf("want ErrItemNotFound, got: %v", err)
+	}
+}
+
+func seedNeedsRefinementItem(t *testing.T, ctx context.Context, db *sql.DB, squadDir, repoID, id string) Item {
+	t.Helper()
+	p := filepath.Join(squadDir, "items", id+"-thing.md")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	body := `---
+id: ` + id + `
+title: investigate the flaky auth test we have
+type: feat
+status: needs-refinement
+priority: P2
+area: auth
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Reviewer feedback
+tighten the criteria
+
+## Problem
+
+x
+
+## Acceptance criteria
+- [ ] x
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, err := Parse(p)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if err := Persist(ctx, db, repoID, it, false); err != nil {
+		t.Fatalf("persist: %v", err)
+	}
+	return it
+}
+
+func insertTestClaim(t *testing.T, ctx context.Context, db *sql.DB, repoID, itemID, agentID string) {
+	t.Helper()
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, ?, ?, 0, 0, '', 0)
+	`, repoID, itemID, agentID); err != nil {
+		t.Fatalf("insert claim: %v", err)
+	}
+}
+
+func TestRecapture_HappyPath(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	seeded := seedNeedsRefinementItem(t, ctx, db, squadDir, "r", "FEAT-800")
+	insertTestClaim(t, ctx, db, "r", seeded.ID, "agent-A")
+
+	if err := Recapture(ctx, db, "r", seeded.ID, "agent-A"); err != nil {
+		t.Fatalf("recapture: %v", err)
+	}
+
+	var dbStatus string
+	if err := db.QueryRow(`SELECT status FROM items WHERE item_id=?`, seeded.ID).Scan(&dbStatus); err != nil {
+		t.Fatalf("db scan: %v", err)
+	}
+	if dbStatus != "captured" {
+		t.Fatalf("db status=%q want captured", dbStatus)
+	}
+
+	raw, err := os.ReadFile(seeded.Path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if strings.Contains(string(raw), "## Reviewer feedback") {
+		t.Fatalf("reviewer feedback should be gone:\n%s", raw)
+	}
+	if !strings.Contains(string(raw), "## Refinement history") {
+		t.Fatalf("history section missing:\n%s", raw)
+	}
+
+	var holder string
+	err = db.QueryRow(`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`, "r", seeded.ID).Scan(&holder)
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("claim row should be deleted, got holder=%q err=%v", holder, err)
+	}
+}
+
+func TestRecapture_RejectsWithoutClaim(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seeded := seedNeedsRefinementItem(t, ctx, db, squadDir, "r", "FEAT-801")
+
+	err := Recapture(ctx, db, "r", seeded.ID, "agent-A")
+	if !errors.Is(err, ErrClaimNotHeld) {
+		t.Fatalf("want ErrClaimNotHeld, got: %v", err)
+	}
+}
+
+func TestRecapture_RejectsWrongAgent(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seeded := seedNeedsRefinementItem(t, ctx, db, squadDir, "r", "FEAT-802")
+	insertTestClaim(t, ctx, db, "r", seeded.ID, "agent-A")
+
+	err := Recapture(ctx, db, "r", seeded.ID, "agent-B")
+	if !errors.Is(err, ErrClaimNotHeld) {
+		t.Fatalf("want ErrClaimNotHeld, got: %v", err)
+	}
+}
+
+func TestRecapture_RejectsWrongStatus(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seeded := seedPromotableItem(t, ctx, db, squadDir, "r", "FEAT-803")
+	insertTestClaim(t, ctx, db, "r", seeded.ID, "agent-A")
+
+	err := Recapture(ctx, db, "r", seeded.ID, "agent-A")
+	if !errors.Is(err, ErrWrongStatusForRecapture) {
+		t.Fatalf("want ErrWrongStatusForRecapture, got: %v", err)
+	}
+}
+
+func TestRecapture_AppendsRound2(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	p := filepath.Join(squadDir, "items", "FEAT-804-thing.md")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	body := `---
+id: FEAT-804
+title: investigate the flaky auth test we have
+type: feat
+status: needs-refinement
+priority: P2
+area: auth
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Reviewer feedback
+round 2 ask
+
+## Refinement history
+### Round 1 — 2026-04-25
+first ask
+
+## Problem
+
+x
+
+## Acceptance criteria
+- [ ] x
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, _ := Parse(p)
+	if err := Persist(ctx, db, "r", it, false); err != nil {
+		t.Fatalf("persist: %v", err)
+	}
+	insertTestClaim(t, ctx, db, "r", "FEAT-804", "agent-A")
+
+	if err := Recapture(ctx, db, "r", "FEAT-804", "agent-A"); err != nil {
+		t.Fatalf("recapture: %v", err)
+	}
+
+	raw, _ := os.ReadFile(p)
+	s := string(raw)
+	if !strings.Contains(s, "### Round 1 — 2026-04-25") {
+		t.Fatalf("round 1 missing after recapture:\n%s", s)
+	}
+	if !strings.Contains(s, "### Round 2") {
+		t.Fatalf("round 2 missing after recapture:\n%s", s)
+	}
+	if strings.Contains(s, "## Reviewer feedback") {
+		t.Fatalf("reviewer feedback should be gone:\n%s", s)
 	}
 }
 
