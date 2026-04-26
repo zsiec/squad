@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,102 @@ import (
 )
 
 const unscopedRepoID = "_unscoped"
+
+// MaxAgentIDLen and MaxDisplayNameLen cap the values stored in agents table
+// columns. R5/R6 fuzzing landed multi-MB inputs that round-tripped fine but
+// would inflate every dashboard render. 256 chars is more than long enough
+// for any human display name and any session-derived agent id.
+const (
+	MaxAgentIDLen     = 256
+	MaxDisplayNameLen = 256
+)
+
+// ErrAgentIDTaken signals that --as <id> matches an existing agent row owned
+// by a different worktree/PID. Re-registering would re-point the row, so the
+// caller must pass --force to opt in.
+var ErrAgentIDTaken = errors.New("register: agent id already registered")
+
+type RegisterArgs struct {
+	As          string `json:"as,omitempty"`
+	Name        string `json:"name,omitempty"`
+	NoRepoCheck bool   `json:"no_repo_check,omitempty"`
+	Force       bool   `json:"force,omitempty"`
+}
+
+type RegisterResult struct {
+	AgentID   string `json:"agent_id"`
+	Name      string `json:"name"`
+	RepoID    string `json:"repo_id"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, error) {
+	if len(args.As) > MaxAgentIDLen {
+		return nil, fmt.Errorf("--as: id too long (%d bytes, max %d)", len(args.As), MaxAgentIDLen)
+	}
+	if len(args.Name) > MaxDisplayNameLen {
+		return nil, fmt.Errorf("--name: too long (%d bytes, max %d)", len(args.Name), MaxDisplayNameLen)
+	}
+	if err := store.EnsureHome(); err != nil {
+		return nil, err
+	}
+	dbPath, err := store.DBPath()
+	if err != nil {
+		return nil, err
+	}
+	db, err := store.Open(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	id := args.As
+	if id != "" {
+		if !args.Force && identity.PersistedAgentID() != id {
+			if other, ok, _ := lookupAgent(ctx, db, id); ok {
+				return nil, fmt.Errorf(
+					"%w: agent id %q is already registered (worktree=%s pid=%d). "+
+						"Re-using it from this session would re-point the agent row at you. "+
+						"Pass --force if you really mean to replace it, or pick a different id with --as.",
+					ErrAgentIDTaken, id, other.Worktree, other.PID)
+			}
+		}
+		if err := identity.WritePersistedAgentID(id); err != nil {
+			return nil, err
+		}
+	} else {
+		id, err = identity.AgentID()
+		if err != nil {
+			return nil, err
+		}
+		if perr := identity.WritePersistedAgentID(id); perr != nil {
+			return nil, perr
+		}
+	}
+	name := args.Name
+	if name == "" {
+		name = id
+	}
+
+	repoID := unscopedRepoID
+	if !args.NoRepoCheck {
+		root, derr := repo.Discover(identity.DetectWorktree())
+		if derr != nil {
+			return nil, derr
+		}
+		remote, _ := repo.ReadRemoteURL(root)
+		repoID, err = repo.RegisterRepo(ctx, db, root, remote, filepath.Base(root))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	now := time.Now().Unix()
+	if err := upsertAgent(ctx, db, repoID, id, name, identity.DetectWorktree(), os.Getpid()); err != nil {
+		return nil, err
+	}
+	return &RegisterResult{AgentID: id, Name: name, RepoID: repoID, CreatedAt: now}, nil
+}
 
 func newRegisterCmd() *cobra.Command {
 	var (
@@ -40,85 +137,17 @@ func newRegisterCmd() *cobra.Command {
 	return cmd
 }
 
-// MaxAgentIDLen and MaxDisplayNameLen cap the values stored in agents table
-// columns. R5/R6 fuzzing landed multi-MB inputs that round-tripped fine but
-// would inflate every dashboard render. 256 chars is more than long enough
-// for any human display name and any session-derived agent id.
-const (
-	MaxAgentIDLen     = 256
-	MaxDisplayNameLen = 256
-)
-
 func runRegisterWithOpts(stdout io.Writer, asFlag, nameFlag string, noRepoCheck, force bool) error {
-	if len(asFlag) > MaxAgentIDLen {
-		return fmt.Errorf("--as: id too long (%d bytes, max %d)", len(asFlag), MaxAgentIDLen)
-	}
-	if len(nameFlag) > MaxDisplayNameLen {
-		return fmt.Errorf("--name: too long (%d bytes, max %d)", len(nameFlag), MaxDisplayNameLen)
-	}
-	if err := store.EnsureHome(); err != nil {
-		return err
-	}
-	dbPath, err := store.DBPath()
+	res, err := Register(context.Background(), RegisterArgs{
+		As:          asFlag,
+		Name:        nameFlag,
+		NoRepoCheck: noRepoCheck,
+		Force:       force,
+	})
 	if err != nil {
 		return err
 	}
-	db, err := store.Open(dbPath)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	id := asFlag
-	if id != "" {
-		// If the requested id already exists in the agents table and
-		// this session's persisted agent-id file doesn't already point
-		// at it, the registration would silently re-point the row at
-		// us — conflating the new session's chats/claims with the prior
-		// session's identity. Refuse without --force. (QA r6-E F4.)
-		if !force && identity.PersistedAgentID() != id {
-			if other, ok, _ := lookupAgent(context.Background(), db, id); ok {
-				return fmt.Errorf(
-					"agent id %q is already registered (worktree=%s pid=%d). "+
-						"Re-using it from this session would re-point the agent row at you. "+
-						"Pass --force if you really mean to replace it, or pick a different id with --as.",
-					id, other.Worktree, other.PID)
-			}
-		}
-		if err := identity.WritePersistedAgentID(id); err != nil {
-			return err
-		}
-	} else {
-		id, err = identity.AgentID()
-		if err != nil {
-			return err
-		}
-		if perr := identity.WritePersistedAgentID(id); perr != nil {
-			return perr
-		}
-	}
-	name := nameFlag
-	if name == "" {
-		name = id
-	}
-
-	repoID := unscopedRepoID
-	if !noRepoCheck {
-		root, derr := repo.Discover(identity.DetectWorktree())
-		if derr != nil {
-			return derr
-		}
-		remote, _ := repo.ReadRemoteURL(root)
-		repoID, err = repo.RegisterRepo(context.Background(), db, root, remote, filepath.Base(root))
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := upsertAgent(context.Background(), db, repoID, id, name, identity.DetectWorktree(), os.Getpid()); err != nil {
-		return err
-	}
-	fmt.Fprintf(stdout, "registered %s\n", id)
+	fmt.Fprintf(stdout, "registered %s\n", res.AgentID)
 	return nil
 }
 
