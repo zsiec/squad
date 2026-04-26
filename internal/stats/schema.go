@@ -49,6 +49,7 @@ type Percentiles struct {
 	P99   *float64 `json:"p99"`
 	Min   *float64 `json:"min"`
 	Max   *float64 `json:"max"`
+	Sum   *float64 `json:"sum,omitempty"`
 	Count int64    `json:"count"`
 }
 

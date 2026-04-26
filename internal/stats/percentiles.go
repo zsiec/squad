@@ -26,6 +26,10 @@ func computePercentiles(xs []float64) Percentiles {
 	}
 	p50, p90, p99 := at(0.50), at(0.90), at(0.99)
 	min, max := sorted[0], sorted[n-1]
+	sum := 0.0
+	for _, x := range sorted {
+		sum += x
+	}
 	return Percentiles{P50: &p50, P90: &p90, P99: &p99,
-		Min: &min, Max: &max, Count: int64(n)}
+		Min: &min, Max: &max, Sum: &sum, Count: int64(n)}
 }

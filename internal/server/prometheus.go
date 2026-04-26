@@ -76,11 +76,9 @@ func (c *serverCollector) Collect(ch chan<- prometheus.Metric) {
 		if p.P99 != nil {
 			q[0.99] = *p.P99
 		}
-		// Sum is approximated from min/max because exact would require an
-		// extra DB query — the percentiles are the load-bearing values here.
 		var sum float64
-		if p.Min != nil && p.Max != nil {
-			sum = (*p.Min + *p.Max) * float64(p.Count) / 2
+		if p.Sum != nil {
+			sum = *p.Sum
 		}
 		ch <- prometheus.MustNewConstSummary(descClaimDur, uint64(p.Count), sum, q, repo)
 	}
