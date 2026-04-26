@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -10,8 +11,9 @@ func TestVersionString(t *testing.T) {
 	if versionString == "" {
 		t.Fatal("versionString must not be empty")
 	}
-	if !strings.Contains(versionString, "dev") && !strings.HasPrefix(versionString, "v") {
-		t.Fatalf("versionString %q should start with v or contain dev", versionString)
+	semver := regexp.MustCompile(`^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$`)
+	if !semver.MatchString(versionString) {
+		t.Fatalf("versionString %q is not a valid semver", versionString)
 	}
 }
 

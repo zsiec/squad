@@ -16,7 +16,7 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
-const versionString = "0.1.0-dev"
+const versionString = "0.2.0"
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
