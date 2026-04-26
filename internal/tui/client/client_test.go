@@ -204,13 +204,13 @@ func TestWhoami(t *testing.T) {
 }
 
 func TestRepos(t *testing.T) {
-	srv, gotURL := newCapturingServer(t, `[{"id":"r-1","name":"squad"}]`)
+	srv, gotURL := newCapturingServer(t, `[{"repo_id":"r-1","path":"/path/to/squad","remote":"git@..."}]`)
 	c := New(srv.URL, "")
 	got, err := c.Repos(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if *gotURL != "/api/repos" || len(got) != 1 || got[0].ID != "r-1" {
+	if *gotURL != "/api/repos" || len(got) != 1 || got[0].RepoID != "r-1" {
 		t.Fatalf("url=%q got=%+v", *gotURL, got)
 	}
 }

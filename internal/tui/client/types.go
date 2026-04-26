@@ -145,12 +145,7 @@ type LearningDetail struct {
 
 // --- Repos ---
 
-// Repo carries both the server's actual repo_id/path fields and the convenience
-// ID/Name pair view modules use for display. The server today emits
-// {repo_id, path, remote}; ID/Name are populated from those when present.
 type Repo struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
 	RepoID string `json:"repo_id"`
 	Path   string `json:"path"`
 	Remote string `json:"remote"`
