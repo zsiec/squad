@@ -40,7 +40,7 @@ func LearningReject(_ context.Context, args LearningRejectArgs) (*LearningReject
 	if l.State != learning.StateProposed {
 		return nil, fmt.Errorf("%w: %s is in state %s", ErrNotProposed, l.Slug, l.State)
 	}
-	dst, err := learning.Promote(l, learning.StateRejected)
+	dst, err := learning.Promote(l, learning.StateRejected, nil)
 	if err != nil {
 		return nil, err
 	}

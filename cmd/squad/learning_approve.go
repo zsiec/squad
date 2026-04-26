@@ -27,7 +27,7 @@ func LearningApprove(_ context.Context, args LearningApproveArgs) (*LearningAppr
 	if l.State != learning.StateProposed {
 		return nil, fmt.Errorf("%w: %s is in state %s", ErrNotProposed, l.Slug, l.State)
 	}
-	dst, err := learning.Promote(l, learning.StateApproved)
+	dst, err := learning.Promote(l, learning.StateApproved, nil)
 	if err != nil {
 		return nil, err
 	}

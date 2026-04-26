@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/zsiec/squad/internal/chat"
 )
 
 var stateLineRe = regexp.MustCompile(`(?m)^state:[^\n]*$`)
@@ -22,7 +24,7 @@ func RewriteState(body []byte, target State) []byte {
 // returns at most one copy and ResolveSingle stays unambiguous; if the
 // rollback itself fails, the returned error names both paths so the
 // user can clean up by hand.
-func Promote(l Learning, target State) (string, error) {
+func Promote(l Learning, target State, bus *chat.Bus) (string, error) {
 	if l.State == target {
 		return l.Path, nil
 	}
@@ -52,6 +54,18 @@ func Promote(l Learning, target State) (string, error) {
 			return "", fmt.Errorf("remove src %s: %w; rollback of dst %s also failed: %v", l.Path, err, dst, rmErr)
 		}
 		return "", fmt.Errorf("remove src %s (rolled back dst %s): %w", l.Path, dst, err)
+	}
+	if bus != nil {
+		bus.Publish(chat.Event{
+			Kind: "learning_state_changed",
+			Payload: map[string]any{
+				"slug":       l.Slug,
+				"kind":       string(l.Kind),
+				"from_state": string(l.State),
+				"to_state":   string(target),
+				"path":       dst,
+			},
+		})
 	}
 	return dst, nil
 }

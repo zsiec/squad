@@ -37,7 +37,7 @@ func TestPromote_RollsBackDstIfSrcRemoveFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	dst, err := Promote(l, StateApproved)
+	dst, err := Promote(l, StateApproved, nil)
 	if err == nil {
 		t.Fatalf("expected Promote to fail; got dst=%s", dst)
 	}

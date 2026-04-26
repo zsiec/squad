@@ -17,6 +17,8 @@ import (
 
 	sqlite "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
+
+	"github.com/zsiec/squad/internal/chat"
 )
 
 type Kind string
@@ -55,6 +57,7 @@ type Ledger struct {
 	db     *sql.DB
 	repoID string
 	now    func() time.Time
+	bus    *chat.Bus
 }
 
 func New(db *sql.DB, repoID string, now func() time.Time) *Ledger {
@@ -62,6 +65,15 @@ func New(db *sql.DB, repoID string, now func() time.Time) *Ledger {
 		now = time.Now
 	}
 	return &Ledger{db: db, repoID: repoID, now: now}
+}
+
+// WithBus enables event publishing on Insert. Each successful fresh
+// insert publishes a chat.Event of kind "attestation_recorded" so SSE
+// subscribers (e.g. the TUI's evidence pane) can invalidate. CLI
+// invocations don't share a bus and skip the publish silently.
+func (l *Ledger) WithBus(b *chat.Bus) *Ledger {
+	l.bus = b
+	return l
 }
 
 func (l *Ledger) nowUnix() int64 { return l.now().Unix() }
@@ -97,7 +109,22 @@ func (l *Ledger) Insert(ctx context.Context, r Record) (int64, error) {
 		}
 		return 0, fmt.Errorf("insert attestation: %w", err)
 	}
-	return res.LastInsertId()
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	if l.bus != nil {
+		l.bus.Publish(chat.Event{
+			Kind: "attestation_recorded",
+			Payload: map[string]any{
+				"item_id":    r.ItemID,
+				"kind":       string(r.Kind),
+				"id":         id,
+				"created_at": created,
+			},
+		})
+	}
+	return id, nil
 }
 
 func isUniqueViolation(err error) bool {
