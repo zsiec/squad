@@ -78,25 +78,6 @@ The two compose cleanly because they live at different layers:
 
 A typical compose pattern: open a squad-managed repo, claim a multi-step item with `squad claim`, spawn an agent-teams session to drive it, the team's lead and teammates collaborate inside that one squad claim, on close-out the lead runs `squad done` with evidence. Squad sees one claim by one identity; agent-teams sees one team driving one task. No conflict.
 
-The optional `squad bridge agent-teams` command (see [bridge spec](#optional-the-bridge-command)) reflects squad's pending-and-claimed items into the agent-teams task list so the lead can see them as native tasks. It is one-way (squad → agent-teams), session-scoped, and tears down when the team session ends.
-
-## Optional: the bridge command
-
-`squad bridge agent-teams [--team <name>] [--items <filter>]`
-
-**Status:** Specified in `docs/reference/commands.md`. Implementation is gated on the agent-teams on-disk format exiting experimental. As of writing, the format is documented but flagged as subject to change; squad will not ship a stable bridge against an unstable upstream.
-
-**Behavior (when implemented):**
-1. Reads squad's pending-and-claimed items in the current repo.
-2. Writes them as agent-teams tasks into `~/.claude/tasks/<team>/tasks.json`, prefixed `squad:` to make their origin obvious.
-3. Watches for status changes from the agent-teams side and reflects them back into squad's claim store as touch updates only — never as `done`. Marking complete is still a deliberate `squad done` with evidence.
-4. Tears down the mirror on `SIGINT`, `SessionEnd`, or `--once` exit.
-
-The bridge does NOT:
-- Sync chat between the two systems.
-- Take squad items to `done` from inside agent-teams.
-- Persist between agent-teams sessions.
-
 See [recipes/migrating-from-agent-teams.md](../recipes/migrating-from-agent-teams.md) for the migration path when ephemeral stops being enough.
 
 ## Anti-patterns
@@ -104,11 +85,9 @@ See [recipes/migrating-from-agent-teams.md](../recipes/migrating-from-agent-team
 - **Running agent-teams against an unmanaged repo when you've been doing this for weeks.** If you're back in the same codebase repeatedly, you've outgrown agent-teams' lifetime model. Init squad.
 - **Initializing squad for a one-off two-hour session.** The init cost is small but real; the chat verbs and hygiene rules don't earn their keep in a single afternoon. Use agent-teams.
 - **Trying to force agent-teams' lead role onto squad's peer model.** Squad has no lead. If you need a lead role, run agent-teams *inside* a squad claim.
-- **Bidirectional bridge.** Don't write one. The conflict-resolution cost is higher than the convenience. Squad is the source of truth; the bridge is read-mostly.
 
 ## See also
 
 - `docs/recipes/migrating-from-agent-teams.md` — step-by-step graduation path.
 - `docs/recipes/multi-agent-parallel-claude-sessions.md` — squad-only multi-agent pattern.
-- `docs/reference/commands.md#squad-bridge-agent-teams` — bridge command reference.
 - Upstream: https://code.claude.com/docs/en/agent-teams.
