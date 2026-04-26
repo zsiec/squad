@@ -114,6 +114,7 @@ func newTouchesCmd() *cobra.Command {
 		Short: "Query active file touches across the repo",
 	}
 	cmd.AddCommand(newTouchesListOthersCmd())
+	cmd.AddCommand(newTouchesPolicyCmd())
 	return cmd
 }
 
