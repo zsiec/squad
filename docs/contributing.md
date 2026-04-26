@@ -2,6 +2,8 @@
 
 Squad uses squad. If you contribute, you'll work the same loop the docs describe.
 
+For day-to-day item work in this repo (claim, chat, done, attest), drive squad through Claude Code the same way users do — *"claim BUG-042 and start"*, *"mark this done with summary X"*. The CLI commands below are useful when you want to test the local build of the binary or script something; otherwise let Claude call the MCP tools.
+
 ## Setup (one-time)
 
 ```bash
@@ -10,7 +12,9 @@ cd squad
 go build ./cmd/squad                                # confirms the build works
 go test -race ./...                                 # confirms tests pass
 
-# scaffold a .squad/ if this clone doesn't have one yet, then onboard
+# Scaffold .squad/ if this clone doesn't have one yet, then onboard.
+# In Claude Code: ask "initialize squad here and claim the top ready item".
+# In a terminal:
 ./squad go                                          # idempotent: init + register + claim + AC + mailbox
 ```
 
@@ -23,15 +27,14 @@ Optional: install the plugin and hooks against this repo (and yes, you can dogfo
 
 ## Pick something to work on
 
+In Claude Code: *"What's ready to work on in this repo?"* (Claude calls `squad_next`.) Or file a new item: *"File a bug for the race in the cache flusher."* (Claude calls `squad_new bug "..."`.)
+
+The terminal equivalents:
+
 ```bash
 ./squad next                            # top of the ready stack
 ./squad workspace next                  # cross-repo if you've got more
 ls .squad/items/                        # browse manually
-```
-
-Or file something:
-
-```bash
 ./squad new bug "race in the cache flusher"
 ./squad new feat "expose --json on whoami"
 ./squad new chore "ItemPath helper missing for cmd/squad/done.go"
@@ -39,6 +42,8 @@ Or file something:
 ```
 
 ## Work the loop
+
+In Claude Code: *"Claim BUG-042 with intent 'stop the leak; add regression test'."* Then do the work — Claude can also call `squad_milestone`, `squad_review_request`, `squad_attest`, and `squad_done` for you as you progress. The full loop in CLI form:
 
 ```bash
 ./squad claim BUG-042 --intent "stop the leak; add regression test"
