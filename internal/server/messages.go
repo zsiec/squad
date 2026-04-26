@@ -23,6 +23,15 @@ const MaxMessageBodyBytes = 64 * 1024
 // worry about exotic thread names.
 var validThread = regexp.MustCompile(`^(global|[A-Z][A-Z0-9]*-\d+)$`)
 
+func validChatKind(k string) bool {
+	for _, allowed := range chat.AllKinds() {
+		if k == allowed {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) handleMessagesList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	thread := q.Get("thread")
@@ -103,6 +112,7 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Thread   string   `json:"thread"`
 		Body     string   `json:"body"`
+		Kind     string   `json:"kind"`
 		Mentions []string `json:"mentions"`
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, MaxMessageBodyBytes+1024) // +1KB for envelope
@@ -126,6 +136,13 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 			"body exceeds limit (got "+strconv.Itoa(len(req.Body))+" bytes, max "+strconv.Itoa(MaxMessageBodyBytes)+")")
 		return
 	}
+	if req.Kind == "" {
+		req.Kind = chat.KindSay
+	}
+	if !validChatKind(req.Kind) {
+		writeErr(w, http.StatusBadRequest, "unknown kind: "+req.Kind)
+		return
+	}
 	mentions := req.Mentions
 	if mentions == nil {
 		mentions = chat.ParseMentions(req.Body)
@@ -133,7 +150,7 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 	if err := s.chat.Post(r.Context(), chat.PostRequest{
 		AgentID:  agent,
 		Thread:   req.Thread,
-		Kind:     chat.KindSay,
+		Kind:     req.Kind,
 		Body:     req.Body,
 		Mentions: mentions,
 	}); err != nil {
