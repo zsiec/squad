@@ -199,7 +199,7 @@ func TestPersist_EmptyProvenanceStoresAsNull(t *testing.T) {
 	}
 	var capBy sql.NullString
 	var capAt sql.NullInt64
-	db.QueryRow(`SELECT captured_by, captured_at FROM items WHERE item_id=?`, "FEAT-101").Scan(&capBy, &capAt)
+	_ = db.QueryRow(`SELECT captured_by, captured_at FROM items WHERE item_id=?`, "FEAT-101").Scan(&capBy, &capAt)
 	if capBy.Valid {
 		t.Fatalf("captured_by should be NULL for item without provenance, got %+v", capBy)
 	}
@@ -221,7 +221,7 @@ func TestPersist_AcceptanceProvenanceUpdatesOnUpsert(t *testing.T) {
 		Path:       "/repo/.squad/items/FEAT-102.md",
 		CapturedBy: "agent-A", CapturedAt: 100,
 	}
-	Persist(ctx, db, "r", it, false)
+	_ = Persist(ctx, db, "r", it, false)
 	it.Status = "open"
 	it.AcceptedBy = "agent-B"
 	it.AcceptedAt = 200
@@ -230,7 +230,7 @@ func TestPersist_AcceptanceProvenanceUpdatesOnUpsert(t *testing.T) {
 	}
 	var accBy sql.NullString
 	var accAt sql.NullInt64
-	db.QueryRow(`SELECT accepted_by, accepted_at FROM items WHERE item_id=?`, "FEAT-102").Scan(&accBy, &accAt)
+	_ = db.QueryRow(`SELECT accepted_by, accepted_at FROM items WHERE item_id=?`, "FEAT-102").Scan(&accBy, &accAt)
 	if !accBy.Valid || accBy.String != "agent-B" {
 		t.Fatalf("accepted_by=%+v", accBy)
 	}

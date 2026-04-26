@@ -221,7 +221,7 @@ func TestReject_DeletesFileAppendsLogDeletesRow(t *testing.T) {
 		t.Fatalf("log content unexpected: %s", log)
 	}
 	var n int
-	db.QueryRow(`SELECT count(*) FROM items WHERE item_id=?`, seeded.ID).Scan(&n)
+	_ = db.QueryRow(`SELECT count(*) FROM items WHERE item_id=?`, seeded.ID).Scan(&n)
 	if n != 0 {
 		t.Fatalf("row should be deleted, count=%d", n)
 	}
@@ -231,7 +231,7 @@ func TestReject_NonexistentIsNoop(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	squadDir := filepath.Join(dir, ".squad")
-	os.MkdirAll(squadDir, 0o755)
+	_ = os.MkdirAll(squadDir, 0o755)
 	db, _ := store.Open(filepath.Join(dir, "test.db"))
 	defer db.Close()
 	if err := Reject(ctx, db, "r", "FEAT-999", "anything", "agent-B", squadDir); err != nil {
@@ -264,7 +264,7 @@ func TestReject_RefusesClaimedItem(t *testing.T) {
 		t.Fatalf("file should still exist after refused reject: %v", err)
 	}
 	var n int
-	db.QueryRow(`SELECT count(*) FROM items WHERE item_id=?`, seeded.ID).Scan(&n)
+	_ = db.QueryRow(`SELECT count(*) FROM items WHERE item_id=?`, seeded.ID).Scan(&n)
 	if n != 1 {
 		t.Fatalf("row should still exist, count=%d", n)
 	}

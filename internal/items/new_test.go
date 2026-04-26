@@ -182,7 +182,7 @@ func TestNewWithOptions_DefaultsToCaptured(t *testing.T) {
 func TestNewWithOptions_ReadyFlagCreatesOpen(t *testing.T) {
 	dir := t.TempDir()
 	squadDir := filepath.Join(dir, ".squad")
-	os.MkdirAll(squadDir, 0o755)
+	_ = os.MkdirAll(squadDir, 0o755)
 	path, err := NewWithOptions(squadDir, "FEAT", "thing", Options{
 		CapturedBy: "agent-9f3a",
 		Ready:      true,
@@ -205,7 +205,7 @@ func TestNewWithOptions_ReadyFlagCreatesOpen(t *testing.T) {
 func TestNewWithOptions_NoCapturedByIsAllowed(t *testing.T) {
 	dir := t.TempDir()
 	squadDir := filepath.Join(dir, ".squad")
-	os.MkdirAll(squadDir, 0o755)
+	_ = os.MkdirAll(squadDir, 0o755)
 	path, err := NewWithOptions(squadDir, "FEAT", "thing", Options{})
 	if err != nil {
 		t.Fatalf("new: %v", err)

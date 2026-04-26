@@ -29,7 +29,7 @@ func (e *DoRError) Error() string {
 }
 
 type rejectionLogEntry struct {
-	Ts     int64  `json:"ts"`
+	TS     int64  `json:"ts"`
 	ID     string `json:"id"`
 	Title  string `json:"title"`
 	Reason string `json:"reason"`
@@ -63,7 +63,7 @@ func Reject(ctx context.Context, db *sql.DB, repoID, itemID, reason, by, squadDi
 			return ErrItemClaimed
 		}
 		if err := appendRejectionLog(squadDir, rejectionLogEntry{
-			Ts: time.Now().Unix(), ID: itemID, Title: title, Reason: reason, By: by,
+			TS: time.Now().Unix(), ID: itemID, Title: title, Reason: reason, By: by,
 		}); err != nil {
 			return fmt.Errorf("reject: log append failed: %w", err)
 		}
