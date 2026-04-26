@@ -83,6 +83,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/stats", s.handleStats)
 	mux.HandleFunc("GET /api/workspace/status", s.handleWorkspaceStatus)
 	mux.HandleFunc("GET /api/events", s.handleEvents)
+	mux.Handle("GET /metrics", s.prometheusHandler())
 	mux.Handle("/", staticHandler())
 	return s.authMiddleware(mux)
 }
