@@ -88,10 +88,28 @@ type Model struct {
 }
 
 // NewModel constructs a root model. eventCh may be nil for testing.
+//
+// Each entry in the views map is the real view module from internal/tui/views.
+// Session is the exception — it requires a target agent id, so it stays a stub
+// here and is replaced via WithView when AgentsOpenSessionMsg fires from the
+// Agents view's drill-in. Tests can swap any view via WithView for recording
+// stubs without replacing the whole map.
 func NewModel(c *client.Client, eventCh <-chan client.Event, scope string) Model {
-	views := map[View]tea.Model{}
-	for v := ViewItems; v <= ViewInbox; v++ {
-		views[v] = StubView{label: v.Name() + " view (placeholder)"}
+	viewMap := map[View]tea.Model{
+		ViewItems:     views.NewItems(c),
+		ViewAgents:    views.NewAgents(c),
+		ViewChat:      views.NewChat(c),
+		ViewRepos:     views.NewRepos(c),
+		ViewHistory:   views.NewHistory(c),
+		ViewMailbox:   views.NewMailbox(c),
+		ViewDoctor:    views.NewDoctor(c),
+		ViewSpecs:     views.NewSpecs(c),
+		ViewEpics:     views.NewEpics(c),
+		ViewStats:     views.NewStats(c),
+		ViewLearnings: views.NewLearnings(c),
+		ViewInbox:     views.NewInbox(c),
+		// Session needs a target agent id; left as stub until drill-in.
+		ViewSession: StubView{label: "session view (open via Agents)"},
 	}
 	cmds := []components.Command{}
 	for v := ViewItems; v <= ViewInbox; v++ {
@@ -100,7 +118,7 @@ func NewModel(c *client.Client, eventCh <-chan client.Event, scope string) Model
 	return Model{
 		client:  c,
 		current: ViewItems,
-		views:   views,
+		views:   viewMap,
 		palette: components.NewPalette(cmds, ""),
 		eventCh: eventCh,
 		scope:   scope,
