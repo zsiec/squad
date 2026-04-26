@@ -96,6 +96,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/inbox", s.handleInbox)
 	mux.HandleFunc("GET /api/items/{id}", s.handleItemDetail)
 	mux.HandleFunc("GET /api/items/{id}/attestations", s.handleAttestationsForItem)
+	mux.HandleFunc("GET /api/items/{id}/activity", s.handleItemActivity)
 	mux.HandleFunc("POST /api/items/{id}/accept", s.handleItemsAccept)
 	mux.HandleFunc("POST /api/items/{id}/reject", s.handleItemsReject)
 	mux.HandleFunc("POST /api/items/{id}/claim", s.handleItemClaim)
