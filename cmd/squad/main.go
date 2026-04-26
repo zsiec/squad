@@ -65,6 +65,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newDumpStatusCmd())
 	root.AddCommand(newInitCmd())
 	root.AddCommand(newSpecNewCmd())
+	root.AddCommand(newDecomposeCmd())
 	root.AddCommand(newEpicNewCmd())
 	root.AddCommand(newAnalyzeCmd())
 	root.AddCommand(newGoCmd())
