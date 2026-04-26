@@ -19,6 +19,7 @@ import (
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/server"
 	"github.com/zsiec/squad/internal/store"
+	"github.com/zsiec/squad/internal/tui/daemon"
 )
 
 func newServeCmd() *cobra.Command {
@@ -32,6 +33,18 @@ func newServeCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Start the squad dashboard (HTTP + SSE)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if installFlag, _ := cmd.Flags().GetBool("install-service"); installFlag {
+				return runInstallService(cmd)
+			}
+			if uninstallFlag, _ := cmd.Flags().GetBool("uninstall-service"); uninstallFlag {
+				return daemon.New().Uninstall()
+			}
+			if reinstallFlag, _ := cmd.Flags().GetBool("reinstall-service"); reinstallFlag {
+				return runReinstallService(cmd)
+			}
+			if statusFlag, _ := cmd.Flags().GetBool("service-status"); statusFlag {
+				return runServiceStatus(cmd)
+			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 			tok := token
@@ -52,7 +65,60 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "interface to bind (default localhost only)")
 	cmd.Flags().StringVar(&squadDir, "squad-dir", ".squad", "squad directory containing items/ and done/")
 	cmd.Flags().StringVar(&token, "token", "", "require Bearer <token> on every request (or ?token= for SSE in browsers); falls back to $SQUAD_DASHBOARD_TOKEN")
+	cmd.Flags().Bool("install-service", false, "install squad serve as a system service (launchd / systemd-user)")
+	cmd.Flags().Bool("uninstall-service", false, "uninstall the system service")
+	cmd.Flags().Bool("reinstall-service", false, "reinstall with current binary path")
+	cmd.Flags().Bool("service-status", false, "print service status")
 	return cmd
+}
+
+func runInstallService(cmd *cobra.Command) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("home dir: %w", err)
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve squad binary: %w", err)
+	}
+	if err := installServiceFlow(home, binary, daemon.New()); err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "squad serve installed; token at %s\n", filepath.Join(home, ".squad", "token"))
+	return nil
+}
+
+func runReinstallService(cmd *cobra.Command) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("home dir: %w", err)
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve squad binary: %w", err)
+	}
+	mgr := daemon.New()
+	if err := mgr.Uninstall(); err != nil {
+		return err
+	}
+	if err := installServiceFlow(home, binary, mgr); err != nil {
+		return err
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "squad serve reinstalled")
+	return nil
+}
+
+func runServiceStatus(cmd *cobra.Command) error {
+	s, err := daemon.New().Status()
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "installed: %v\nrunning:   %v\n", s.Installed, s.Running)
+	if s.PID != 0 {
+		fmt.Fprintf(out, "pid:       %d\n", s.PID)
+	}
+	return nil
 }
 
 func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, out interface{ Write([]byte) (int, error) }) int {
