@@ -29,4 +29,8 @@ var All = []Hook{
 		"At session end, prompt the agent to file a learning if non-trivial code changed.",
 		"Adds ~50ms to Stop. Off by default; opt in if your team finds learnings worth filing.",
 		"Stop", "*"},
+	{"loop-pre-bash-tick", "loop_pre_bash_tick.sh", false,
+		"Skill-scoped PreToolUse:Bash tick — fires only while squad-loop is the active skill.",
+		"Cheaper than user-prompt-tick (Bash-boundaries only) but only fires when the loop skill is loaded.",
+		"PreToolUse", "Bash"},
 }
