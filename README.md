@@ -5,27 +5,35 @@
 
 > Project management for software work done with AI coding agents.
 
-Squad gives Claude Code the durable coordination layer it lacks on its own — atomic claims, typed chat verbs, file-touch tracking, an evidence ledger, and a multi-agent dashboard. All of it is exposed through **36 MCP tools**, so Claude does the squad work for you. You describe what you want; squad's plumbing makes it happen.
+Squad gives Claude Code the durable coordination layer it lacks on its own — atomic claims, typed chat verbs, file-touch tracking, an evidence ledger, and a multi-agent dashboard. The full squad CLI surface is exposed as MCP tools, so Claude does the squad work for you. You describe what you want; squad's plumbing makes it happen.
 
 > ⚠️ **Status:** under active development, pre-1.0.
 
 ## Quick start
 
-**Step 1.** Install the plugin.
+**Step 1.** Install the `squad` binary (Homebrew tap is planned but not shipped yet):
 
 ```bash
-claude install github.com/zsiec/squad
+go install github.com/zsiec/squad/cmd/squad@latest
 ```
 
-That's all the install does — drops the manifest, registers the MCP server, wires the always-on hooks. Squad's tools become available to every Claude Code session in any repo.
+**Step 2.** Install the Claude Code plugin from inside any Claude Code session:
 
-**Step 2.** Open Claude Code in your project and tell it what you want.
+```
+/plugin marketplace add zsiec/squad
+/plugin install squad@squad
+/reload-plugins
+```
+
+Restart Claude Code (or `/reload-plugins`) so the always-on hooks, skills, and MCP server load. Squad's tools then become available to every Claude Code session in any repo.
+
+**Step 3.** Open Claude Code in your project and tell it what you want.
 
 > *"Claim the top ready item and walk me through it."*
 
 Claude calls `squad_next` to find the priority pick, `squad_claim` to lock it, prints the acceptance criteria, and flushes any pending peer chat into your context. You start working.
 
-**Step 3.** When the work is done, say so.
+**Step 4.** When the work is done, say so.
 
 > *"Mark this done with summary 'shipped retry logic'."*
 
@@ -33,7 +41,7 @@ Claude calls `squad_done`. If the item declared `evidence_required: [test, revie
 
 That's the whole loop. You never run a squad command yourself.
 
-> If you prefer typing, `/work` is the slash-command equivalent of step 2.
+> If you prefer typing, `/squad:work` is the slash-command equivalent of step 3.
 
 ## Beyond the quick start
 
