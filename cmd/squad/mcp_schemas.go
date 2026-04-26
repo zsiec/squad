@@ -144,8 +144,8 @@ const schemaListItems = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "status":   {"type": "string", "enum": ["ready", "in_progress", "review", "blocked", "done"]},
-    "type":     {"type": "string", "enum": ["BUG", "DEBT", "FEAT", "DOCS", "OPS"]},
+    "status":   {"type": "string", "enum": ["captured", "open", "in_progress", "blocked", "done"], "description": "Lifecycle state. captured=in inbox awaiting accept; open=accepted/claimable; in_progress=claimed; blocked=needs unblock; done=completed."},
+    "type":     {"type": "string", "description": "Item type, lower-case (e.g. bug, feature, task, chore, tech-debt). The set is config-driven via id_prefixes, so any string is accepted."},
     "priority": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
     "agent":    {"type": "string", "description": "Filter to items currently claimed by this agent."},
     "limit":    {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
