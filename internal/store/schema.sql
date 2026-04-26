@@ -157,4 +157,5 @@ CREATE TABLE IF NOT EXISTS attestations (
 );
 CREATE INDEX IF NOT EXISTS idx_attestations_item ON attestations(repo_id, item_id);
 CREATE INDEX IF NOT EXISTS idx_attestations_kind ON attestations(repo_id, item_id, kind);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_attestations_dedup ON attestations(item_id, output_hash);
+DROP INDEX IF EXISTS idx_attestations_dedup;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_attestations_dedup ON attestations(repo_id, item_id, kind, output_hash);

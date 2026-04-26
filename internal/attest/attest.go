@@ -90,8 +90,8 @@ func (l *Ledger) Insert(ctx context.Context, r Record) (int64, error) {
 		if isUniqueViolation(err) {
 			var existing int64
 			if qerr := l.db.QueryRowContext(ctx,
-				`SELECT id FROM attestations WHERE item_id = ? AND output_hash = ?`,
-				r.ItemID, r.OutputHash).Scan(&existing); qerr == nil {
+				`SELECT id FROM attestations WHERE repo_id = ? AND item_id = ? AND kind = ? AND output_hash = ?`,
+				l.repoID, r.ItemID, string(r.Kind), r.OutputHash).Scan(&existing); qerr == nil {
 				return existing, nil
 			}
 		}

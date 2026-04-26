@@ -280,6 +280,65 @@ func TestRun_NonZeroExitStillRecorded(t *testing.T) {
 	}
 }
 
+func TestLedger_Insert_CrossRepoSameHashIsNotDedup(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "g.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	A := New(db, "repo-a", nil)
+	B := New(db, "repo-b", nil)
+
+	rec := Record{
+		ItemID: "FEAT-001", Kind: KindTest, Command: "go test ./...",
+		OutputHash: "shared-hash", OutputPath: "p", AgentID: "agent-x",
+	}
+	idA, err := A.Insert(context.Background(), rec)
+	if err != nil {
+		t.Fatalf("insert A: %v", err)
+	}
+	idB, err := B.Insert(context.Background(), rec)
+	if err != nil {
+		t.Fatalf("insert B: %v (cross-repo same-hash should not collide)", err)
+	}
+	if idA == idB {
+		t.Fatalf("idA == idB == %d (cross-repo collision: dedup returned other repo's row id)", idA)
+	}
+
+	aRecs, _ := A.ListForItem(context.Background(), "FEAT-001")
+	bRecs, _ := B.ListForItem(context.Background(), "FEAT-001")
+	if len(aRecs) != 1 || len(bRecs) != 1 {
+		t.Fatalf("repo-a saw %d rows, repo-b saw %d rows; want 1 each", len(aRecs), len(bRecs))
+	}
+}
+
+func TestLedger_Insert_SameHashDifferentKindIsNotDedup(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "g.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	L := New(db, "repo-x", nil)
+
+	base := Record{
+		ItemID: "FEAT-001", Command: "x",
+		OutputHash: "h", OutputPath: "p", AgentID: "a",
+	}
+	base.Kind = KindTest
+	if _, err := L.Insert(context.Background(), base); err != nil {
+		t.Fatalf("insert test: %v", err)
+	}
+	base.Kind = KindLint
+	if _, err := L.Insert(context.Background(), base); err != nil {
+		t.Fatalf("insert lint: %v (same hash different kind should not collide)", err)
+	}
+	recs, _ := L.ListForItem(context.Background(), "FEAT-001")
+	if len(recs) != 2 {
+		t.Fatalf("len(recs) = %d, want 2", len(recs))
+	}
+}
+
 func TestLedger_Verify_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	db, err := store.Open(filepath.Join(dir, "g.db"))
