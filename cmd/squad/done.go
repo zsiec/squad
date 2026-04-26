@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -69,11 +72,17 @@ func newDoneCmd() *cobra.Command {
 				if mErr != nil {
 					return mErr
 				}
-				if len(missing) > 0 && !force {
-					return fmt.Errorf(
-						"%s: evidence_required not satisfied. Missing kinds: %s.\n"+
-							"Run `squad attest --item %s --kind <kind> --command \"...\"` for each, or pass --force to override (the override is recorded as a manual attestation).",
-						itemID, joinKinds(missing), itemID)
+				if len(missing) > 0 {
+					if !force {
+						return fmt.Errorf(
+							"%s: evidence_required not satisfied. Missing kinds: %s.\n"+
+								"Run `squad attest --item %s --kind <kind> --command \"...\"` for each, or pass --force to override (the override is recorded as a manual attestation).",
+							itemID, joinKinds(missing), itemID)
+					}
+					if err := recordForceOverride(ctx, L, bc, itemID, missing); err != nil {
+						return err
+					}
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: --force override recorded for %s (bypassed: %s)\n", itemID, joinKinds(missing))
 				}
 			}
 
@@ -120,6 +129,35 @@ func joinKinds(ks []attest.Kind) string {
 		parts[i] = string(k)
 	}
 	return strings.Join(parts, ", ")
+}
+
+func recordForceOverride(ctx context.Context, L *attest.Ledger, bc *claimContext, itemID string, missing []attest.Kind) error {
+	body := fmt.Sprintf(
+		"FORCE OVERRIDE for %s\nbypassed_kinds: %s\nagent: %s\nat: %s\n",
+		itemID, joinKinds(missing), bc.agentID, time.Now().UTC().Format(time.RFC3339),
+	)
+	repoRoot := filepath.Dir(filepath.Dir(bc.itemsDir))
+	attDir := filepath.Join(repoRoot, ".squad", "attestations")
+	hash := L.Hash([]byte(body))
+	if err := os.MkdirAll(attDir, 0o755); err != nil {
+		return err
+	}
+	out := filepath.Join(attDir, hash+".txt")
+	if err := os.WriteFile(out, []byte(body), 0o644); err != nil {
+		return err
+	}
+	if _, err := L.Insert(ctx, attest.Record{
+		ItemID:     itemID,
+		Kind:       attest.KindManual,
+		Command:    "force override of evidence_required",
+		ExitCode:   0,
+		OutputHash: hash,
+		OutputPath: out,
+		AgentID:    bc.agentID,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // runVerification executes each verification.pre_commit entry in cwd-relative
