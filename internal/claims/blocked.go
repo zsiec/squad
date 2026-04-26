@@ -42,5 +42,12 @@ func (s *Store) Blocked(ctx context.Context, itemID, agentID string, opts Blocke
 	if err := items.EnsureBlockerSection(opts.ItemPath, opts.Reason); err != nil {
 		return fmt.Errorf("ensure blocker section: %w", err)
 	}
+	parsed, err := items.Parse(opts.ItemPath)
+	if err != nil {
+		return fmt.Errorf("parse blocked item for persist: %w", err)
+	}
+	if err := items.Persist(ctx, s.db, s.repoID, parsed, false); err != nil {
+		return fmt.Errorf("persist items row: %w", err)
+	}
 	return nil
 }

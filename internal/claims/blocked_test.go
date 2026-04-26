@@ -47,6 +47,42 @@ A thing.
 	}
 }
 
+func TestBlocked_PersistsItemRowImmediately(t *testing.T) {
+	s, db := newTestStore(t)
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "BUG-088-persist.md")
+	contents := `---
+id: BUG-088
+title: persist
+status: in-progress
+created: 2026-04-20
+updated: 2026-04-20
+---
+
+## Problem
+A thing.
+`
+	_ = os.WriteFile(path, []byte(contents), 0o644)
+	_ = s.Claim(ctx, "BUG-088", "agent-a", "", nil, false)
+
+	if err := s.Blocked(ctx, "BUG-088", "agent-a", BlockedOpts{
+		Reason:   "waiting on upstream",
+		ItemPath: path,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var status string
+	if err := db.QueryRow(`SELECT status FROM items WHERE repo_id='repo-test' AND item_id='BUG-088'`).Scan(&status); err != nil {
+		t.Fatalf("items row missing after Blocked: %v", err)
+	}
+	if status != "blocked" {
+		t.Errorf("status=%q want blocked", status)
+	}
+}
+
 func TestBlocked_LeavesExistingBlockerSectionAlone(t *testing.T) {
 	s, _ := newTestStore(t)
 	ctx := context.Background()
