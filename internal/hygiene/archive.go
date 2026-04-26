@@ -8,6 +8,8 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 // Archive moves messages older than beforeUnix into a per-month SQLite file
@@ -56,20 +58,17 @@ func Archive(ctx context.Context, src *sql.DB, repoID, dir string, beforeUnix in
 		return 0, archivePath, nil
 	}
 
-	tx, err := adb.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, "", err
-	}
-	for _, r := range batch {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			repoID, r.TS, r.Agent, r.Thread, r.Kind, r.Body, r.Mentions, r.Prior); err != nil {
-			_ = tx.Rollback()
-			return 0, "", err
+	if err := store.WithTxRetry(ctx, adb, func(tx *sql.Tx) error {
+		for _, r := range batch {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				repoID, r.TS, r.Agent, r.Thread, r.Kind, r.Body, r.Mentions, r.Prior); err != nil {
+				return err
+			}
 		}
-	}
-	if err := tx.Commit(); err != nil {
+		return nil
+	}); err != nil {
 		return 0, "", err
 	}
 	if _, err := src.ExecContext(ctx, `DELETE FROM messages WHERE repo_id = ? AND ts < ?`, repoID, beforeUnix); err != nil {
