@@ -112,3 +112,25 @@ func TestReady_DependsOnUnknownIDIsUnsatisfied(t *testing.T) {
 		}
 	}
 }
+
+func TestReady_ExcludesCaptured(t *testing.T) {
+	w := WalkResult{Active: []Item{
+		{ID: "FEAT-001", Status: "captured", Priority: "P0"},
+		{ID: "FEAT-002", Status: "open", Priority: "P1"},
+	}}
+	out := Ready(w, time.Now())
+	if len(out) != 1 || out[0].ID != "FEAT-002" {
+		t.Fatalf("want only FEAT-002 ready; got %+v", out)
+	}
+}
+
+func TestReady_ExcludesUnknownStatus(t *testing.T) {
+	w := WalkResult{Active: []Item{
+		{ID: "FEAT-001", Status: "weird", Priority: "P0"},
+		{ID: "FEAT-002", Status: "open", Priority: "P1"},
+	}}
+	out := Ready(w, time.Now())
+	if len(out) != 1 || out[0].ID != "FEAT-002" {
+		t.Fatalf("unknown status should be excluded; got %+v", out)
+	}
+}

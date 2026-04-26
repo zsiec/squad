@@ -20,7 +20,7 @@ func Ready(w WalkResult, now time.Time) []Item {
 	}
 	var out []Item
 	for _, it := range w.Active {
-		if it.Status == "done" || it.Status == "blocked" {
+		if it.Status != "open" {
 			continue
 		}
 		if gatedUntil(it, now) {
