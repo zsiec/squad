@@ -37,6 +37,14 @@ type Item struct {
 	ConflictsWith    []string `yaml:"conflicts_with"`
 	EvidenceRequired []string `yaml:"evidence_required"`
 
+	CapturedBy string `yaml:"captured_by"`
+	CapturedAt int64  `yaml:"captured_at"`
+	AcceptedBy string `yaml:"accepted_by"`
+	AcceptedAt int64  `yaml:"accepted_at"`
+
+	ParentSpec string `yaml:"parent_spec"`
+	ParentEpic string `yaml:"parent_epic"`
+
 	ACTotal   int      `yaml:"-"`
 	ACChecked int      `yaml:"-"`
 	ACItems   []ACItem `yaml:"-"`
@@ -89,6 +97,9 @@ func Parse(path string) (Item, error) {
 	}
 	if !idShape.MatchString(it.ID) {
 		return Item{}, fmt.Errorf("frontmatter in %s has malformed id %q (expected PREFIX-NUMBER like FEAT-001)", path, it.ID)
+	}
+	if it.ParentEpic == "" && it.Epic != "" {
+		it.ParentEpic = it.Epic
 	}
 	it.Path = path
 	rest := data[len(match[0]):]

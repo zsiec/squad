@@ -171,6 +171,117 @@ evidence_required: [test, review]
 	}
 }
 
+func TestParse_ReadsIntakeProvenanceFields(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "FEAT-001-thing.md")
+	body := `---
+id: FEAT-001
+title: thing
+type: feat
+status: captured
+priority: P2
+area: auth
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+captured_by: agent-9f3a
+captured_at: 1714150000
+accepted_by: agent-7c2b
+accepted_at: 1714153600
+parent_spec: auth-rotation
+---
+
+## Problem
+something
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, err := Parse(p)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if it.CapturedBy != "agent-9f3a" {
+		t.Fatalf("CapturedBy=%q want agent-9f3a", it.CapturedBy)
+	}
+	if it.CapturedAt != 1714150000 {
+		t.Fatalf("CapturedAt=%d want 1714150000", it.CapturedAt)
+	}
+	if it.AcceptedBy != "agent-7c2b" {
+		t.Fatalf("AcceptedBy=%q", it.AcceptedBy)
+	}
+	if it.AcceptedAt != 1714153600 {
+		t.Fatalf("AcceptedAt=%d", it.AcceptedAt)
+	}
+	if it.ParentSpec != "auth-rotation" {
+		t.Fatalf("ParentSpec=%q", it.ParentSpec)
+	}
+}
+
+func TestParse_NormalizesEpicToParentEpic(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "FEAT-002-thing.md")
+	body := `---
+id: FEAT-002
+title: t
+type: feat
+status: open
+priority: P2
+area: a
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+epic: my-epic
+---
+
+body
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, err := Parse(p)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if it.ParentEpic != "my-epic" {
+		t.Fatalf("ParentEpic=%q (epic: should normalize to ParentEpic)", it.ParentEpic)
+	}
+}
+
+func TestParse_ParentEpicWinsOverEpic(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "FEAT-003-thing.md")
+	body := `---
+id: FEAT-003
+title: t
+type: feat
+status: open
+priority: P2
+area: a
+estimate: 1h
+risk: low
+created: 2026-04-26
+updated: 2026-04-26
+epic: old-name
+parent_epic: new-name
+---
+
+body
+`
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	it, err := Parse(p)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if it.ParentEpic != "new-name" {
+		t.Fatalf("ParentEpic=%q want new-name (parent_epic should win over epic)", it.ParentEpic)
+	}
+}
+
 func TestParse_EvidenceRequired_Empty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "FEAT-002.md")
