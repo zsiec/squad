@@ -1,5 +1,5 @@
 // Package learning manages squad's learning artifacts under
-// .squad/learnings/{actions,patterns,nots}/{proposed,approved,rejected}/.
+// .squad/learnings/{gotchas,patterns,dead-ends}/{proposed,approved,rejected}/.
 // Each learning is a markdown file with a YAML frontmatter header; this
 // package owns the parser, the kind taxonomy, and the move/promote helpers
 // that drive squad learning approve/reject.

@@ -428,15 +428,15 @@ The attestation is stored under `.squad/attestations/<hash>.txt` (committed) and
 
 ## Learning
 
-R5 learning artifacts live under `.squad/learnings/{actions,patterns,nots}/{proposed,approved,rejected}/`. `squad learning` is the management surface; the underlying files are plain markdown so peers can review them via PR.
+R5 learning artifacts live under `.squad/learnings/{gotchas,patterns,dead-ends}/{proposed,approved,rejected}/`. `squad learning` is the management surface; the underlying files are plain markdown so peers can review them via PR.
 
 ### `squad learning propose`
 
-Stub a new learning artifact under `proposed/`. Asks for the body interactively (or pass `--body-file`). Learning kinds are `actions` (do this), `patterns` (this works), `nots` (don't do this).
+Stub a new learning artifact under `proposed/` with the kind-specific section headers. The command prints the file path; edit the stub to fill in the body. Learning kinds are `gotcha` (this looked like X but is Y), `pattern` (this works), `dead-end` (we tried X, it didn't work because Y).
 
 ```bash
-squad learning propose actions retry-on-503 --area "http retries"
-squad learning propose nots dont-mock-the-db --body-file ./learning.md
+squad learning propose gotcha retry-on-503 --area "http-retries" --title "retry on 503"
+squad learning propose dead-end dont-mock-the-db --area "db" --title "do not mock the db"
 ```
 
 ### `squad learning list`
@@ -446,8 +446,7 @@ List learning artifacts. Filter by area, state, or kind.
 ```bash
 squad learning list                          # all states, all kinds
 squad learning list --state proposed
-squad learning list --kind nots --area auth
-squad learning list --json
+squad learning list --kind dead-end --area auth
 ```
 
 ### `squad learning approve`
