@@ -1,3 +1,6 @@
+// Package views hosts the bubbletea Models for each TUI screen.
+// Each view is its own value-type Model; the root model in
+// internal/tui composes them into a single program.
 package views
 
 import (

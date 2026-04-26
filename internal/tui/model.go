@@ -74,15 +74,14 @@ func (s StubView) View() string                            { return s.label }
 
 // Model is the root bubbletea model.
 type Model struct {
-	client    *client.Client
-	width     int
-	height    int
-	current   View
-	views     map[View]tea.Model
-	palette   components.Palette
-	statusbar components.StatusBarState
-	eventCh   <-chan client.Event
-	scope     string
+	client  *client.Client
+	width   int
+	height  int
+	current View
+	views   map[View]tea.Model
+	palette components.Palette
+	eventCh <-chan client.Event
+	scope   string
 }
 
 // NewModel constructs a root model. eventCh may be nil for testing.

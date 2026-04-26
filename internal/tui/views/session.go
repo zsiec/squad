@@ -252,7 +252,7 @@ func (m SessionModel) View() string {
 		if msg.TS > 0 {
 			ts = time.Unix(msg.TS, 0).Format("15:04:05")
 		}
-		b.WriteString(fmt.Sprintf("[%s] %s @ %s (%s)\n", ts, msg.AgentID, msg.Thread, msg.Kind))
+		fmt.Fprintf(&b, "[%s] %s @ %s (%s)\n", ts, msg.AgentID, msg.Thread, msg.Kind)
 		body := msg.Body
 		if m.renderer != nil {
 			if r, err := m.renderer.Render(body); err == nil {

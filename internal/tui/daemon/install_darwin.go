@@ -129,7 +129,7 @@ func (m *darwinManager) Status() (Status, error) {
 			if strings.HasPrefix(trimmed, "\"PID\"") {
 				rest := strings.TrimPrefix(trimmed, "\"PID\" = ")
 				rest = strings.TrimSuffix(rest, ";")
-				fmt.Sscanf(rest, "%d", &s.PID)
+				_, _ = fmt.Sscanf(rest, "%d", &s.PID)
 			}
 		}
 	}
