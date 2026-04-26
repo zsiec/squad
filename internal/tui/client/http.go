@@ -16,6 +16,7 @@ import (
 type Client struct {
 	baseURL string
 	token   string
+	agent   string
 	http    *http.Client
 }
 
@@ -35,6 +36,11 @@ func New(baseURL, token string) *Client {
 		token:   token,
 		http:    &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+func (c *Client) WithAgent(agent string) *Client {
+	c.agent = agent
+	return c
 }
 
 func (c *Client) GET(ctx context.Context, path string, out any) error {
@@ -60,6 +66,9 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, ou
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	if c.agent != "" {
+		req.Header.Set("X-Squad-Agent", c.agent)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

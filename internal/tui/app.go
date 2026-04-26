@@ -24,6 +24,11 @@ func Run(ctx context.Context) error {
 		return err
 	}
 	c := client.New(url, token)
+	who, err := c.Whoami(ctx)
+	if err != nil || who.AgentID == "" {
+		return fmt.Errorf("could not determine agent identity — run `squad register` first")
+	}
+	c = c.WithAgent(who.AgentID)
 	eventCh := c.SubscribeEvents(ctx)
 
 	scope := detectScope()
