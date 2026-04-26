@@ -28,6 +28,7 @@ type claimsPump struct {
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
+	doneCh   chan struct{}
 }
 
 type claimSnap struct {
@@ -42,6 +43,7 @@ func newClaimsPump(db *sql.DB, repoID string, bus *chat.Bus) *claimsPump {
 		bus:      bus,
 		interval: 500 * time.Millisecond,
 		stopCh:   make(chan struct{}),
+		doneCh:   make(chan struct{}),
 	}
 }
 
@@ -49,9 +51,11 @@ func (p *claimsPump) start() { go p.loop() }
 
 func (p *claimsPump) stop() {
 	p.stopOnce.Do(func() { close(p.stopCh) })
+	<-p.doneCh
 }
 
 func (p *claimsPump) loop() {
+	defer close(p.doneCh)
 	var historyCursor int64
 	_ = p.db.QueryRowContext(context.Background(),
 		`SELECT COALESCE(MAX(id), 0) FROM claim_history`).Scan(&historyCursor)

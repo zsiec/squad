@@ -10,6 +10,7 @@ import (
 func TestLearnings_List(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/learnings", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -29,6 +30,7 @@ func TestLearnings_List(t *testing.T) {
 func TestLearnings_List_FilterByState(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/learnings?state=proposed", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -45,6 +47,7 @@ func TestLearnings_List_FilterByState(t *testing.T) {
 func TestLearnings_Detail(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/learnings/sample-gotcha", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -64,6 +67,7 @@ func TestLearnings_Detail(t *testing.T) {
 func TestLearnings_Detail_404(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/learnings/no-such-learning", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)

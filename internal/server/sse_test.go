@@ -18,6 +18,7 @@ func TestSSE_RoundTripsPostedMessage(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "agent-x", "X")
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 
@@ -75,6 +76,7 @@ func TestSSE_LagEventReachesStream(t *testing.T) {
 		pingInterval:     200 * time.Millisecond,
 		lagFlushInterval: 50 * time.Millisecond,
 	})
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 
@@ -126,6 +128,7 @@ func TestSSE_LagEventReachesStream(t *testing.T) {
 func TestSSE_PingsBeforeFirstEvent(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{pingInterval: 50 * time.Millisecond})
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 

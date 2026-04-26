@@ -10,6 +10,7 @@ import (
 func TestItems_List(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/items", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -29,6 +30,7 @@ func TestItems_List(t *testing.T) {
 func TestItems_Detail(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/items/BUG-100", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -48,6 +50,7 @@ func TestItems_Detail(t *testing.T) {
 func TestItems_Detail_404OnMissing(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/items/BUG-NOPE", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)

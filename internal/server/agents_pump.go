@@ -24,6 +24,7 @@ type agentsPump struct {
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
+	doneCh   chan struct{}
 }
 
 type agentSnap struct {
@@ -38,6 +39,7 @@ func newAgentsPump(db *sql.DB, repoID string, bus *chat.Bus) *agentsPump {
 		bus:      bus,
 		interval: 500 * time.Millisecond,
 		stopCh:   make(chan struct{}),
+		doneCh:   make(chan struct{}),
 	}
 }
 
@@ -45,9 +47,11 @@ func (p *agentsPump) start() { go p.loop() }
 
 func (p *agentsPump) stop() {
 	p.stopOnce.Do(func() { close(p.stopCh) })
+	<-p.doneCh
 }
 
 func (p *agentsPump) loop() {
+	defer close(p.doneCh)
 	prev, _ := p.snapshot()
 
 	t := time.NewTicker(p.interval)

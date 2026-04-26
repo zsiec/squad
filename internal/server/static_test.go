@@ -12,6 +12,7 @@ import (
 func TestStatic_ServesIndexAtRoot(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -33,6 +34,7 @@ func TestStatic_ServesIndexAtRoot(t *testing.T) {
 func TestStatic_ServesAppJS(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/app.js", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -48,6 +50,7 @@ func TestStatic_ServesAppJS(t *testing.T) {
 func TestStatic_APIPathFallthroughIs405NotHTML(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodPost, "/api/health", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)

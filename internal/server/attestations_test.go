@@ -27,6 +27,7 @@ func TestAttestations_ListForItem(t *testing.T) {
 	}
 
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/items/BUG-100/attestations", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -46,6 +47,7 @@ func TestAttestations_ListForItem(t *testing.T) {
 func TestAttestations_EmptyItem(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/items/BUG-100/attestations", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)

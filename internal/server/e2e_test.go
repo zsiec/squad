@@ -13,6 +13,7 @@ func TestE2E_PostsThenListsCleanState(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "thomas", "Thomas")
 	s := New(db, testRepoID, Config{SquadDir: "testdata", RepoID: testRepoID})
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 

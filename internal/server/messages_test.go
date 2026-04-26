@@ -12,6 +12,7 @@ func TestMessages_PostThenList(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "agent-aaaa", "Alice")
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 
@@ -43,6 +44,7 @@ func TestMessages_PostThenList(t *testing.T) {
 func TestMessages_PostBadJSON(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader([]byte("{not json")))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -56,6 +58,7 @@ func TestMessages_PostEmptyBodyRejected(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "agent-aaaa", "Alice")
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	body, _ := json.Marshal(map[string]any{"thread": "global", "body": ""})
 	req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -71,6 +74,7 @@ func TestMessages_PostOversizedBodyRejected(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "agent-aaaa", "Alice")
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	huge := make([]byte, MaxMessageBodyBytes+1)
 	for i := range huge {
 		huge[i] = 'x'
@@ -92,6 +96,7 @@ func TestMessages_PostInvalidThreadRejected(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "agent-aaaa", "Alice")
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	for _, bad := range []string{"../../etc/passwd", "; DROP TABLE messages;--", "notvalid", "lower-case"} {
 		body, _ := json.Marshal(map[string]any{"thread": bad, "body": "ok"})
 		req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader(body))
@@ -109,6 +114,7 @@ func TestMessages_PostValidThreads(t *testing.T) {
 	db := newTestDB(t)
 	registerAgent(t, db, "agent-aaaa", "Alice")
 	s := New(db, testRepoID, Config{RepoID: testRepoID})
+	defer s.Close()
 	for _, good := range []string{"global", "FEAT-001", "BUG-42"} {
 		body, _ := json.Marshal(map[string]any{"thread": good, "body": "ok"})
 		req := httptest.NewRequest(http.MethodPost, "/api/messages", bytes.NewReader(body))

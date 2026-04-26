@@ -9,6 +9,7 @@ import (
 func TestServer_Health(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -23,6 +24,7 @@ func TestServer_Health(t *testing.T) {
 func TestServer_RejectsWrongToken(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{Token: "secret"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	req.Header.Set("Authorization", "Bearer wrong")
 	rec := httptest.NewRecorder()
@@ -35,6 +37,7 @@ func TestServer_RejectsWrongToken(t *testing.T) {
 func TestServer_AcceptsCorrectToken(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{Token: "secret"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	req.Header.Set("Authorization", "Bearer secret")
 	rec := httptest.NewRecorder()
@@ -47,6 +50,7 @@ func TestServer_AcceptsCorrectToken(t *testing.T) {
 func TestServer_AcceptsTokenFromQueryOnGet(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{Token: "secret"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/health?token=secret", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)

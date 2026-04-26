@@ -10,6 +10,7 @@ import (
 func TestEpics_List(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/epics", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -29,6 +30,7 @@ func TestEpics_List(t *testing.T) {
 func TestEpics_List_FilterBySpec(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/epics?spec=other-spec", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -45,6 +47,7 @@ func TestEpics_List_FilterBySpec(t *testing.T) {
 func TestEpics_Detail(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/epics/sample-epic", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -64,6 +67,7 @@ func TestEpics_Detail(t *testing.T) {
 func TestEpics_Detail_404(t *testing.T) {
 	db := newTestDB(t)
 	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	defer s.Close()
 	req := httptest.NewRequest(http.MethodGet, "/api/epics/no-such-epic", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
