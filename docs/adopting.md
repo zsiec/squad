@@ -5,19 +5,29 @@ This is the cold-start walkthrough. If you can finish it without DM-ing anyone f
 ## TL;DR
 
 ```bash
-go install github.com/zsiec/squad/cmd/squad@latest
+claude install github.com/zsiec/squad      # or: go install github.com/zsiec/squad/cmd/squad@latest && squad install-plugin
 cd ~/dev/your-project
 squad go                      # init, register, claim top ready item (the example), print AC, flush chat
 # ... follow the steps inside the example item ...
 squad done EXAMPLE-001 --summary "loop complete"
 ```
 
-Total time target: under 5 minutes from `go install` to first `squad done`.
+Total time target: under 5 minutes from install to first `squad done`.
 
 ## Day 0 — install
 
+The fastest path is via Claude Code's plugin system, which lands the binary, the manifest, the MCP server registration, and the always-on hooks in one step:
+
+```bash
+claude install github.com/zsiec/squad
+squad version
+```
+
+If you prefer the binary-first path (CLI-only use, scripting, CI):
+
 ```bash
 go install github.com/zsiec/squad/cmd/squad@latest    # or `brew install zsiec/tap/squad` once Phase 14 ships
+squad install-plugin                                  # optional, but recommended for Claude Code users
 squad version
 ```
 

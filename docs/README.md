@@ -10,20 +10,24 @@ AI agents meander without structure: half-finished branches, redundant work, opa
 
 ## 5-minute quickstart
 
+The Claude Code path (one shot):
+
 ```bash
-# 1. Install
-go install github.com/zsiec/squad/cmd/squad@latest    # or `brew install zsiec/tap/squad` once Phase 14 ships
-
-# 2. Onboard or resume in one step
+claude install github.com/zsiec/squad
 cd ~/dev/your-project
-squad go                                              # init, register, claim top ready item, print AC, flush chat
-
-# 3. Do the work, then close
-# ... edit, test, commit ...
-squad done FEAT-001 --summary "shipped"
+squad go    # init, register, claim top ready item, print AC, flush chat
 ```
 
-`squad go` is idempotent — first run inits `.squad/` and registers a session-derived agent id; re-runs resume the same claim and re-flush the mailbox. Total time: under five minutes from `go install` to first `done`.
+The binary-first path (CLI-only / scripting / CI):
+
+```bash
+go install github.com/zsiec/squad/cmd/squad@latest    # or brew install zsiec/tap/squad once Phase 14 ships
+squad install-plugin                                  # optional, but recommended for Claude Code users
+cd ~/dev/your-project
+squad go
+```
+
+Both paths converge. `squad go` is idempotent — first run inits `.squad/` and registers a session-derived agent id; re-runs resume the same claim and re-flush the mailbox. Total time: under five minutes from install to first `done`.
 
 ## What to read next
 

@@ -11,10 +11,23 @@ Atomic claims, typed chat verbs, file-touch tracking, hygiene sweeps, web dashbo
 
 ## Install
 
+The fastest path is via Claude Code's plugin system:
+
+```bash
+claude install github.com/zsiec/squad
+```
+
+This drops the manifest, registers the MCP server, wires the always-on hooks, and exposes squad's verbs as MCP tools. No further setup needed.
+
+If you prefer to install the binary first (e.g. for CLI-only use, scripting, or CI):
+
 ```bash
 go install github.com/zsiec/squad/cmd/squad@latest
-# brew install zsiec/tap/squad      # planned, post-v1.0.0
+squad install-plugin   # registers MCP + hooks in ~/.claude/settings.json
+# brew install zsiec/tap/squad  # planned, post-v1.0.0
 ```
+
+Both paths converge on the same final state.
 
 ## Agent quickstart
 
@@ -66,7 +79,7 @@ Total time: under five minutes from `go install` to first `done`.
 - **File-touch tracking** so peers see your overlap before they edit the same file.
 - **Hygiene sweep** (`squad doctor`) for stale claims, orphan touches, broken refs, DB integrity.
 - **Web dashboard** (`squad serve`) with SSE — live who-has-what across every repo on your machine.
-- **Optional Claude Code plugin** with 9 doctrine-encoding skills, 8 slash commands, and 5 opt-in hooks.
+- **Optional Claude Code plugin** with skills, slash commands, hook scripts (default-on + opt-in), and an MCP server (`squad mcp`) exposing the full verb surface — claim, done, attest, learning_propose, etc. — so agents call squad without spawning a shell.
 - **Multi-repo workspace** queries — one ready stack, one chat history across all your projects.
 - **GitHub Actions auto-archive** — merge a PR with a hidden item marker, the workflow moves it to `.squad/done/` automatically.
 
