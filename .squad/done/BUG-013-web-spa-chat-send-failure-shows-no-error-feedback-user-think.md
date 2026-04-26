@@ -4,7 +4,7 @@ title: web SPA — chat send failure shows no error feedback, user thinks messag
 type: bug
 priority: P2
 area: spa
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26

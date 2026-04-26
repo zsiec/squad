@@ -34,10 +34,10 @@ Full reference in Task 6 of the implementation plan.
 
 ## Acceptance criteria
 
-- [ ] `squad refine <ID> --comments "..."` writes `## Reviewer feedback` into the item body and sets `status: needs-refinement` in frontmatter.
-- [ ] `squad refine <ID>` without `--comments` (or with empty string) errors with a message mentioning `--comments`.
-- [ ] `squad refine` with no args lists `needs-refinement` items in oldest-first order; format mirrors `squad inbox`.
-- [ ] 3 CLI tests in `cmd/squad/refine_test.go`; output pasted.
+- [x] `squad refine <ID> --comments "..."` writes `## Reviewer feedback` into the item body and sets `status: needs-refinement` in frontmatter.
+- [x] `squad refine <ID>` without `--comments` (or with empty string) errors with a message mentioning `--comments`.
+- [x] `squad refine` with no args lists `needs-refinement` items in oldest-first order; format mirrors `squad inbox`.
+- [x] 3 CLI tests in `cmd/squad/refine_test.go`; output pasted.
 
 ## Notes
 

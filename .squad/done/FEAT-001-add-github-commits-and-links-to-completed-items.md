@@ -4,7 +4,7 @@ title: Add github commits and links to completed items
 type: feature
 priority: P0
 area: web
-status: open
+status: done
 estimate: 3d
 risk: medium
 created: 2026-04-26

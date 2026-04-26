@@ -4,7 +4,7 @@ title: 'markdown.js renders javascript: URLs as live links — XSS via item body
 type: bug
 priority: P1
 area: web-ui
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26

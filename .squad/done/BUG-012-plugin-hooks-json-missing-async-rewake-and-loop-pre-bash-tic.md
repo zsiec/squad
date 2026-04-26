@@ -4,7 +4,7 @@ title: plugin/hooks.json missing async_rewake and loop_pre_bash_tick — scripts
 type: bug
 priority: P2
 area: plugin
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26

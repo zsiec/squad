@@ -4,11 +4,11 @@ title: POST /api/items/{id}/recapture — needs-refinement → captured
 type: task
 priority: P2
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777242003
 accepted_by: agent-1f3f
@@ -35,11 +35,11 @@ Full reference in Task 4 of the implementation plan.
 
 ## Acceptance criteria
 
-- [ ] Happy path on a held `needs-refinement` claim returns 204; `## Reviewer feedback` is gone, `## Refinement history` exists with `### Round N`, status flips to `captured`, claim row deleted.
-- [ ] No claim or wrong agent → 403.
-- [ ] Round 2: existing `## Refinement history` is preserved; new round appended.
-- [ ] `inbox_changed` SSE fires with `action: "recapture"`.
-- [ ] 3 tests in `internal/server/items_recapture_test.go`; output pasted.
+- [x] Happy path on a held `needs-refinement` claim returns 204; `## Reviewer feedback` is gone, `## Refinement history` exists with `### Round N`, status flips to `captured`, claim row deleted.
+- [x] No claim or wrong agent → 403.
+- [x] Round 2: existing `## Refinement history` is preserved; new round appended.
+- [x] `inbox_changed` SSE fires with `action: "recapture"`.
+- [x] 3 tests in `internal/server/items_recapture_test.go`; output pasted.
 
 ## Notes
 

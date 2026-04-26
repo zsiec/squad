@@ -4,7 +4,7 @@ title: web SPA — SSE auth failure indistinguishable from network drop, no re-a
 type: bug
 priority: P2
 area: spa
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
