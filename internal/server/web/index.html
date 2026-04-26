@@ -57,6 +57,11 @@
     </div>
   </header>
 
+  <div id="auth-banner" class="auth-banner" hidden role="alert">
+    <span class="auth-banner-icon">⚠</span>
+    <span>Authentication failed. Refresh with a valid <code>?token=…</code> in the URL or restart the dashboard with a fresh token.</span>
+  </div>
+
   <main class="workspace" data-drawer="closed">
     <!-- Navigation sidebar (specs/epics/items hierarchy) -->
     <aside class="nav-sidebar" id="nav-sidebar" hidden>

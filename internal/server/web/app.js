@@ -189,6 +189,25 @@ const connLabel = document.getElementById('conn-label');
 function setConn(state) {
   connDot.dataset.state = state;
   connLabel.textContent = state;
+  const banner = document.getElementById('auth-banner');
+  if (banner) banner.hidden = state !== 'auth-failed';
+}
+
+let authProbing = false;
+async function probeAuth() {
+  if (authProbing) return;
+  // once we've latched auth-failed, EventSource's retry storm will keep firing
+  // onerror — don't keep polling whoami until onopen flips us back.
+  if (connDot.dataset.state === 'auth-failed') return;
+  authProbing = true;
+  try {
+    const r = await fetch('/api/whoami', { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (r.status === 401 || r.status === 403) setConn('auth-failed');
+  } catch {
+    // probe itself unreachable — stay 'disconnected'.
+  } finally {
+    authProbing = false;
+  }
 }
 
 function connectSSE() {
@@ -199,7 +218,11 @@ function connectSSE() {
   es.onopen = () => setConn('connected');
   es.onerror = () => {
     setConn('disconnected');
-    // EventSource auto-retries; we just reflect state.
+    // 401/403 from /api/events looks identical to a network drop on the
+    // EventSource API. Probe whoami so we can flip to 'auth-failed' when
+    // it really is auth — leave 'disconnected' for transient drops so
+    // EventSource's built-in retry is what the user sees.
+    probeAuth();
   };
 
   // Server publishes item lifecycle as a single `item_changed` envelope with
