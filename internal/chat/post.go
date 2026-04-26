@@ -2,8 +2,11 @@ package chat
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 type PostRequest struct {
@@ -47,27 +50,23 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 		return err
 	}
 
-	tx, err := c.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	now := c.nowUnix()
-	res, err := tx.ExecContext(ctx, `
-		INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, c.repoID, now, req.AgentID, req.Thread, req.Kind, req.Body, string(mjson), req.Priority)
+	var id int64
+	err = store.WithTxRetry(ctx, c.db, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx, `
+			INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, c.repoID, now, req.AgentID, req.Thread, req.Kind, req.Body, string(mjson), req.Priority)
+		if err != nil {
+			return err
+		}
+		id, _ = res.LastInsertId()
+		_, err = tx.ExecContext(ctx,
+			`UPDATE agents SET last_tick_at = ?, status = 'active' WHERE id = ?`,
+			now, req.AgentID)
+		return err
+	})
 	if err != nil {
-		return err
-	}
-	id, _ := res.LastInsertId()
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE agents SET last_tick_at = ?, status = 'active' WHERE id = ?`,
-		now, req.AgentID); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
 		return err
 	}
 
