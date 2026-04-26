@@ -36,10 +36,16 @@ func newLearningProposeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			path := learning.PathFor(root, kind, learning.StateProposed, slug)
-			if _, err := os.Stat(path); err == nil {
-				return fmt.Errorf("learning already exists at %s", path)
+			all, werr := learning.Walk(root)
+			if werr != nil {
+				return werr
 			}
+			for _, l := range all {
+				if l.Slug == slug {
+					return fmt.Errorf("learning with slug %q already exists at %s", slug, l.Path)
+				}
+			}
+			path := learning.PathFor(root, kind, learning.StateProposed, slug)
 			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return err
 			}

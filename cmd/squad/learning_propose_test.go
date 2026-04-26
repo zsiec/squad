@@ -63,6 +63,26 @@ func TestLearningPropose_RefusesClobber(t *testing.T) {
 	}
 }
 
+func TestLearningPropose_RefusesClobberAcrossStates(t *testing.T) {
+	repo := setupSquadRepo(t)
+	t.Chdir(repo)
+
+	mkLearning(t, repo, "patterns/approved/boot-context.md", "pattern", "boot-context", "boot", "approved")
+
+	root := newRootCmd()
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"learning", "propose", "gotcha", "boot-context",
+		"--title", "x", "--area", "boot"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error()+stderr.String(), "exists") {
+		t.Fatalf("want collision error mentioning existing learning, got %v / %s", err, stderr.String())
+	}
+	if !strings.Contains(err.Error()+stderr.String(), "boot-context") {
+		t.Errorf("error should mention the existing slug, got %v / %s", err, stderr.String())
+	}
+}
+
 func TestLearningPropose_RejectsBadKind(t *testing.T) {
 	repo := setupSquadRepo(t)
 	t.Chdir(repo)
