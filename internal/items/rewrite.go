@@ -5,10 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+func scalarTagFor(v string) string {
+	if _, err := strconv.ParseInt(v, 10, 64); err == nil {
+		return "!!int"
+	}
+	return "!!str"
+}
 
 func RewriteStatus(path, newStatus string, now time.Time) error {
 	raw, err := os.ReadFile(path)
@@ -104,7 +112,7 @@ func rewriteFrontmatter(raw []byte, updates map[string]string) ([]byte, error) {
 		key := mapping.Content[i].Value
 		if newVal, ok := updates[key]; ok {
 			mapping.Content[i+1].Value = newVal
-			mapping.Content[i+1].Tag = "!!str"
+			mapping.Content[i+1].Tag = scalarTagFor(newVal)
 			mapping.Content[i+1].Style = 0
 			seen[key] = true
 		}
@@ -115,7 +123,7 @@ func rewriteFrontmatter(raw []byte, updates map[string]string) ([]byte, error) {
 		}
 		mapping.Content = append(mapping.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: k},
-			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v},
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: scalarTagFor(v), Value: v},
 		)
 	}
 
