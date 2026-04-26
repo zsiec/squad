@@ -5,17 +5,23 @@ import "encoding/json"
 // --- Items ---
 
 type Item struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Type      string `json:"type"`
-	Priority  string `json:"priority"`
-	Area      string `json:"area"`
-	Status    string `json:"status"`
-	Estimate  string `json:"estimate"`
-	Risk      string `json:"risk"`
-	ACTotal   int    `json:"ac_total"`
-	ACChecked int    `json:"ac_checked"`
-	Progress  int    `json:"progress_pct"`
+	ID               string   `json:"id"`
+	Title            string   `json:"title"`
+	Type             string   `json:"type"`
+	Priority         string   `json:"priority"`
+	Area             string   `json:"area"`
+	Status           string   `json:"status"`
+	Estimate         string   `json:"estimate"`
+	Risk             string   `json:"risk"`
+	ACTotal          int      `json:"ac_total"`
+	ACChecked        int      `json:"ac_checked"`
+	Progress         int      `json:"progress_pct"`
+	Epic             string   `json:"epic"`
+	DependsOn        []string `json:"depends_on"`
+	Parallel         bool     `json:"parallel"`
+	EvidenceRequired []string `json:"evidence_required"`
+	ClaimedBy        string   `json:"claimed_by"`
+	LastTouch        int64    `json:"last_touch"`
 }
 
 type ItemDetail struct {
