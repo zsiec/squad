@@ -21,6 +21,6 @@ if [ -n "$output" ]; then
       | awk 'BEGIN{ORS=""} NR>1{print "\\n"} {print}')
     encoded="\"${encoded}\""
   fi
-  printf '{"hookSpecificOutput":{"additionalContext":%s}}\n' "$encoded"
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$encoded"
 fi
 exit 0

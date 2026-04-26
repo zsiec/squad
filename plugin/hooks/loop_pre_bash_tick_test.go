@@ -61,6 +61,9 @@ esac
 	if !strings.Contains(string(out), `"additionalContext"`) {
 		t.Fatalf("expected hookSpecificOutput envelope; got: %s", out)
 	}
+	if !strings.Contains(string(out), `"hookEventName":"PreToolUse"`) {
+		t.Fatalf("expected hookEventName field set to PreToolUse; got: %s", out)
+	}
 	if !strings.Contains(string(out), "pending: 2 mentions") {
 		t.Fatalf("expected tick output to be embedded; got: %s", out)
 	}
@@ -105,6 +108,9 @@ esac
 	}
 	if !strings.Contains(string(out), `"additionalContext"`) {
 		t.Fatalf("expected hookSpecificOutput envelope from fallback; got: %s", out)
+	}
+	if !strings.Contains(string(out), `"hookEventName":"PreToolUse"`) {
+		t.Fatalf("expected hookEventName field set to PreToolUse from fallback; got: %s", out)
 	}
 	// The backslash and embedded quote must be escaped in the JSON string.
 	got := string(out)
