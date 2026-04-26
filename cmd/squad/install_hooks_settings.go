@@ -11,7 +11,7 @@ import (
 	"github.com/zsiec/squad/plugin/hooks"
 )
 
-const squadHookVersion = "v1"
+const squadHookVersion = versionString
 
 func mergeSquadHooks(settingsPath string, enabled map[string]bool) error {
 	settings, err := loadSettings(settingsPath)
