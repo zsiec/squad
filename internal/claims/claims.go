@@ -15,6 +15,8 @@ import (
 
 	sqlite "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 // maxTouchPathLen mirrors touch.MaxPathLen so claim --touches and squad
@@ -37,15 +39,7 @@ func New(db *sql.DB, repoID string, now func() time.Time) *Store {
 func (s *Store) nowUnix() int64 { return s.now().Unix() }
 
 func (s *Store) withTx(ctx context.Context, fn func(*sql.Tx) error) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if err := fn(tx); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return store.WithTxRetry(ctx, s.db, fn)
 }
 
 type ClaimOption func(*claimOpts)
