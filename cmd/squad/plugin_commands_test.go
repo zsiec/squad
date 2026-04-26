@@ -62,7 +62,4 @@ func TestSquadLoopSkill_DocumentsPaths(t *testing.T) {
 	if !strings.Contains(s, "paths:") {
 		t.Fatalf("%s should document the `paths:` skill field", rel)
 	}
-	if !strings.Contains(s, "agents-deep.md") {
-		t.Fatalf("%s should reference docs/agents-deep.md as the depth-tier read", rel)
-	}
 }

@@ -155,6 +155,7 @@ func newClaimCmd() *cobra.Command {
 			})
 			if err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), "claimed %s\n", res.ItemID)
+				printCadenceNudge(cmd.ErrOrStderr(), "claim")
 				return nil
 			}
 			var capErr *ConcurrencyExceededError

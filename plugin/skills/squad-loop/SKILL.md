@@ -17,7 +17,7 @@ hooks:
           command: "${CLAUDE_PLUGIN_ROOT}/hooks/loop_pre_bash_tick.sh"
 ---
 
-> **Depth tier:** for ≥1d items, parallel-dispatch decisions, time-boxing, handoff, or chat-cadence questions, open `docs/agents-deep.md`. The fast tier in `AGENTS.md` covers the loop; the deep tier covers the corners. Skills with their own `paths:` glob (e.g. `squad-handoff.md`) auto-load when you touch a file matching their glob — that's the mechanism by which the right depth tier reaches the right session at the right time.
+> **Reference:** `AGENTS.md` is the full operating manual — loop, parallel dispatch, time-boxing, handoff, chat cadence, anti-patterns. Skills with their own `paths:` glob (e.g. `squad-handoff.md`) auto-load when you touch a file matching their glob, surfacing the relevant depth without you needing to remember it.
 
 # The squad loop
 

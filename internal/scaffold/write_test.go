@@ -140,7 +140,7 @@ func TestWriteAgents_CreatesFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"# octopus — Agent Operating Manual", "## §1 — Resume a session", "## §9 — When in doubt, ask"} {
+	for _, want := range []string{"# octopus — Agent Operating Manual", "## §1 — Resume a session", "## §14 — When in doubt, ask"} {
 		if !strings.Contains(string(got), want) {
 			t.Fatalf("missing %q", want)
 		}
@@ -159,13 +159,16 @@ func TestWriteAgents_SkipsIfPresent(t *testing.T) {
 	}
 }
 
-func TestWriteAgentsDeep_WritesAtDocsAgentsDeepMd(t *testing.T) {
+// AGENTS.md absorbed the former docs/agents-deep.md content — the multi-agent,
+// handoff, chat-cadence, time-boxing, and anchor-checkpoint sections must
+// surface in AGENTS.md itself, not a separate deep file.
+func TestWriteAgents_CarriesFormerlyDeepSections(t *testing.T) {
 	repo := t.TempDir()
 	d := Data{ProjectName: "Test", IDPrefixes: []string{"BUG", "FEAT"}}
-	if err := WriteAgentsDeep(repo, d); err != nil {
+	if err := WriteAgents(repo, d); err != nil {
 		t.Fatal(err)
 	}
-	body, err := os.ReadFile(filepath.Join(repo, "docs", "agents-deep.md"))
+	body, err := os.ReadFile(filepath.Join(repo, "AGENTS.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,29 +180,7 @@ func TestWriteAgentsDeep_WritesAtDocsAgentsDeepMd(t *testing.T) {
 		"Anchor checkpoints",
 	} {
 		if !strings.Contains(string(body), want) {
-			t.Errorf("docs/agents-deep.md missing section %q", want)
+			t.Errorf("AGENTS.md missing section %q", want)
 		}
-	}
-}
-
-func TestWriteAgentsDeep_Idempotent(t *testing.T) {
-	repo := t.TempDir()
-	d := Data{ProjectName: "Test", IDPrefixes: []string{"BUG"}}
-	if err := WriteAgentsDeep(repo, d); err != nil {
-		t.Fatal(err)
-	}
-	first, err := os.ReadFile(filepath.Join(repo, "docs", "agents-deep.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteAgentsDeep(repo, d); err != nil {
-		t.Fatal(err)
-	}
-	second, err := os.ReadFile(filepath.Join(repo, "docs", "agents-deep.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(first) != string(second) {
-		t.Fatal("WriteAgentsDeep should be idempotent")
 	}
 }

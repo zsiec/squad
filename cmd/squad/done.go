@@ -163,6 +163,7 @@ func newDoneCmd() *cobra.Command {
 						res.ItemID, joinKinds(res.BypassedKinds))
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "done %s\n", res.ItemID)
+				printCadenceNudge(cmd.ErrOrStderr(), "done")
 				return nil
 			}
 			var miss *EvidenceMissingError

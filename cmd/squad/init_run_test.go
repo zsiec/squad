@@ -135,7 +135,10 @@ func (failingReader) Read(p []byte) (int, error) {
 	return 0, fmt.Errorf("stdin should not be read in --yes mode")
 }
 
-func TestRunInit_WritesDocsAgentsDeep(t *testing.T) {
+// AGENTS.md is a single document; the former docs/agents-deep.md split was
+// removed when the operating manual stopped being a fast/deep two-tier doc.
+// This test guards that init does NOT regenerate the deep file.
+func TestRunInit_DoesNotWriteAgentsDeep(t *testing.T) {
 	repo := t.TempDir()
 	state := t.TempDir()
 	t.Setenv("SQUAD_HOME", state)
@@ -146,8 +149,8 @@ func TestRunInit_WritesDocsAgentsDeep(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(repo, "docs", "agents-deep.md")); err != nil {
-		t.Fatalf("expected docs/agents-deep.md after init: %v", err)
+	if _, err := os.Stat(filepath.Join(repo, "docs", "agents-deep.md")); err == nil {
+		t.Fatal("docs/agents-deep.md should not be created — content is in AGENTS.md now")
 	}
 }
 

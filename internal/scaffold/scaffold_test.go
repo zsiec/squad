@@ -192,9 +192,21 @@ func TestAgentsTemplate_HasAllSections(t *testing.T) {
 		"## §4 — Test before claiming done",
 		"## §5 — Code review",
 		"## §6 — Commit and close",
-		"## §7 — Item file template",
-		"## §8 — Anti-patterns",
-		"## §9 — When in doubt, ask",
+		"## §7 — Filing a new item",
+		"## §8 — Multi-agent dispatch",
+		"## §9 — Handoff between sessions",
+		"## §10 — Escalation / blocked",
+		"## §11 — Time-boxing exploratory work",
+		"## §12 — Chat cadence",
+		"## §13 — Anti-patterns",
+		"## §14 — When in doubt, ask",
+		"## §15 — Learnings",
+		// Cadence content must be in this single doc — it used to live in
+		// the deleted docs/agents-deep.md split and would never reach short
+		// claims when the skill auto-load was the only path.
+		"Stay chatty",
+		"squad thinking",
+		"Don't grind silently",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("AGENTS template missing %q", want)

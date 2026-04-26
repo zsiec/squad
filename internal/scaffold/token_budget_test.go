@@ -4,17 +4,20 @@ import (
 	"testing"
 )
 
-const maxFastTierTokens = 1500
+// AGENTS.md is a single document — the former fast/deep tier split was
+// merged. Budget exists to prevent unbounded drift; raise deliberately if
+// new doctrine genuinely warrants the cost of always-loaded context.
+const maxAgentsTokens = 4000
 
 // approxTokens uses the rule of thumb 1 token ≈ 4 bytes of UTF-8 English
 // text. Real tokenizer counts vary; this is conservative — actual GPT/Claude
 // tokenizers usually produce ~10% more tokens for prose like AGENTS.md, so a
-// rendered file at maxFastTierTokens by this estimate already gives slack.
+// rendered file at maxAgentsTokens by this estimate already gives slack.
 func approxTokens(s string) int {
 	return (len(s) + 3) / 4
 }
 
-func TestAgentsTemplate_FastTierWithinTokenBudget(t *testing.T) {
+func TestAgentsTemplate_WithinTokenBudget(t *testing.T) {
 	raw, err := Templates.ReadFile("templates/AGENTS.md.tmpl")
 	if err != nil {
 		t.Fatal(err)
@@ -27,9 +30,9 @@ func TestAgentsTemplate_FastTierWithinTokenBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := approxTokens(rendered)
-	if got > maxFastTierTokens {
-		t.Fatalf("AGENTS.md.tmpl rendered to ~%d tokens, want ≤%d. Trim further or move depth to agents-deep.md.tmpl.",
-			got, maxFastTierTokens)
+	if got > maxAgentsTokens {
+		t.Fatalf("AGENTS.md.tmpl rendered to ~%d tokens, want ≤%d. Trim before raising the budget.",
+			got, maxAgentsTokens)
 	}
-	t.Logf("AGENTS.md.tmpl ~%d tokens (budget %d)", got, maxFastTierTokens)
+	t.Logf("AGENTS.md.tmpl ~%d tokens (budget %d)", got, maxAgentsTokens)
 }
