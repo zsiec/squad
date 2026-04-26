@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/server"
 	"github.com/zsiec/squad/internal/store"
@@ -169,6 +170,15 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 		LearningsRoot: repoRoot,
 		Token:         token,
 	})
+	// Derive a default acting identity for the daemon. SPA sessions hit
+	// /api/whoami at boot to populate X-Squad-Agent for subsequent
+	// mutations; without a default the SPA cached an empty id and every
+	// chat compose / claim / etc. failed with "X-Squad-Agent header
+	// required". TUI/CLI clients still send their own header and override
+	// this default.
+	if id, err := identity.AgentID(); err == nil && id != "" {
+		s.WithCallerAgent(id)
+	}
 	defer s.Close()
 
 	addr := net.JoinHostPort(bind, strconv.Itoa(port))
