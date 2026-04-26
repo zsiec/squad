@@ -59,11 +59,8 @@ func Progress(ctx context.Context, args ProgressArgs) (*ProgressResult, error) {
 	if err := args.Chat.ReportProgress(ctx, args.AgentID, args.ItemID, args.Pct, args.Note); err != nil {
 		return nil, err
 	}
-	// PostProgress is a courtesy chat post; failure here is non-fatal at the
-	// CLI today, so the pure function returns success but reports the post
-	// error via PostedAt=0 if it would have failed. Callers that want strict
-	// behaviour should wrap their own check; the existing CLI keeps its
-	// "warning: ..." behaviour in the wrapper.
+	// PostProgress is best-effort; the underlying notify is async, so any
+	// error here is swallowed and PostedAt always records when Progress ran.
 	posted := time.Now().Unix()
 	_ = args.Chat.PostProgress(ctx, args.AgentID, args.ItemID, args.Pct, args.Note)
 	return &ProgressResult{ItemID: args.ItemID, Pct: args.Pct, Note: args.Note, PostedAt: posted}, nil
