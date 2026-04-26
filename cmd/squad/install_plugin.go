@@ -18,6 +18,7 @@ func newInstallPluginCmd() *cobra.Command {
 		uninstall      bool
 		registerMCP    bool
 		printMCPConfig bool
+		skipHooks      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "install-plugin",
@@ -69,12 +70,29 @@ func newInstallPluginCmd() *cobra.Command {
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "registered squad MCP server in %s\n", settingsPath)
 			}
+
+			if !skipHooks {
+				settingsPath, err := defaultSettingsPath()
+				if err != nil {
+					return err
+				}
+				enabled := map[string]bool{
+					"session-start":    true,
+					"user-prompt-tick": true,
+					"pre-compact":      true,
+				}
+				if err := mergeSquadHooks(settingsPath, enabled); err != nil {
+					return fmt.Errorf("register hooks in %s: %w", settingsPath, err)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "registered always-on hooks in %s\n", settingsPath)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "remove the squad plugin instead of installing")
 	cmd.Flags().BoolVar(&registerMCP, "register-mcp", true, "merge mcpServers.squad into ~/.claude/settings.json")
 	cmd.Flags().BoolVar(&printMCPConfig, "print-mcp-config", false, "print the JSON snippet that would be merged and exit")
+	cmd.Flags().BoolVar(&skipHooks, "skip-hooks", false, "do not register the always-on session/prompt/pre-compact hooks")
 	return cmd
 }
 

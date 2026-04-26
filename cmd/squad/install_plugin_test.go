@@ -121,6 +121,31 @@ func TestInstallPlugin_UninstallIdempotent(t *testing.T) {
 	}
 }
 
+func TestInstallPlugin_RegistersAlwaysOnHooks(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
+
+	cmd := newInstallPluginCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, err := os.ReadFile(filepath.Join(tmp, ".claude", "settings.json"))
+	if err != nil {
+		t.Fatalf("settings.json absent: %v", err)
+	}
+	text := string(settings)
+	for _, ev := range []string{"SessionStart", "UserPromptSubmit", "PreCompact"} {
+		if !strings.Contains(text, ev) {
+			t.Errorf("settings.json missing %s entry", ev)
+		}
+	}
+}
+
 func TestInstallPlugin_RegistersMCPServer(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
