@@ -75,10 +75,14 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 
 	srv.Register(mcp.Tool{
 		Name:        "squad_whoami",
-		Description: "Return the agent id this session resolves to, plus any current claim.",
+		Description: "Return the agent id this session resolves to, plus any current claim in this repo.",
 		InputSchema: json.RawMessage(schemaWhoami),
 		Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
-			return Whoami(ctx, WhoamiArgs{DB: db})
+			// Scope claim lookup to the caller's discovered repo. Empty
+			// repoID (MCP spawned outside a squad repo) means no claim is
+			// reported — preventing cross-repo state from bleeding into
+			// the response.
+			return Whoami(ctx, WhoamiArgs{DB: db, RepoID: repoID})
 		},
 	})
 

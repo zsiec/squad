@@ -146,6 +146,96 @@ func TestMCP_NextOnEmptyQueueReturnsEmpty(t *testing.T) {
 	}
 }
 
+// TestMCP_WhoamiDoesNotLeakOtherRepoClaim guards a cross-repo isolation bug:
+// when an agent holds a claim in repo A and runs an MCP whoami from repo B
+// (or from a directory with no .squad/ at all), the response must not echo
+// the foreign claim. Previously the SELECT filtered by agent_id only and
+// happily returned a claim row tied to a different repo_id.
+func TestMCP_WhoamiDoesNotLeakOtherRepoClaim(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Plant a claim in env.RepoID (repo A).
+	if _, err := env.DB.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, ?, ?, ?, ?, ?, 0)`,
+		env.RepoID, "BUG-foreign", env.AgentID, 1700000000, 1700000000, "foreign work"); err != nil {
+		t.Fatalf("plant claim: %v", err)
+	}
+
+	// Run MCP with empty repoID/repoRoot — i.e. invoked from a directory
+	// with no .squad/. The agent identity still resolves, but no per-repo
+	// state should bleed into the response.
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_whoami","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, "", "", in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				AgentID string `json:"id"`
+				ItemID  string `json:"item_id"`
+				Intent  string `json:"intent"`
+			} `json:"structuredContent"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Result.StructuredContent.AgentID == "" {
+		t.Fatalf("expected agent id; got %q", resp.Result.StructuredContent.AgentID)
+	}
+	if resp.Result.StructuredContent.ItemID != "" {
+		t.Errorf("cross-repo claim leak: item_id = %q (must be empty when repo not discovered)",
+			resp.Result.StructuredContent.ItemID)
+	}
+	if resp.Result.StructuredContent.Intent != "" {
+		t.Errorf("cross-repo claim leak: intent = %q", resp.Result.StructuredContent.Intent)
+	}
+}
+
+// TestMCP_WhoamiInDifferentRepoIsolatesClaim plants a claim in repo A and
+// invokes MCP with repo B's id; the response must show no claim — the
+// caller's repo doesn't hold one.
+func TestMCP_WhoamiInDifferentRepoIsolatesClaim(t *testing.T) {
+	env := newTestEnv(t)
+
+	if _, err := env.DB.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, ?, ?, ?, ?, ?, 0)`,
+		env.RepoID, "BUG-foreign", env.AgentID, 1700000000, 1700000000, "foreign work"); err != nil {
+		t.Fatalf("plant claim: %v", err)
+	}
+
+	otherRepo := "repo-other-not-the-one-with-the-claim"
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_whoami","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, otherRepo, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				ItemID string `json:"item_id"`
+			} `json:"structuredContent"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Result.StructuredContent.ItemID != "" {
+		t.Errorf("cross-repo claim leak: item_id = %q (claim is in %q, not %q)",
+			resp.Result.StructuredContent.ItemID, env.RepoID, otherRepo)
+	}
+}
+
 func mustWriteItem(t *testing.T, repoRoot, id, title string) {
 	t.Helper()
 	dir := filepath.Join(repoRoot, ".squad", "items")
