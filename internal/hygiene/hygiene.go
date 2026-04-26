@@ -40,6 +40,7 @@ type ItemRef struct {
 	Created, Updated string
 	References       []string
 	BlockedBy        []string
+	EvidenceRequired []string
 }
 
 type BrokenRef struct {

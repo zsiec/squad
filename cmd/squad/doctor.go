@@ -28,13 +28,14 @@ func (a itemsHygieneAdapter) List(ctx context.Context) ([]hygiene.ItemRef, error
 	for _, group := range [][]items.Item{w.Active, w.Done} {
 		for _, it := range group {
 			out = append(out, hygiene.ItemRef{
-				ID:         it.ID,
-				Path:       it.Path,
-				Status:     it.Status,
-				Created:    it.Created,
-				Updated:    it.Updated,
-				References: it.References,
-				BlockedBy:  it.BlockedBy,
+				ID:               it.ID,
+				Path:             it.Path,
+				Status:           it.Status,
+				Created:          it.Created,
+				Updated:          it.Updated,
+				References:       it.References,
+				BlockedBy:        it.BlockedBy,
+				EvidenceRequired: it.EvidenceRequired,
 			})
 		}
 	}

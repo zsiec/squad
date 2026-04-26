@@ -261,6 +261,24 @@ func TestSweep_FlagsMalformedItem(t *testing.T) {
 	}
 }
 
+func TestSweep_EvidenceRequiredSurvivesAdapter(t *testing.T) {
+	db := newDB(t)
+	fake := fakeItems{refs: []ItemRef{
+		{
+			ID: "FEAT-001", Path: "/x/.squad/items/FEAT-001.md",
+			Status: "in_progress", EvidenceRequired: []string{"test", "review"},
+		},
+	}}
+	sw := New(db, "repo-test", fake)
+	if _, err := sw.Sweep(context.Background()); err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	got := fake.refs[0].EvidenceRequired
+	if len(got) != 2 || got[0] != "test" || got[1] != "review" {
+		t.Fatalf("EvidenceRequired = %v", got)
+	}
+}
+
 func TestReclaimStale_ShortClaim(t *testing.T) {
 	db := newDB(t)
 	t0 := int64(1_000_000)
