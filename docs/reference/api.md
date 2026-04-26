@@ -139,7 +139,7 @@ List learning artifacts walked from the configured learnings root (`.squad/learn
 
 **Query parameters (all optional, applied as conjunctive filters):**
 - `state` — one of `proposed`, `approved`, `rejected`.
-- `kind` — one of `actions`, `patterns`, `nots`, `gotchas`.
+- `kind` — one of `gotcha`, `pattern`, `dead-end`.
 - `area` — exact-match filter against the learning's `area:` frontmatter.
 
 **Response:** array of summary rows.
@@ -236,7 +236,7 @@ Fires after `learning.Promote` successfully renames a learning between state dir
 | Field | Type | Meaning |
 |---|---|---|
 | `slug` | string | The learning's slug. |
-| `kind` | string | `actions` / `patterns` / `nots` / `gotchas`. |
+| `kind` | string | One of `gotcha`, `pattern`, `dead-end`. |
 | `from_state` | string | The state the learning was in before the move. |
 | `to_state` | string | The state directory it now lives in. |
 | `path` | string | Absolute path of the destination file. |
