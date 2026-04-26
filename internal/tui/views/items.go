@@ -2,6 +2,7 @@ package views
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -42,10 +43,13 @@ type ItemsModel struct {
 func NewItems(c *client.Client) ItemsModel {
 	cols := []components.Column{
 		{Title: "ID", Width: 12},
-		{Title: "Title", Width: 40},
-		{Title: "Status", Width: 10},
-		{Title: "Area", Width: 14},
-		{Title: "Priority", Width: 8},
+		{Title: "Title", Width: 32},
+		{Title: "Status", Width: 9},
+		{Title: "Epic", Width: 12},
+		{Title: "Deps", Width: 5},
+		{Title: "P", Width: 2},
+		{Title: "Ev", Width: 4},
+		{Title: "Claimed by", Width: 14},
 	}
 	return ItemsModel{
 		client: c,
@@ -171,12 +175,27 @@ func (m ItemsModel) release(id string) tea.Cmd {
 func toItemsRows(items []client.Item) [][]string {
 	rows := make([][]string, len(items))
 	for i, it := range items {
+		depsStr := ""
+		if len(it.DependsOn) > 0 {
+			depsStr = fmt.Sprintf("%d", len(it.DependsOn))
+		}
+		parStr := ""
+		if it.Parallel {
+			parStr = "✓"
+		}
+		evStr := ""
+		if len(it.EvidenceRequired) > 0 {
+			evStr = fmt.Sprintf("%d", len(it.EvidenceRequired))
+		}
 		rows[i] = []string{
 			it.ID,
 			it.Title,
 			it.Status,
-			it.Area,
-			it.Priority,
+			it.Epic,
+			depsStr,
+			parStr,
+			evStr,
+			it.ClaimedBy,
 		}
 	}
 	return rows
