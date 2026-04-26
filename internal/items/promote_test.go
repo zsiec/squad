@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/zsiec/squad/internal/store"
@@ -193,6 +194,94 @@ func TestPromote_MissingItemErrors(t *testing.T) {
 	err := Promote(ctx, db, "r", "FEAT-999", "agent-B")
 	if err == nil {
 		t.Fatalf("want error for missing item")
+	}
+}
+
+func TestReject_DeletesFileAppendsLogDeletesRow(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seeded := seedPromotableItem(t, ctx, db, squadDir, "r", "FEAT-010")
+
+	if err := Reject(ctx, db, "r", seeded.ID, "duplicate of FEAT-007", "agent-B", squadDir); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	if _, err := os.Stat(seeded.Path); !os.IsNotExist(err) {
+		t.Fatalf("file should be deleted: stat err=%v", err)
+	}
+	log, err := os.ReadFile(filepath.Join(squadDir, "rejected.log"))
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(log), "duplicate of FEAT-007") ||
+		!strings.Contains(string(log), seeded.ID) ||
+		!strings.Contains(string(log), "agent-B") {
+		t.Fatalf("log content unexpected: %s", log)
+	}
+	var n int
+	db.QueryRow(`SELECT count(*) FROM items WHERE item_id=?`, seeded.ID).Scan(&n)
+	if n != 0 {
+		t.Fatalf("row should be deleted, count=%d", n)
+	}
+}
+
+func TestReject_NonexistentIsNoop(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	os.MkdirAll(squadDir, 0o755)
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	if err := Reject(ctx, db, "r", "FEAT-999", "anything", "agent-B", squadDir); err != nil {
+		t.Fatalf("reject of nonexistent should be no-op, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(squadDir, "rejected.log")); err == nil {
+		t.Fatalf("log should NOT be written for no-op reject")
+	}
+}
+
+func TestReject_RefusesClaimedItem(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seeded := seedPromotableItem(t, ctx, db, squadDir, "r", "FEAT-011")
+	_, err := db.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		"r", seeded.ID, "agent-X", 100, 100, "")
+	if err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	err = Reject(ctx, db, "r", seeded.ID, "no", "agent-B", squadDir)
+	if !errors.Is(err, ErrItemClaimed) {
+		t.Fatalf("want ErrItemClaimed, got: %v", err)
+	}
+	if _, err := os.Stat(seeded.Path); err != nil {
+		t.Fatalf("file should still exist after refused reject: %v", err)
+	}
+	var n int
+	db.QueryRow(`SELECT count(*) FROM items WHERE item_id=?`, seeded.ID).Scan(&n)
+	if n != 1 {
+		t.Fatalf("row should still exist, count=%d", n)
+	}
+}
+
+func TestReject_RequiresReason(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	squadDir := filepath.Join(dir, ".squad")
+	db, _ := store.Open(filepath.Join(dir, "test.db"))
+	defer db.Close()
+	seedPromotableItem(t, ctx, db, squadDir, "r", "FEAT-012")
+	if err := Reject(ctx, db, "r", "FEAT-012", "", "agent-B", squadDir); !errors.Is(err, ErrReasonRequired) {
+		t.Fatalf("want ErrReasonRequired, got: %v", err)
+	}
+	if err := Reject(ctx, db, "r", "FEAT-012", "   ", "agent-B", squadDir); !errors.Is(err, ErrReasonRequired) {
+		t.Fatalf("whitespace-only reason should also fail: %v", err)
 	}
 }
 

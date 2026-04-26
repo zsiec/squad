@@ -3,13 +3,21 @@ package items
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zsiec/squad/internal/store"
+)
+
+var (
+	ErrItemClaimed    = errors.New("reject: item is claimed; force-release first")
+	ErrReasonRequired = errors.New("reject: reason is required")
 )
 
 type DoRError struct {
@@ -18,6 +26,72 @@ type DoRError struct {
 
 func (e *DoRError) Error() string {
 	return fmt.Sprintf("definition of ready failed (%d violations)", len(e.Violations))
+}
+
+type rejectionLogEntry struct {
+	Ts     int64  `json:"ts"`
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Reason string `json:"reason"`
+	By     string `json:"by"`
+}
+
+func Reject(ctx context.Context, db *sql.DB, repoID, itemID, reason, by, squadDir string) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrReasonRequired
+	}
+	return store.WithTxRetry(ctx, db, func(tx *sql.Tx) error {
+		var path, title string
+		err := tx.QueryRowContext(ctx,
+			`SELECT path, title FROM items WHERE repo_id=? AND item_id=?`,
+			repoID, itemID,
+		).Scan(&path, &title)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var claimed int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM claims WHERE repo_id=? AND item_id=?`,
+			repoID, itemID,
+		).Scan(&claimed); err != nil {
+			return err
+		}
+		if claimed > 0 {
+			return ErrItemClaimed
+		}
+		if err := appendRejectionLog(squadDir, rejectionLogEntry{
+			Ts: time.Now().Unix(), ID: itemID, Title: title, Reason: reason, By: by,
+		}); err != nil {
+			return fmt.Errorf("reject: log append failed: %w", err)
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("reject: remove file: %w", err)
+		}
+		_, err = tx.ExecContext(ctx,
+			`DELETE FROM items WHERE repo_id=? AND item_id=?`, repoID, itemID)
+		return err
+	})
+}
+
+func appendRejectionLog(squadDir string, e rejectionLogEntry) error {
+	if err := os.MkdirAll(squadDir, 0o755); err != nil {
+		return err
+	}
+	p := filepath.Join(squadDir, "rejected.log")
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	body, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(body, '\n'))
+	return err
 }
 
 func Promote(ctx context.Context, db *sql.DB, repoID, itemID, acceptedBy string) error {
