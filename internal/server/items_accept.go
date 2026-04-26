@@ -29,6 +29,7 @@ func (s *Server) handleItemsAccept(w http.ResponseWriter, r *http.Request) {
 	}
 	err := items.Promote(r.Context(), s.db, s.cfg.RepoID, id, by)
 	if err == nil {
+		s.publishInboxChanged(id, "accepted")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}

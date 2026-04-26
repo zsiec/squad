@@ -49,5 +49,6 @@ func (s *Server) handleItemsReject(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.publishInboxChanged(id, "rejected")
 	w.WriteHeader(http.StatusNoContent)
 }

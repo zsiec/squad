@@ -89,6 +89,7 @@ func (s *Server) handleItemsCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "persist: "+err.Error())
 		return
 	}
+	s.publishInboxChanged(parsed.ID, "captured")
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id":     parsed.ID,
 		"status": parsed.Status,

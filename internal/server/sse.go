@@ -14,6 +14,19 @@ import (
 // below the median; that keeps the cap O(1) without sorting.
 const seenIDCap = 4096
 
+// publishInboxChanged emits an inbox_changed event on the bus so SSE
+// subscribers (the TUI inbox view, dashboards) refresh after a successful
+// intake mutation. action is one of "captured", "accepted", "rejected".
+func (s *Server) publishInboxChanged(itemID, action string) {
+	s.Bus().Publish(chat.Event{
+		Kind: "inbox_changed",
+		Payload: map[string]any{
+			"item_id": itemID,
+			"action":  action,
+		},
+	})
+}
+
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
