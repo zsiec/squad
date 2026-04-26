@@ -1,0 +1,158 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"embed"
+	"fmt"
+	"io/fs"
+	"regexp"
+	"sort"
+	"strconv"
+	"time"
+)
+
+//go:embed migrations/*.sql
+var defaultMigrationsFS embed.FS
+
+const migrationVersionsTable = `
+CREATE TABLE IF NOT EXISTS migration_versions (
+    version    INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL,
+    applied_at INTEGER NOT NULL
+)`
+
+var migrationFilenameRE = regexp.MustCompile(`^(\d+)_([a-zA-Z0-9_]+)\.sql$`)
+
+type migrationFile struct {
+	version int
+	name    string
+	sql     string
+}
+
+func Migrate(ctx context.Context, db *sql.DB, fsys fs.FS) error {
+	if _, err := db.ExecContext(ctx, migrationVersionsTable); err != nil {
+		return fmt.Errorf("ensure migration_versions: %w", err)
+	}
+	if err := bootstrapLegacyVersions(ctx, db); err != nil {
+		return fmt.Errorf("bootstrap legacy versions: %w", err)
+	}
+	files, err := loadMigrationFiles(fsys)
+	if err != nil {
+		return err
+	}
+	applied, err := loadApplied(ctx, db)
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		if applied[f.version] {
+			continue
+		}
+		if err := applyMigration(ctx, db, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func loadMigrationFiles(fsys fs.FS) ([]migrationFile, error) {
+	entries, err := fs.ReadDir(fsys, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("read migrations dir: %w", err)
+	}
+	var files []migrationFile
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		m := migrationFilenameRE.FindStringSubmatch(e.Name())
+		if m == nil {
+			continue
+		}
+		v, _ := strconv.Atoi(m[1])
+		body, err := fs.ReadFile(fsys, "migrations/"+e.Name())
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, migrationFile{v, m[2], string(body)})
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].version < files[j].version })
+	return files, nil
+}
+
+func loadApplied(ctx context.Context, db *sql.DB) (map[int]bool, error) {
+	applied := map[int]bool{}
+	rows, err := db.QueryContext(ctx, `SELECT version FROM migration_versions`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		applied[v] = true
+	}
+	return applied, nil
+}
+
+func applyMigration(ctx context.Context, db *sql.DB, f migrationFile) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, f.sql); err != nil {
+		return fmt.Errorf("apply migration %03d_%s: %w", f.version, f.name, err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO migration_versions (version, name, applied_at) VALUES (?, ?, ?)`,
+		f.version, f.name, time.Now().Unix()); err != nil {
+		return fmt.Errorf("record migration %03d_%s: %w", f.version, f.name, err)
+	}
+	return tx.Commit()
+}
+
+// bootstrapLegacyVersions seeds migration_versions for DBs created by the
+// pre-Task-5 schema-and-alters mechanism, so we don't try to reapply 001/002/003
+// against a DB whose schema already reflects them.
+//
+// The pre-Task-5 Open() always applied schema.sql + all additiveAlters as a
+// unit, so the only valid legacy state is "all three migrations' effects are
+// present". We anchor that detection on items.epic_id (added by 002): if the
+// column exists, the DB went through the full pre-Task-5 pipeline. Otherwise
+// (fresh DB, or partial test fixture) we let the migrations run normally —
+// each statement uses IF NOT EXISTS so creating already-existing objects is
+// safe, and ALTER TABLE will only run against tables 001 just created.
+func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
+	var seeded int
+	_ = db.QueryRowContext(ctx, `SELECT count(*) FROM migration_versions`).Scan(&seeded)
+	if seeded > 0 {
+		return nil
+	}
+	var hasEpicID int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pragma_table_info('items') WHERE name='epic_id'`).Scan(&hasEpicID)
+	if hasEpicID == 0 {
+		return nil
+	}
+	legacy := []struct {
+		version int
+		name    string
+	}{
+		{1, "initial"},
+		{2, "items_extras"},
+		{3, "subagent_events"},
+	}
+	nowTs := time.Now().Unix()
+	for _, l := range legacy {
+		if _, err := db.ExecContext(ctx,
+			`INSERT OR IGNORE INTO migration_versions (version, name, applied_at) VALUES (?, ?, ?)`,
+			l.version, "legacy-"+l.name, nowTs); err != nil {
+			return err
+		}
+	}
+	return nil
+}

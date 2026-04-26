@@ -213,9 +213,9 @@ func TestSchema_SpecsAndEpicsTablesExist(t *testing.T) {
 
 // TestOpen_UpgradesPreR3Schema simulates a pre-R3 DB (items table without
 // epic_id) and confirms Open() applies the additive migration cleanly. The
-// regression this guards against: schema.sql used to CREATE INDEX on epic_id
-// before additiveAlters added the column, so any pre-R3 DB failed to open
-// with "no such column: epic_id".
+// regression this guards against: an earlier schema definition created the
+// idx_items_epic index before the epic_id column was added, so any pre-R3 DB
+// failed to open with "no such column: epic_id".
 func TestOpen_UpgradesPreR3Schema(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "global.db")
