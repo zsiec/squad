@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,47 @@ func registerIntakeTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 				"status": parsed.Status,
 				"path":   path,
 			}, nil
+		},
+	})
+
+	srv.Register(mcp.Tool{
+		Name:        "squad_accept",
+		Description: "Promote captured items to open after Definition of Ready passes.",
+		InputSchema: json.RawMessage(schemaAccept),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				IDs []string `json:"ids"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			agentID, _ := identity.AgentID()
+			type rejection struct {
+				ID         string               `json:"id"`
+				Violations []items.DoRViolation `json:"violations,omitempty"`
+				Error      string               `json:"error,omitempty"`
+			}
+			accepted := []string{}
+			rejected := []rejection{}
+			for _, id := range args.IDs {
+				err := items.Promote(ctx, db, repoID, id, agentID)
+				if err == nil {
+					accepted = append(accepted, id)
+					continue
+				}
+				var dorErr *items.DoRError
+				if errors.As(err, &dorErr) {
+					rejected = append(rejected, rejection{ID: id, Violations: dorErr.Violations})
+					continue
+				}
+				rejected = append(rejected, rejection{ID: id, Error: err.Error()})
+			}
+			return map[string]any{"accepted": accepted, "rejected": rejected}, nil
 		},
 	})
 }

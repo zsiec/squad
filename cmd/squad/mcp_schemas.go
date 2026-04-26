@@ -426,6 +426,16 @@ const schemaNew = `{
   "additionalProperties": false
 }`
 
+const schemaAccept = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["ids"],
+  "properties": {
+    "ids": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+  },
+  "additionalProperties": false
+}`
+
 const schemaPRClose = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

@@ -8,7 +8,92 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/items"
 )
+
+const mcpAcceptItemReady = `---
+id: FEAT-001
+title: Wire up the new accept verb plumbing for inbox
+type: feature
+priority: P1
+area: auth
+status: captured
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Acceptance criteria
+- [ ] does the thing
+`
+
+const mcpAcceptItemDoRFails = `---
+id: FEAT-002
+title: tiny
+type: feature
+priority: P1
+area: <fill-in>
+status: captured
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Acceptance criteria
+no checkboxes here
+`
+
+func mcpPersistFixture(t *testing.T, env *testEnv, fileName string) {
+	t.Helper()
+	path := filepath.Join(env.Root, ".squad", "items", fileName)
+	parsed, err := items.Parse(path)
+	if err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	parsed.Path = path
+	if err := items.Persist(context.Background(), env.DB, env.RepoID, parsed, false); err != nil {
+		t.Fatalf("persist %s: %v", fileName, err)
+	}
+}
+
+func mcpStringSlice(t *testing.T, raw any, key string) []string {
+	t.Helper()
+	v, ok := raw.([]any)
+	if !ok {
+		if raw == nil {
+			return nil
+		}
+		t.Fatalf("%s: want []any, got %T (%v)", key, raw, raw)
+	}
+	out := make([]string, 0, len(v))
+	for i, e := range v {
+		s, ok := e.(string)
+		if !ok {
+			t.Fatalf("%s[%d]: want string, got %T", key, i, e)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+func mcpObjSlice(t *testing.T, raw any, key string) []map[string]any {
+	t.Helper()
+	v, ok := raw.([]any)
+	if !ok {
+		if raw == nil {
+			return nil
+		}
+		t.Fatalf("%s: want []any, got %T (%v)", key, raw, raw)
+	}
+	out := make([]map[string]any, 0, len(v))
+	for i, e := range v {
+		m, ok := e.(map[string]any)
+		if !ok {
+			t.Fatalf("%s[%d]: want map[string]any, got %T", key, i, e)
+		}
+		out = append(out, m)
+	}
+	return out
+}
 
 type mcpCallResponse struct {
 	Result struct {
@@ -136,5 +221,109 @@ func TestMCPSquadNew_PersistsAreaFromArgs(t *testing.T) {
 	}
 	if !strings.HasPrefix(filepath.Base(path), "FEAT-") {
 		t.Errorf("path %q should start with FEAT-", filepath.Base(path))
+	}
+}
+
+func TestMCPSquadAccept_HappyPath(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-001-ready.md", mcpAcceptItemReady)
+	writeItemFile(t, env.Root, "FEAT-101-also.md", strings.Replace(mcpAcceptItemReady, "FEAT-001", "FEAT-101", 1))
+	mcpPersistFixture(t, env, "FEAT-001-ready.md")
+	mcpPersistFixture(t, env, "FEAT-101-also.md")
+
+	resp := callMCPTool(t, env, "squad_accept",
+		`{"ids":["FEAT-001","FEAT-101"]}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %+v", resp.Result.StructuredContent)
+	}
+	out := resp.Result.StructuredContent
+	accepted := mcpStringSlice(t, out["accepted"], "accepted")
+	if len(accepted) != 2 || accepted[0] != "FEAT-001" || accepted[1] != "FEAT-101" {
+		t.Fatalf("accepted=%v want [FEAT-001 FEAT-101]", accepted)
+	}
+	rejected := mcpObjSlice(t, out["rejected"], "rejected")
+	if len(rejected) != 0 {
+		t.Fatalf("rejected len=%d want 0: %+v", len(rejected), rejected)
+	}
+
+	for _, id := range []string{"FEAT-001", "FEAT-101"} {
+		var status string
+		if err := env.DB.QueryRow(
+			`SELECT status FROM items WHERE repo_id=? AND item_id=?`,
+			env.RepoID, id,
+		).Scan(&status); err != nil {
+			t.Fatalf("query %s: %v", id, err)
+		}
+		if status != "open" {
+			t.Errorf("%s status=%q want open", id, status)
+		}
+	}
+}
+
+func TestMCPSquadAccept_MixedDoR(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-001-ready.md", mcpAcceptItemReady)
+	writeItemFile(t, env.Root, "FEAT-002-bad.md", mcpAcceptItemDoRFails)
+	mcpPersistFixture(t, env, "FEAT-001-ready.md")
+	mcpPersistFixture(t, env, "FEAT-002-bad.md")
+
+	resp := callMCPTool(t, env, "squad_accept",
+		`{"ids":["FEAT-001","FEAT-002"]}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	out := resp.Result.StructuredContent
+	accepted := mcpStringSlice(t, out["accepted"], "accepted")
+	if len(accepted) != 1 || accepted[0] != "FEAT-001" {
+		t.Fatalf("accepted=%v want [FEAT-001]", accepted)
+	}
+	rejected := mcpObjSlice(t, out["rejected"], "rejected")
+	if len(rejected) != 1 {
+		t.Fatalf("rejected len=%d want 1: %+v", len(rejected), rejected)
+	}
+	row := rejected[0]
+	if row["id"] != "FEAT-002" {
+		t.Fatalf("rejected[0].id=%v want FEAT-002", row["id"])
+	}
+	violations, ok := row["violations"].([]any)
+	if !ok || len(violations) == 0 {
+		t.Fatalf("rejected[0].violations missing/empty: %+v", row)
+	}
+	first, ok := violations[0].(map[string]any)
+	if !ok {
+		t.Fatalf("violation[0] type %T", violations[0])
+	}
+	if first["rule"] == nil || first["message"] == nil {
+		t.Fatalf("violation[0] missing rule/message: %+v", first)
+	}
+}
+
+func TestMCPSquadAccept_UnknownIDIsRejected(t *testing.T) {
+	env := newTestEnv(t)
+
+	resp := callMCPTool(t, env, "squad_accept",
+		`{"ids":["FEAT-999"]}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	out := resp.Result.StructuredContent
+	accepted := mcpStringSlice(t, out["accepted"], "accepted")
+	if len(accepted) != 0 {
+		t.Fatalf("accepted=%v want empty", accepted)
+	}
+	rejected := mcpObjSlice(t, out["rejected"], "rejected")
+	if len(rejected) != 1 {
+		t.Fatalf("rejected len=%d want 1: %+v", len(rejected), rejected)
+	}
+	row := rejected[0]
+	if row["id"] != "FEAT-999" {
+		t.Fatalf("rejected[0].id=%v want FEAT-999", row["id"])
+	}
+	errMsg, _ := row["error"].(string)
+	if !strings.Contains(errMsg, "not found") {
+		t.Fatalf("rejected[0].error=%q want substring 'not found'", errMsg)
 	}
 }
