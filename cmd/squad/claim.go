@@ -72,7 +72,10 @@ func Claim(ctx context.Context, args ClaimArgs) (*ClaimResult, error) {
 		var n int
 		if err := args.DB.QueryRowContext(ctx,
 			`SELECT COUNT(*) FROM claims WHERE agent_id = ? AND repo_id = ?`,
-			args.AgentID, args.RepoID).Scan(&n); err == nil && n >= args.ConcurrencyCap {
+			args.AgentID, args.RepoID).Scan(&n); err != nil {
+			return nil, fmt.Errorf("claim: count active claims: %w", err)
+		}
+		if n >= args.ConcurrencyCap {
 			_ = stats.RecordWIPViolation(ctx, args.DB, args.RepoID, args.AgentID, int64(n), int64(args.ConcurrencyCap))
 			return nil, &ConcurrencyExceededError{
 				AgentID: args.AgentID,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -96,6 +97,29 @@ func TestClaim_PureRejectsConcurrencyCap(t *testing.T) {
 	}
 	if cap.Held != 1 || cap.Cap != 1 || cap.AgentID != env.AgentID {
 		t.Fatalf("unexpected fields: %+v", cap)
+	}
+}
+
+func TestClaim_PureScanErrorBlocksClaim(t *testing.T) {
+	env := newTestEnv(t)
+	writeMinimalItem(t, env.ItemsDir, "BUG-300")
+
+	env.DB.Close()
+
+	_, err := Claim(context.Background(), ClaimArgs{
+		DB:             env.DB,
+		RepoID:         env.RepoID,
+		AgentID:        env.AgentID,
+		ItemID:         "BUG-300",
+		ItemsDir:       env.ItemsDir,
+		DoneDir:        env.DoneDir,
+		ConcurrencyCap: 1,
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil — cap check failed open")
+	}
+	if !strings.Contains(err.Error(), "count active claims") {
+		t.Fatalf("err=%v, want one wrapping 'count active claims' (cap check failed open and fell through to store.Claim)", err)
 	}
 }
 
