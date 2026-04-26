@@ -18,4 +18,12 @@ related_items:
 
 # Sample gotcha
 
-A sample learning body.
+## Looks like
+
+Server tests fail to find the learning fixture and return an empty list.
+
+## Is
+
+The fixture lives under a synthetic repo-root because internal/learning.Walk
+joins repoRoot with .squad/learnings before walking. Subsequent server-handler
+tests pass Config{LearningsRoot: "testdata/repo-root"}.
