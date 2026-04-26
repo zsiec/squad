@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 func TestInstallPlugin_CreatesDestDir(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
 
 	var stdout, stderr bytes.Buffer
 	cmd := newInstallPluginCmd()
@@ -31,6 +33,7 @@ func TestInstallPlugin_CreatesDestDir(t *testing.T) {
 func TestInstallPlugin_Idempotent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
 
 	for i := 0; i < 2; i++ {
 		cmd := newInstallPluginCmd()
@@ -46,6 +49,7 @@ func TestInstallPlugin_Idempotent(t *testing.T) {
 func TestInstallPlugin_Uninstall(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
 
 	cmd := newInstallPluginCmd()
 	cmd.SetOut(&bytes.Buffer{})
@@ -75,6 +79,7 @@ func TestInstallPlugin_Uninstall(t *testing.T) {
 func TestInstallPlugin_DoesNotShipGoSources(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
 
 	cmd := newInstallPluginCmd()
 	cmd.SetOut(&bytes.Buffer{})
@@ -105,6 +110,7 @@ func TestInstallPlugin_DoesNotShipGoSources(t *testing.T) {
 func TestInstallPlugin_UninstallIdempotent(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
 
 	cmd := newInstallPluginCmd()
 	cmd.SetOut(&bytes.Buffer{})
@@ -112,5 +118,40 @@ func TestInstallPlugin_UninstallIdempotent(t *testing.T) {
 	cmd.SetArgs([]string{"--uninstall"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("uninstall on absent should not error: %v", err)
+	}
+}
+
+func TestInstallPlugin_RegistersMCPServer(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
+
+	cmd := newInstallPluginCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	settingsPath := filepath.Join(tmp, ".claude", "settings.json")
+	raw, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json absent: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	servers, _ := got["mcpServers"].(map[string]any)
+	if servers == nil {
+		t.Fatal("mcpServers missing")
+	}
+	sq, _ := servers["squad"].(map[string]any)
+	if sq == nil {
+		t.Fatal("mcpServers.squad missing")
+	}
+	if sq["command"] != "squad" {
+		t.Errorf("command=%v", sq["command"])
 	}
 }
