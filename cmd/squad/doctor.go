@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -10,6 +12,7 @@ import (
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/hygiene"
 	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/store"
 )
 
 // itemsHygieneAdapter walks .squad/items and .squad/done and reports each
@@ -75,19 +78,23 @@ func newDoctorCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(findings) == 0 {
+			hookFindings := checkHookDrift(cmd.OutOrStdout())
+			totalFindings := len(findings) + len(hookFindings)
+			if totalFindings == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "doctor: all clear")
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "doctor: %d finding(s):\n", len(findings))
-			for _, f := range findings {
-				fmt.Fprintf(cmd.OutOrStdout(), "  - [%s] %s\n", f.Code, f.Message)
-				if f.Fix != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "      fix: %s\n", f.Fix)
+			if len(findings) > 0 {
+				fmt.Fprintf(cmd.OutOrStdout(), "doctor: %d finding(s):\n", len(findings))
+				for _, f := range findings {
+					fmt.Fprintf(cmd.OutOrStdout(), "  - [%s] %s\n", f.Code, f.Message)
+					if f.Fix != "" {
+						fmt.Fprintf(cmd.OutOrStdout(), "      fix: %s\n", f.Fix)
+					}
 				}
 			}
 			if strict {
-				return fmt.Errorf("doctor: %d finding(s) — see output above", len(findings))
+				return fmt.Errorf("doctor: %d finding(s) — see output above", totalFindings)
 			}
 			return nil
 		},
@@ -95,4 +102,62 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&strict, "strict", false,
 		"exit non-zero if any findings exist; use this in CI to fail the job")
 	return cmd
+}
+
+// checkHookDrift inspects the on-disk hook scripts (the user can edit these,
+// and an old install can ship hooks the newer binary has since updated)
+// against the embedded canonical bytes and prints any drift. Silent skip
+// when no install dir exists — squad doctor should not nag users who have
+// not installed the plugin via squad.
+func checkHookDrift(out io.Writer) []hygiene.HookFinding {
+	dir := resolveHookInstallDir()
+	if dir == "" {
+		return nil
+	}
+	findings, err := hygiene.DetectHookDrift(dir)
+	if err != nil {
+		fmt.Fprintf(out, "doctor: hook drift check skipped: %v\n", err)
+		return nil
+	}
+	if len(findings) == 0 {
+		return nil
+	}
+	fmt.Fprintf(out, "hooks: %d installed hook script(s) differ from this binary (%s)\n", len(findings), dir)
+	for _, f := range findings {
+		switch f.Kind {
+		case hygiene.DriftMissing:
+			fmt.Fprintf(out, "  - %s: missing (run `squad install-plugin` to install)\n", f.Filename)
+		default:
+			fmt.Fprintf(out, "  - %s: %s (run `squad install-plugin --uninstall && squad install-plugin` to restore)\n", f.Filename, f.Kind)
+		}
+	}
+	return findings
+}
+
+// resolveHookInstallDir picks the directory squad doctor should diff against:
+// 1. ${CLAUDE_PLUGIN_ROOT}/hooks — set by Claude Code at hook-execution time.
+// 2. ~/.claude/plugins/squad/hooks — where install-plugin lays the plugin.
+// 3. ~/.squad/hooks — where mergeSquadHooks materializes scripts when hooks
+//    are registered through settings.json.
+// Returns "" when none exist (silent skip).
+func resolveHookInstallDir() string {
+	if root := os.Getenv("CLAUDE_PLUGIN_ROOT"); root != "" {
+		dir := filepath.Join(root, "hooks")
+		if _, err := os.Stat(dir); err == nil {
+			return dir
+		}
+	}
+	var candidates []string
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates, filepath.Join(home, ".claude", "plugins", "squad", "hooks"))
+	}
+	if squadHome, err := store.Home(); err == nil {
+		candidates = append(candidates, filepath.Join(squadHome, "hooks"))
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
 }

@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zsiec/squad/plugin/hooks"
 )
 
 // brokenItemBody — frontmatter blockedBy a missing item to trip a hygiene
@@ -31,6 +34,8 @@ func setupDoctorRepo(t *testing.T) func(args ...string) (string, error) {
 	repoDir := t.TempDir()
 	state := t.TempDir()
 	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("CLAUDE_PLUGIN_ROOT", "")
 	t.Setenv("SQUAD_SESSION_ID", "test-doctor-"+t.Name())
 	t.Setenv("SQUAD_AGENT", "")
 	gitInitDir(t, repoDir)
@@ -86,5 +91,65 @@ func TestDoctor_StrictReturnsErrorOnFindings(t *testing.T) {
 	}
 	if !strings.Contains(out, "finding(s)") {
 		t.Errorf("doctor stdout missing 'finding(s)': %s", out)
+	}
+}
+
+func materializeAllHooksFor(t *testing.T, hookDir string) {
+	t.Helper()
+	if err := os.MkdirAll(hookDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	entries, err := fs.ReadDir(hooks.FS, ".")
+	if err != nil {
+		t.Fatalf("read embed: %v", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".sh" {
+			continue
+		}
+		body, err := fs.ReadFile(hooks.FS, e.Name())
+		if err != nil {
+			t.Fatalf("read %s: %v", e.Name(), err)
+		}
+		if err := os.WriteFile(filepath.Join(hookDir, e.Name()), body, 0o755); err != nil {
+			t.Fatalf("write %s: %v", e.Name(), err)
+		}
+	}
+}
+
+func TestDoctor_ReportsHookDriftFromPluginRoot(t *testing.T) {
+	run := setupDoctorRepo(t)
+
+	pluginRoot := t.TempDir()
+	hookDir := filepath.Join(pluginRoot, "hooks")
+	materializeAllHooksFor(t, hookDir)
+	if err := os.WriteFile(filepath.Join(hookDir, "session_start.sh"), []byte("# tampered\n"), 0o755); err != nil {
+		t.Fatalf("tamper: %v", err)
+	}
+	t.Setenv("CLAUDE_PLUGIN_ROOT", pluginRoot)
+
+	out, err := run("doctor")
+	if err != nil {
+		t.Fatalf("doctor: %v\nout=%s", err, out)
+	}
+	if !strings.Contains(out, "session_start.sh") || !strings.Contains(out, "modified") {
+		t.Errorf("doctor stdout missing hook drift line: %s", out)
+	}
+}
+
+func TestDoctor_StrictFailsOnHookDrift(t *testing.T) {
+	run := setupDoctorRepo(t)
+
+	pluginRoot := t.TempDir()
+	hookDir := filepath.Join(pluginRoot, "hooks")
+	materializeAllHooksFor(t, hookDir)
+	if err := os.WriteFile(filepath.Join(hookDir, "session_start.sh"), []byte("# tampered\n"), 0o755); err != nil {
+		t.Fatalf("tamper: %v", err)
+	}
+	t.Setenv("CLAUDE_PLUGIN_ROOT", pluginRoot)
+
+	out, err := run("doctor", "--strict")
+	if err == nil {
+		t.Fatalf("expected --strict to fail when hook drift present\nout=%s", out)
 	}
 }
