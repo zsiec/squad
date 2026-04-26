@@ -17,7 +17,7 @@ func NonTrivialDiff(numstat string) bool {
 		if len(fields) < 3 {
 			continue
 		}
-		if isExcludedPath(strings.Join(fields[2:], " ")) {
+		if isExcludedPath(renamedNewPath(strings.Join(fields[2:], " "))) {
 			continue
 		}
 		n, err := strconv.Atoi(fields[0])
@@ -27,6 +27,30 @@ func NonTrivialDiff(numstat string) bool {
 		net += n
 	}
 	return net > NonTrivialNetLines
+}
+
+// renamedNewPath collapses `git diff --numstat` rename forms to the new path.
+// Brace form:  "{old => new}/rest"  → "new/rest" (or "rest" if new is empty).
+// Arrow form:  "old => new"          → "new".
+// Plain path:  unchanged.
+func renamedNewPath(p string) string {
+	if !strings.Contains(p, " => ") {
+		return p
+	}
+	if open := strings.LastIndex(p, "{"); open >= 0 {
+		if close := strings.Index(p[open:], "}"); close > 0 {
+			inside := p[open+1 : open+close]
+			if i := strings.Index(inside, " => "); i >= 0 {
+				newPart := strings.TrimSpace(inside[i+len(" => "):])
+				out := p[:open] + newPart + p[open+close+1:]
+				return strings.TrimPrefix(out, "/")
+			}
+		}
+	}
+	if i := strings.Index(p, " => "); i >= 0 {
+		return strings.TrimSpace(p[i+len(" => "):])
+	}
+	return p
 }
 
 func isExcludedPath(p string) bool {

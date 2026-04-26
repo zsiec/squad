@@ -68,3 +68,29 @@ func TestTrivial_Empty(t *testing.T) {
 		t.Errorf("empty diff is trivial")
 	}
 }
+
+func TestTrivial_RenameIntoVendoredBraceForm(t *testing.T) {
+	// `git diff --numstat` rename of internal/foo/bar.go → vendor/foo/bar.go
+	if NonTrivialDiff("50\t0\t{internal => vendor}/foo/bar.go") {
+		t.Errorf("rename INTO vendor/ should be excluded; the new path is vendored")
+	}
+}
+
+func TestTrivial_RenameIntoTestFileBraceForm(t *testing.T) {
+	if NonTrivialDiff("50\t0\tinternal/foo/{foo.go => foo_test.go}") {
+		t.Errorf("rename to *_test.go should be excluded")
+	}
+}
+
+func TestTrivial_RenameArrowFormToTestFile(t *testing.T) {
+	// `-C` arrow form when paths share no common prefix.
+	if NonTrivialDiff("50\t0\told.go => new_test.go") {
+		t.Errorf("arrow-form rename to *_test.go should be excluded")
+	}
+}
+
+func TestNonTrivial_RenameWithinProductionStaysCounted(t *testing.T) {
+	if !NonTrivialDiff("15\t0\t{internal/foo => internal/bar}/baz.go") {
+		t.Errorf("production-to-production rename should still count")
+	}
+}
