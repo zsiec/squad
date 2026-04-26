@@ -36,6 +36,31 @@ func RewriteWithFeedback(path, comments, newStatus string, now time.Time) error 
 	return atomicWrite(path, combined)
 }
 
+// RewriteRecapture reads the item file at path, moves the working
+// "## Reviewer feedback" section into "## Refinement history" (dated date),
+// and updates frontmatter status to newStatus and updated to now. The whole
+// rewrite is one atomicWrite so a crash mid-write cannot corrupt the file.
+func RewriteRecapture(path, date, newStatus string, now time.Time) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	rewritten, err := rewriteFrontmatter(raw, map[string]string{
+		"status":  newStatus,
+		"updated": now.UTC().Format("2006-01-02"),
+	})
+	if err != nil {
+		return fmt.Errorf("rewrite frontmatter for %s: %w", path, err)
+	}
+	fmEnd, body, err := splitRewrittenBody(rewritten)
+	if err != nil {
+		return err
+	}
+	newBody := MoveFeedbackToHistory(body, date)
+	combined := append(append([]byte{}, rewritten[:fmEnd]...), []byte(newBody)...)
+	return atomicWrite(path, combined)
+}
+
 // splitRewrittenBody splits the output of rewriteFrontmatter (which always
 // emits a normalized "---\n ... \n---\n<body>") into frontmatter bytes and
 // the body string. rewriteFrontmatter normalizes BOM/CRLF, so the format is
