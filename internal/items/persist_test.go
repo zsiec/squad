@@ -2,6 +2,7 @@ package items
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -141,5 +142,99 @@ func TestPersist_PreservesR3Fields(t *testing.T) {
 	}
 	if epic != "auth-rework" || par != 1 || confRaw != `["a.go","b.go"]` {
 		t.Errorf("got epic=%q parallel=%d conflicts=%q", epic, par, confRaw)
+	}
+}
+
+func TestPersist_RoundTripsIntakeProvenance(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	it := Item{
+		ID: "FEAT-100", Title: "x", Status: "captured",
+		Path:       "/repo/.squad/items/FEAT-100.md",
+		CapturedBy: "agent-9f3a",
+		CapturedAt: 1714150000,
+		ParentSpec: "auth-rotation",
+	}
+	if err := Persist(ctx, db, "r", it, false); err != nil {
+		t.Fatalf("persist: %v", err)
+	}
+	var capBy, parentSpec sql.NullString
+	var capAt sql.NullInt64
+	if err := db.QueryRow(
+		`SELECT captured_by, captured_at, parent_spec FROM items
+         WHERE repo_id=? AND item_id=?`, "r", "FEAT-100",
+	).Scan(&capBy, &capAt, &parentSpec); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if !capBy.Valid || capBy.String != "agent-9f3a" {
+		t.Fatalf("captured_by = %+v want {valid=true value=agent-9f3a}", capBy)
+	}
+	if !capAt.Valid || capAt.Int64 != 1714150000 {
+		t.Fatalf("captured_at = %+v want {valid=true value=1714150000}", capAt)
+	}
+	if !parentSpec.Valid || parentSpec.String != "auth-rotation" {
+		t.Fatalf("parent_spec = %+v", parentSpec)
+	}
+}
+
+func TestPersist_EmptyProvenanceStoresAsNull(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	it := Item{
+		ID: "FEAT-101", Title: "no-provenance", Status: "open",
+		Path: "/repo/.squad/items/FEAT-101.md",
+	}
+	if err := Persist(ctx, db, "r", it, false); err != nil {
+		t.Fatalf("persist: %v", err)
+	}
+	var capBy sql.NullString
+	var capAt sql.NullInt64
+	db.QueryRow(`SELECT captured_by, captured_at FROM items WHERE item_id=?`, "FEAT-101").Scan(&capBy, &capAt)
+	if capBy.Valid {
+		t.Fatalf("captured_by should be NULL for item without provenance, got %+v", capBy)
+	}
+	if capAt.Valid {
+		t.Fatalf("captured_at should be NULL for item without provenance, got %+v", capAt)
+	}
+}
+
+func TestPersist_AcceptanceProvenanceUpdatesOnUpsert(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	it := Item{
+		ID: "FEAT-102", Title: "promotable", Status: "captured",
+		Path:       "/repo/.squad/items/FEAT-102.md",
+		CapturedBy: "agent-A", CapturedAt: 100,
+	}
+	Persist(ctx, db, "r", it, false)
+	it.Status = "open"
+	it.AcceptedBy = "agent-B"
+	it.AcceptedAt = 200
+	if err := Persist(ctx, db, "r", it, false); err != nil {
+		t.Fatalf("re-persist: %v", err)
+	}
+	var accBy sql.NullString
+	var accAt sql.NullInt64
+	db.QueryRow(`SELECT accepted_by, accepted_at FROM items WHERE item_id=?`, "FEAT-102").Scan(&accBy, &accAt)
+	if !accBy.Valid || accBy.String != "agent-B" {
+		t.Fatalf("accepted_by=%+v", accBy)
+	}
+	if !accAt.Valid || accAt.Int64 != 200 {
+		t.Fatalf("accepted_at=%+v", accAt)
 	}
 }
