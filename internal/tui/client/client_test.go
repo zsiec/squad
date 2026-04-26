@@ -36,6 +36,46 @@ func TestItems_HitsCorrectURL(t *testing.T) {
 	}
 }
 
+func TestItems_DecodesR3R4Fields(t *testing.T) {
+	body := `[{
+		"id":"BUG-100", "title":"x", "status":"open",
+		"epic":"auth", "depends_on":["BUG-99"], "parallel":true,
+		"evidence_required":["test","review"],
+		"claimed_by":"alice", "last_touch":1700000000
+	}]`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	items, err := c.Items(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len=%d", len(items))
+	}
+	it := items[0]
+	if it.Epic != "auth" {
+		t.Errorf("epic=%q", it.Epic)
+	}
+	if len(it.DependsOn) != 1 || it.DependsOn[0] != "BUG-99" {
+		t.Errorf("deps=%v", it.DependsOn)
+	}
+	if !it.Parallel {
+		t.Errorf("parallel=%v", it.Parallel)
+	}
+	if len(it.EvidenceRequired) != 2 {
+		t.Errorf("evidence=%v", it.EvidenceRequired)
+	}
+	if it.ClaimedBy != "alice" {
+		t.Errorf("claimed_by=%q", it.ClaimedBy)
+	}
+	if it.LastTouch != 1700000000 {
+		t.Errorf("last_touch=%d", it.LastTouch)
+	}
+}
+
 func TestItems_AppendsStatusFilter(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[]`)
 	c := New(srv.URL, "")
