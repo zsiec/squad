@@ -103,3 +103,61 @@ func TestEmbedAndHooksJSONStayInSync(t *testing.T) {
 		}
 	}
 }
+
+func TestHooksJSONHasNoOrphanEntries(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	hooksJSONPath := filepath.Join(filepath.Dir(thisFile), "..", "hooks.json")
+	raw, err := os.ReadFile(hooksJSONPath)
+	if err != nil {
+		t.Fatalf("read hooks.json: %v", err)
+	}
+	var manifest struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+			Hooks   []struct {
+				Type    string `json:"type"`
+				Command string `json:"command"`
+				Squad   string `json:"squad"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatalf("parse hooks.json: %v", err)
+	}
+
+	embedByName := map[string]Hook{}
+	for _, h := range All {
+		embedByName[h.Name] = h
+	}
+
+	const pluginPrefix = "${CLAUDE_PLUGIN_ROOT}/hooks/"
+	for eventType, blocks := range manifest.Hooks {
+		for _, b := range blocks {
+			for _, h := range b.Hooks {
+				if !strings.HasPrefix(h.Command, pluginPrefix) {
+					continue
+				}
+				name := strings.SplitN(h.Squad, "@", 2)[0]
+				script := strings.TrimPrefix(h.Command, pluginPrefix)
+
+				if _, err := FS.ReadFile(script); err != nil {
+					t.Errorf("hooks.json script %q (hook %q) not present in hooks.FS: %v", script, name, err)
+				}
+				em, ok := embedByName[name]
+				if !ok {
+					t.Errorf("hooks.json hook %q (event %q) has no entry in embed.All", name, eventType)
+					continue
+				}
+				if em.EventType != eventType {
+					t.Errorf("hook %q event-type mismatch: hooks.json=%s embed.go=%s", name, eventType, em.EventType)
+				}
+				if em.Filename != script {
+					t.Errorf("hook %q filename mismatch: hooks.json=%s embed.go=%s", name, script, em.Filename)
+				}
+				if em.Matcher != b.Matcher {
+					t.Errorf("hook %q matcher mismatch: hooks.json=%s embed.go=%s", name, b.Matcher, em.Matcher)
+				}
+			}
+		}
+	}
+}
