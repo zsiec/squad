@@ -32,6 +32,7 @@ area: %s
 status: %s
 estimate: %s
 risk: %s
+evidence_required: %s
 created: %s
 updated: %s
 captured_by: %s
@@ -106,7 +107,8 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 			acceptedAt = nowUnix
 		}
 		body := fmt.Sprintf(stubTemplate,
-			id, yamlInline(title), t, priority, area, status, estimate, risk, now, now,
+			id, yamlInline(title), t, priority, area, status, estimate, risk,
+			defaultEvidenceForType(prefix), now, now,
 			yamlInline(opts.CapturedBy), nowUnix, yamlInline(acceptedBy), acceptedAt,
 		)
 		path = filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
@@ -119,6 +121,15 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 		return "", err
 	}
 	return path, nil
+}
+
+func defaultEvidenceForType(prefix string) string {
+	switch prefix {
+	case "BUG", "FEAT", "TASK":
+		return "[test]"
+	default:
+		return "[]"
+	}
 }
 
 func nonEmpty(v, def string) string {

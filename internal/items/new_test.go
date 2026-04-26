@@ -222,6 +222,99 @@ func TestNewWithOptions_NoCapturedByIsAllowed(t *testing.T) {
 	}
 }
 
+func TestNew_DefaultsEvidenceRequiredForBug(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := New(dir, "BUG", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "evidence_required: [test]") {
+		t.Fatalf("expected evidence_required: [test] in body, got:\n%s", string(data))
+	}
+}
+
+func TestNew_DefaultsEvidenceRequiredForFeat(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := New(dir, "FEAT", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "evidence_required: [test]") {
+		t.Fatalf("expected evidence_required: [test] in body, got:\n%s", string(data))
+	}
+}
+
+func TestNew_DefaultsEvidenceRequiredForTask(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := New(dir, "TASK", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "evidence_required: [test]") {
+		t.Fatalf("expected evidence_required: [test] in body, got:\n%s", string(data))
+	}
+}
+
+func TestNew_NoEvidenceRequiredForChore(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := New(dir, "CHORE", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "evidence_required: []") {
+		t.Fatalf("expected evidence_required: [] in body, got:\n%s", string(data))
+	}
+}
+
+func TestNew_NoEvidenceRequiredForDebt(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := New(dir, "DEBT", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "evidence_required: []") {
+		t.Fatalf("expected evidence_required: [] in body, got:\n%s", string(data))
+	}
+}
+
+func TestNew_NoEvidenceRequiredForBet(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := New(dir, "BET", "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), "evidence_required: []") {
+		t.Fatalf("expected evidence_required: [] in body, got:\n%s", string(data))
+	}
+}
+
 func TestNew_IncrementsAcrossActiveAndDone(t *testing.T) {
 	dir := t.TempDir()
 	for _, sub := range []string{"items", "done"} {
