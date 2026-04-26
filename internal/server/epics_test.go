@@ -41,3 +41,33 @@ func TestEpics_List_FilterBySpec(t *testing.T) {
 		t.Fatalf("want 0 epics for other-spec, got %d", len(out))
 	}
 }
+
+func TestEpics_Detail(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	req := httptest.NewRequest(http.MethodGet, "/api/epics/sample-epic", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out map[string]any
+	_ = json.NewDecoder(rec.Body).Decode(&out)
+	if out["spec"] != "sample-spec" {
+		t.Fatalf("spec=%v", out["spec"])
+	}
+	if _, ok := out["body_markdown"]; !ok {
+		t.Fatal("expected body_markdown")
+	}
+}
+
+func TestEpics_Detail_404(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, testRepoID, Config{SquadDir: "testdata"})
+	req := httptest.NewRequest(http.MethodGet, "/api/epics/no-such-epic", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("code=%d", rec.Code)
+	}
+}
