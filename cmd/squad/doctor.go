@@ -135,10 +135,11 @@ func checkHookDrift(out io.Writer) []hygiene.HookFinding {
 }
 
 // resolveHookInstallDir picks the directory squad doctor should diff against:
-// 1. ${CLAUDE_PLUGIN_ROOT}/hooks — set by Claude Code at hook-execution time.
-// 2. ~/.claude/plugins/squad/hooks — where install-plugin lays the plugin.
-// 3. ~/.squad/hooks — where mergeSquadHooks materializes scripts when hooks
-//    are registered through settings.json.
+//  1. ${CLAUDE_PLUGIN_ROOT}/hooks — set by Claude Code at hook-execution time.
+//  2. ~/.claude/plugins/squad/hooks — where install-plugin lays the plugin.
+//  3. ~/.squad/hooks — where mergeSquadHooks materializes scripts when hooks
+//     are registered through settings.json.
+//
 // Returns "" when none exist (silent skip).
 func resolveHookInstallDir() string {
 	if root := os.Getenv("CLAUDE_PLUGIN_ROOT"); root != "" {
