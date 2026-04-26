@@ -29,6 +29,12 @@ type claimsPump struct {
 	stopOnce sync.Once
 	stopCh   chan struct{}
 	doneCh   chan struct{}
+
+	// Captured synchronously by start() so subscribers don't race the
+	// loop's snapshot vs. an out-of-band INSERT performed immediately
+	// after newServer returns.
+	initialHistoryCursor int64
+	initialPrev          map[string]claimSnap
 }
 
 type claimSnap struct {
@@ -47,7 +53,12 @@ func newClaimsPump(db *sql.DB, repoID string, bus *chat.Bus) *claimsPump {
 	}
 }
 
-func (p *claimsPump) start() { go p.loop() }
+func (p *claimsPump) start() {
+	_ = p.db.QueryRowContext(context.Background(),
+		`SELECT COALESCE(MAX(id), 0) FROM claim_history`).Scan(&p.initialHistoryCursor)
+	p.initialPrev, _ = p.snapshotClaims()
+	go p.loop()
+}
 
 func (p *claimsPump) stop() {
 	p.stopOnce.Do(func() { close(p.stopCh) })
@@ -56,10 +67,8 @@ func (p *claimsPump) stop() {
 
 func (p *claimsPump) loop() {
 	defer close(p.doneCh)
-	var historyCursor int64
-	_ = p.db.QueryRowContext(context.Background(),
-		`SELECT COALESCE(MAX(id), 0) FROM claim_history`).Scan(&historyCursor)
-	prev, _ := p.snapshotClaims()
+	historyCursor := p.initialHistoryCursor
+	prev := p.initialPrev
 
 	t := time.NewTicker(p.interval)
 	defer t.Stop()
