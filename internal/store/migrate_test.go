@@ -80,12 +80,24 @@ func TestMigrate_FailsCleanlyOnBadMigration(t *testing.T) {
 func TestMigrate_SortsByVersionNotByName(t *testing.T) {
 	db := openEmptyDBNoMigrate(t)
 	fsys := fstest.MapFS{
-		"migrations/010_z.sql": &fstest.MapFile{Data: []byte("ALTER TABLE foo ADD COLUMN c TEXT")},
-		"migrations/002_b.sql": &fstest.MapFile{Data: []byte("ALTER TABLE foo ADD COLUMN b TEXT")},
-		"migrations/001_a.sql": &fstest.MapFile{Data: []byte("CREATE TABLE foo (a TEXT)")},
+		// Mixed-width numeric prefixes: lexical order would be
+		// "10_z.sql" < "2_b.sql" (because '1' < '2' at position 0), running
+		// 10 before 2. Migration 10 references column b that 2 adds, so a
+		// lexical-only sort would crash here. The row-count assertion below
+		// confirms 2 ran before 10.
+		"migrations/10_z.sql": &fstest.MapFile{Data: []byte("INSERT INTO foo (a, b) VALUES ('hi', 'there')")},
+		"migrations/2_b.sql":  &fstest.MapFile{Data: []byte("ALTER TABLE foo ADD COLUMN b TEXT")},
+		"migrations/1_a.sql":  &fstest.MapFile{Data: []byte("CREATE TABLE foo (a TEXT)")},
 	}
 	if err := Migrate(context.Background(), db, fsys); err != nil {
 		t.Fatalf("migrate: %v", err)
+	}
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM foo WHERE a='hi' AND b='there'`).Scan(&n); err != nil {
+		t.Fatalf("query foo: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("want 1 row inserted by 10 after 2 added column b, got %d", n)
 	}
 }
 
