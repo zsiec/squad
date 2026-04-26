@@ -446,3 +446,69 @@ Print the squad version.
 ```bash
 squad version
 ```
+
+## Interop
+
+### `squad bridge agent-teams`
+
+**Status:** Specified, implementation deferred until Claude Code's agent-teams API exits experimental. Reflects squad-managed items into an active agent-teams session as native tasks.
+
+```text
+squad bridge agent-teams [--team <name>] [--items <filter>] [--once] [--read-only]
+```
+
+#### What it does
+
+Mirrors the current repo's pending-and-claimed squad items into `~/.claude/tasks/<team>/tasks.json` so an agent-teams lead and teammates can see them in their native task list. The mirror is one-way (squad → agent-teams) and session-scoped (torn down on `SIGINT`, `SessionEnd`, or `--once` exit).
+
+#### Flags
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--team <name>` | `default` | The agent-teams team directory under `~/.claude/tasks/`. Created if absent (with the team's own consent — the bridge will not create a directory in another team's namespace). |
+| `--items <filter>` | `pending,claimed` | Comma-separated squad statuses to mirror. `done` is intentionally not mirrorable. |
+| `--once` | off | Mirror once and exit instead of watching. Useful for scripting; default is to watch. |
+| `--read-only` | on | The bridge is always read-mostly: status changes from agent-teams update squad's claim `last_touch` only; they cannot transition an item to `done`. The flag exists so users can audit; setting it off is a no-op (the bridge will not implement two-way at any point). |
+
+#### Naming convention
+
+Bridged tasks are prefixed `squad:` in the agent-teams task list. Example: `squad:FEAT-007 — wire payment retries`. The prefix makes provenance unambiguous so a teammate doesn't mistake a bridged item for a native agent-teams task.
+
+#### Lifecycle
+
+```text
+agent-teams session start
+  └─► squad bridge agent-teams --team my-team
+       │
+       ├─► initial mirror: writes pending-and-claimed squad items
+       ├─► watch loop: polls squad DB every 2s for changes
+       │     ├─► claim → updates task entry's "claimed by" field
+       │     ├─► release → unclaims the task entry
+       │     ├─► touch → bumps task entry's last-update timestamp
+       │     └─► done → removes the task entry from agent-teams
+       │
+       └─► on SIGINT / SessionEnd / --once exit:
+            └─► tears down the mirror, leaves squad untouched
+```
+
+#### What it does NOT do
+
+- Mark items `done` from inside agent-teams. Closing requires `squad done` with evidence (R4).
+- Sync chat between the two systems.
+- Persist between agent-teams sessions. Each new session re-mirrors fresh.
+- Mirror items from repos other than the cwd-rooted one.
+- Reach across hosts. Both squad and agent-teams must be on the local machine.
+
+#### Why deferred
+
+The on-disk format at `~/.claude/tasks/<team>/tasks.json` is documented but flagged as subject to change while agent-teams is experimental. Squad will not ship a stable bridge against an unstable upstream. The implementation re-enters the queue when **either** of the following ships upstream:
+
+1. Agent-teams exits experimental and the on-disk format is documented as stable, OR
+2. Anthropic publishes a `claude tasks` (or equivalent) command surface that gives a stable shell-level API for reading and writing the same data.
+
+When that happens, the implementation skeleton is documented in the R8 phase plan kept under `docs/plans/` (gitignored, local-only).
+
+#### See also
+
+- [concepts/squad-vs-agent-teams.md](../concepts/squad-vs-agent-teams.md) — when this command is the right tool.
+- [recipes/migrating-from-agent-teams.md](../recipes/migrating-from-agent-teams.md) — for the case where you want to leave agent-teams entirely instead of bridging.
