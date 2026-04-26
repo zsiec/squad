@@ -279,6 +279,64 @@ func TestSweep_EvidenceRequiredSurvivesAdapter(t *testing.T) {
 	}
 }
 
+func TestSweep_EvidenceMissingForDoneItems(t *testing.T) {
+	db := newDB(t)
+	repoID := "repo-test"
+
+	if _, err := db.Exec(`
+		INSERT INTO attestations (item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id)
+		VALUES (?, 'test', 'go test', 0, 'h1', '/tmp/h1.txt', 100, 'a', ?)
+	`, "FEAT-001", repoID); err != nil {
+		t.Fatal(err)
+	}
+
+	fake := fakeItems{refs: []ItemRef{{
+		ID:               "FEAT-001",
+		Path:             "/tmp/.squad/done/FEAT-001.md",
+		Status:           "done",
+		EvidenceRequired: []string{"test", "review"},
+	}}}
+	sw := New(db, repoID, fake)
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got *Finding
+	for i := range findings {
+		if findings[i].Code == "evidence_missing" {
+			got = &findings[i]
+			break
+		}
+	}
+	if got == nil {
+		t.Fatalf("expected evidence_missing finding, got %+v", findings)
+	}
+	if !strings.Contains(got.Message, "FEAT-001") || !strings.Contains(got.Message, "review") {
+		t.Fatalf("finding message = %q", got.Message)
+	}
+}
+
+func TestSweep_NoEvidenceMissingForActiveItems(t *testing.T) {
+	db := newDB(t)
+	fake := fakeItems{refs: []ItemRef{{
+		ID:               "FEAT-001",
+		Path:             "/tmp/.squad/items/FEAT-001.md",
+		Status:           "in_progress",
+		EvidenceRequired: []string{"test", "review"},
+	}}}
+	sw := New(db, "repo-test", fake)
+	findings, err := sw.Sweep(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		if f.Code == "evidence_missing" {
+			t.Fatalf("active item should not flag evidence_missing: %v", f)
+		}
+	}
+}
+
 func TestReclaimStale_ShortClaim(t *testing.T) {
 	db := newDB(t)
 	t0 := int64(1_000_000)

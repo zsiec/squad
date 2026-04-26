@@ -269,6 +269,20 @@ func (sw *Sweeper) Sweep(ctx context.Context) ([]Finding, error) {
 					})
 				}
 			}
+			if len(r.EvidenceRequired) > 0 && (r.Status == "done" || strings.Contains(r.Path, "/done/")) {
+				missing, err := evidenceMissing(ctx, sw.db, sw.repoID, r.ID, r.EvidenceRequired)
+				if err != nil {
+					return nil, err
+				}
+				if len(missing) > 0 {
+					findings = append(findings, Finding{
+						Severity: SeverityError,
+						Code:     "evidence_missing",
+						Message:  "item " + r.ID + " is done but evidence_required missing: " + strings.Join(missing, ", "),
+						Fix:      "edit " + r.Path + " — either remove the unmet kinds from evidence_required, or run `squad attest --item " + r.ID + " --kind <kind> --command \"...\"` to record the missing artifact",
+					})
+				}
+			}
 		}
 
 		// Surface files that filesystem-walk could see but Parse rejected
@@ -399,6 +413,34 @@ func isValidDateField(s string) bool {
 		}
 	}
 	return true
+}
+
+func evidenceMissing(ctx context.Context, db *sql.DB, repoID, itemID string, required []string) ([]string, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT kind FROM attestations WHERE repo_id = ? AND item_id = ? AND exit_code = 0
+	`, repoID, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	have := map[string]struct{}{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		have[k] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, k := range required {
+		if _, ok := have[strings.TrimSpace(k)]; !ok {
+			missing = append(missing, k)
+		}
+	}
+	return missing, nil
 }
 
 func stripLineSuffix(ref string) string {
