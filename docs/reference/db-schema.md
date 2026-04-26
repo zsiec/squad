@@ -202,6 +202,61 @@ PK: `(repo_id, name)`. Strict mode (`STRICT`).
 
 Index: `idx_epics_spec ON epics(repo_id, spec)`.
 
+### `notify_endpoints`
+
+Per-session row published by `squad listen` describing where peers should dial to wake this session. Cleaned up on session end by `squad notify-cleanup`. The `stop-listen` hook writes a row at session start; the `session-end-cleanup` hook drops it.
+
+| Column | Type | Notes |
+|---|---|---|
+| `instance` | TEXT NOT NULL | Stable session identifier (env-derived) |
+| `repo_id` | TEXT NOT NULL | The repo this listener is scoped to |
+| `kind` | TEXT NOT NULL | Endpoint kind (`http`, etc.) |
+| `port` | INTEGER NOT NULL | Loopback port the listener bound |
+| `started_at` | INTEGER NOT NULL | Unix epoch seconds |
+
+PK: `(instance, kind)`.
+
+Index: `idx_notify_endpoints_repo ON notify_endpoints(repo_id)`.
+
+### `attestations`
+
+Evidence-ledger record. One row per `squad attest` invocation. Backs the DoD-gated `squad done` flow: items declaring `evidence_required: [test, review]` (or any subset) cannot close without an attestation per kind.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PRIMARY KEY AUTOINCREMENT | |
+| `item_id` | TEXT NOT NULL | Item the attestation belongs to |
+| `kind` | TEXT NOT NULL | `test`, `lint`, `typecheck`, `build`, `review`, `manual` |
+| `command` | TEXT NOT NULL | The shell command run (or "review by <agent>" for `kind=review`) |
+| `exit_code` | INTEGER NOT NULL | Zero on success; non-zero records the failure into the ledger |
+| `output_hash` | TEXT NOT NULL | sha256 of the captured stdout (or review body) |
+| `output_path` | TEXT NOT NULL | Path under `.squad/attestations/<hash>.txt` |
+| `created_at` | INTEGER NOT NULL | Unix epoch seconds |
+| `agent_id` | TEXT NOT NULL | The agent who recorded the attestation |
+| `repo_id` | TEXT NOT NULL | |
+| `review_disagreements` | INTEGER NOT NULL DEFAULT 0 | For `kind=review`: count of distinct reviewer disagreements |
+
+Indexes: `idx_attestations_item ON (repo_id, item_id)`; `idx_attestations_kind ON (repo_id, item_id, kind)`; `idx_attestations_dedup UNIQUE ON (repo_id, item_id, kind, output_hash)`.
+
+The unique dedup index means re-running an identical attestation is a no-op (the second insert hits the constraint and is suppressed). The captured output file under `.squad/attestations/` is content-addressed, so two identical runs produce the same artifact.
+
+### `wip_violations`
+
+Records every cap-exceeded `squad claim` attempt. The cap is enforced by `internal/claims` reading `.squad/config.yaml`; when a claim attempt exceeds the cap, `RecordWIPViolation` writes a row here and the claim is rejected. The R7 stats surface aggregates this table for the `squad_wip_violations_attempted_total` Prometheus metric.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PRIMARY KEY AUTOINCREMENT | |
+| `repo_id` | TEXT NOT NULL | |
+| `agent_id` | TEXT NOT NULL | The agent who tried to exceed cap |
+| `attempted_at` | INTEGER NOT NULL | Unix epoch seconds |
+| `held_at_attempt` | INTEGER NOT NULL | How many active claims the agent already held |
+| `cap_at_attempt` | INTEGER NOT NULL | Configured cap at the time of attempt |
+
+Indexes: `idx_wip_violations_repo_ts ON (repo_id, attempted_at)`; `idx_wip_violations_agent_ts ON (agent_id, attempted_at)`.
+
+This is an audit table — it never blocks the user (cap-exceeded claims are rejected by `claims.go`, this table just records the attempt). Useful when investigating whether an agent's WIP cap is set too low or too high.
+
 ## Why no migrations directory yet
 
-The schema is small and forward-compatible: every column added so far has been to a new table or a new column with a default. `CREATE TABLE IF NOT EXISTS ... CREATE INDEX IF NOT EXISTS ...` is replayed at every startup, which is idempotent for additions. When a destructive change is needed (column drop, type change), a numbered `internal/store/migrations/` directory will land alongside it.
+The schema is small and forward-compatible: every column added so far has been to a new table or a new column with a default. `CREATE TABLE IF NOT EXISTS ... CREATE INDEX IF NOT EXISTS ...` is replayed at every startup, which is idempotent for additions. Column adds against existing tables run as `ALTER TABLE ... ADD COLUMN` in `internal/store/store.go::additiveAlters` after the schema apply, with `duplicate column name` errors swallowed for idempotence. When a destructive change is needed (column drop, type change), a numbered `internal/store/migrations/` directory will land alongside it.
