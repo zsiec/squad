@@ -66,6 +66,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newGoCmd())
 	root.AddCommand(newWorkspaceCmd())
 	root.AddCommand(newServeCmd())
+	root.AddCommand(newTUICmd())
 	root.AddCommand(newInstallPluginCmd())
 	root.AddCommand(newInstallHooksCmd())
 	root.AddCommand(newListenCmd())
