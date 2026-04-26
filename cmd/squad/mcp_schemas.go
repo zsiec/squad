@@ -410,6 +410,22 @@ const schemaPRLink = `{
   "additionalProperties": false
 }`
 
+const schemaNew = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["type", "title"],
+  "properties": {
+    "type":     {"type": "string", "enum": ["bug", "feat", "feature", "task", "chore", "debt", "tech-debt", "bet"]},
+    "title":    {"type": "string", "minLength": 1, "maxLength": 200},
+    "priority": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+    "area":     {"type": "string"},
+    "estimate": {"type": "string", "description": "Duration like 30m, 1h, 4h, 1d."},
+    "risk":     {"type": "string", "enum": ["low", "medium", "high"]},
+    "ready":    {"type": "boolean", "description": "Skip the captured/inbox state and file as immediately claimable."}
+  },
+  "additionalProperties": false
+}`
+
 const schemaPRClose = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

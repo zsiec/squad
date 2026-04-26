@@ -24,6 +24,7 @@ type registerEnvelope struct {
 
 func registerTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	registerLifecycleTools(srv, db, repoID, repoRoot)
+	registerIntakeTools(srv, db, repoID, repoRoot)
 	registerChatTools(srv, db, repoID, repoRoot)
 	registerInspectionTools(srv, db, repoID, repoRoot)
 	registerEvidenceTools(srv, db, repoID, repoRoot)
