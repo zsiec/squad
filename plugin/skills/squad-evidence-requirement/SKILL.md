@@ -1,6 +1,10 @@
 ---
 name: squad-evidence-requirement
 description: Every "tests pass" / "build green" / "feature works" claim needs the actual command output pasted into the conversation. Bare assertions are worth zero.
+allowed-tools:
+  - Bash
+  - Read
+disable-model-invocation: false
 ---
 
 # Evidence requirement

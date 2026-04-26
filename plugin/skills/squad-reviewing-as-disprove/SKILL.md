@@ -1,6 +1,11 @@
 ---
 name: squad-reviewing-as-disprove
 description: When acting as a reviewer agent, attempt to empirically disprove each finding before reporting it. Run the test, read the file, check the assertion. False-positive findings poison the team's trust in the ledger.
+allowed-tools:
+  - Bash
+  - Read
+  - Task
+disable-model-invocation: false
 ---
 
 # Reviewing as disprove-before-report

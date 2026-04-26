@@ -1,6 +1,13 @@
 ---
+name: squad-handoff-cmd
 description: End-of-session 3-bullet brief plus claim release. Invokes the squad-handoff skill.
 args: ""
+allowed-tools:
+  - Bash
+  - Edit
+paths:
+  - ".squad/**"
+disable-model-invocation: true
 ---
 
 You are wrapping up the session. Invoke the `squad-handoff` skill, then post the 3-bullet brief:

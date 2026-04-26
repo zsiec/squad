@@ -1,6 +1,9 @@
 ---
 name: squad-time-boxing
 description: Exploratory work has a 2-hour cap. At 2h, stop and write up what you know — hypotheses tried, ruled-out causes, evidence collected, what is still unknown. Then escalate, parallelize, or block. Long unsuccessful sessions are a signal, not a setback.
+allowed-tools:
+  - Bash
+disable-model-invocation: false
 ---
 
 # Time-boxing exploratory work

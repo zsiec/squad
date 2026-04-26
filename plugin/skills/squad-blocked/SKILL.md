@@ -1,6 +1,13 @@
 ---
+name: squad-blocked
 description: Mark an item blocked and inject the standard ## Blocker section template into the item file.
 args: "<ITEM-ID>"
+allowed-tools:
+  - Bash
+  - Edit
+paths:
+  - ".squad/items/**"
+disable-model-invocation: true
 ---
 
 You are marking item `$ARGS` as blocked. Run:

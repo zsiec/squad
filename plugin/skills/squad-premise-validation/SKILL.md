@@ -1,6 +1,11 @@
 ---
 name: squad-premise-validation
 description: Before fixing a claimed bug, prove the bug exists by writing a RED test against the current code. If the test passes unmodified, the bug does not reproduce — reclassify, do not "fix" a non-bug.
+allowed-tools:
+  - Bash
+  - Read
+  - Edit
+disable-model-invocation: false
 ---
 
 # Premise validation: RED first, always

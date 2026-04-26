@@ -1,6 +1,11 @@
 ---
 name: squad-handoff
 description: Before signing off — whether you finished an item or stopped mid-flight — post a 3-bullet summary. Shipped, in flight / queued, surprised by. Three bullets, no ceremony.
+allowed-tools:
+  - Bash
+paths:
+  - ".squad/**"
+disable-model-invocation: false
 ---
 
 # End-of-session handoff

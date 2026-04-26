@@ -1,6 +1,13 @@
 ---
+name: squad-pick
 description: Atomically claim an item by ID. Verifies references, applies RED-first if AC names concrete failures.
 args: "<ITEM-ID>"
+allowed-tools:
+  - Bash
+  - Read
+paths:
+  - ".squad/items/**"
+disable-model-invocation: true
 ---
 
 You are claiming item `$ARGS`. Run:

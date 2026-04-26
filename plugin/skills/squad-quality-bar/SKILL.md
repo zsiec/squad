@@ -1,6 +1,10 @@
 ---
 name: squad-quality-bar
 description: Tests passing is necessary but not sufficient. Before committing, run the self-review checklist — no commented-out code, no TODOs, no PM traces, no defensive checks for impossible cases, no half-finished implementations.
+allowed-tools:
+  - Bash
+  - Read
+disable-model-invocation: false
 ---
 
 # The quality bar before commit

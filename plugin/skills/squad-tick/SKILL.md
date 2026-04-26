@@ -1,6 +1,12 @@
 ---
+name: squad-tick
 description: Tick the squad team — surface mentions, file conflicts, knocks. Address mentions BEFORE continuing other work.
 args: ""
+allowed-tools:
+  - Bash
+paths:
+  - ".squad/**"
+disable-model-invocation: true
 ---
 
 Run:

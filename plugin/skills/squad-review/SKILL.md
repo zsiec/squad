@@ -1,6 +1,14 @@
 ---
+name: squad-review
 description: Spawn superpowers:code-reviewer on an item with a self-contained briefing. Includes premise-validation latitude and working-tree hygiene clauses.
 args: "<ITEM-ID>"
+allowed-tools:
+  - Bash
+  - Read
+  - Task
+paths:
+  - ".squad/items/**"
+disable-model-invocation: true
 ---
 
 You are requesting code review for item `$ARGS`. Invoke the `squad-code-review-mandatory` skill to construct the briefing correctly, then read `superpowers:requesting-code-review` to brief the reviewer.

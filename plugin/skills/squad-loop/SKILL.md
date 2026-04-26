@@ -1,9 +1,14 @@
 ---
 name: squad-loop
 description: The operating loop every session follows — register, tick, pick, work, checkpoint, test, review, commit, close. Use whenever you start or resume work on a squad-managed repo.
+allowed-tools:
+  - Bash
+  - Read
+  - Edit
+  - Task
 paths:
-  - "AGENTS.md"
-  - ".squad/items/**/*.md"
+  - ".squad/**"
+disable-model-invocation: false
 ---
 
 > **Depth tier:** for ≥1d items, parallel-dispatch decisions, time-boxing, handoff, or chat-cadence questions, open `docs/agents-deep.md`. The fast tier in `AGENTS.md` covers the loop; the deep tier covers the corners. Skills with their own `paths:` glob (e.g. `squad-handoff.md`) auto-load when you touch a file matching their glob — that's the mechanism by which the right depth tier reaches the right session at the right time.

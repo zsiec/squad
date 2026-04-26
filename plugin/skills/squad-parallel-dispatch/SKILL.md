@@ -1,6 +1,10 @@
 ---
 name: squad-parallel-dispatch
 description: Default to parallel when items are independent. Children run scoped tests; the parent runs the full suite as the integration gate. Sequencing independent work out of habit wastes wall-clock time.
+allowed-tools:
+  - Task
+  - Bash
+disable-model-invocation: false
 ---
 
 # Parallel dispatch: when, when-not, and the test-gate split

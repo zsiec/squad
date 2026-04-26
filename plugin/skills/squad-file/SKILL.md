@@ -1,6 +1,13 @@
 ---
+name: squad-file
 description: File a new item. Runs squad new with type and title, then injects the standard item template body for you to fill in.
 args: "<type> \"<title>\""
+allowed-tools:
+  - Bash
+  - Edit
+paths:
+  - ".squad/items/**"
+disable-model-invocation: true
 ---
 
 You are filing a new item. Run:

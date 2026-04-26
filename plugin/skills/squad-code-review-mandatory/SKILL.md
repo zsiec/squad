@@ -1,6 +1,11 @@
 ---
 name: squad-code-review-mandatory
 description: Every item — even a one-line fix — gets reviewed by superpowers:code-reviewer before commit. No exceptions. The agent is cheap; production bugs are not.
+allowed-tools:
+  - Task
+  - Bash
+  - Read
+disable-model-invocation: false
 ---
 
 # Code review is mandatory, not optional

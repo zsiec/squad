@@ -1,6 +1,9 @@
 ---
 name: squad-chat-cadence
 description: Post often, post small, post honestly. The team needs visibility into your non-obvious state — not a change log. Use the typed verbs (thinking / milestone / stuck / fyi / ask) so peers can route attention.
+allowed-tools:
+  - Bash
+disable-model-invocation: false
 ---
 
 # Collaborative chat cadence

@@ -1,6 +1,13 @@
 ---
+name: squad-work
 description: Onboard or resume in one step — squad go does init/register/claim/AC/mailbox.
 args: ""
+allowed-tools:
+  - Bash
+  - Read
+paths:
+  - ".squad/**"
+disable-model-invocation: true
 ---
 
 You are starting (or resuming) work on a squad-managed repo. Run the orchestrator:
