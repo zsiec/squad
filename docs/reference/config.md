@@ -31,6 +31,10 @@ verification:
 hygiene:
   stale_claim_minutes: 60
   sweep_on_every_command: true
+
+touch:
+  enforcement: warn          # warn | deny — default warn
+  enforcement_paths: []      # doublestar globs deny-mode actually blocks on
 ```
 
 ## `project_name`
@@ -88,6 +92,25 @@ hygiene:
 ```
 
 `SQUAD_NO_HYGIENE=1` in the environment disables the sweep for a single invocation regardless of config.
+
+## `touch`
+
+Controls the pre-edit touch-check hook (`pre_edit_touch_check.sh`). When another agent is currently touching the file Claude is about to edit, the hook calls `squad touches policy <file>` and emits a `PreToolUse` decision JSON on stdout that Claude reads.
+
+```yaml
+touch:
+  enforcement: warn          # warn | deny
+  enforcement_paths:         # doublestar globs (only consulted in deny mode)
+    - go.mod
+    - go.sum
+    - "**/*.lock"
+    - "internal/store/schema.sql"
+```
+
+- `enforcement: warn` (default) — every conflict surfaces as `permissionDecision: "ask"` plus an `additionalContext` line naming the owner agent. Claude pauses and asks the user before proceeding.
+- `enforcement: deny` — same warning behavior for most paths, but if the target matches one of the `enforcement_paths` globs the decision becomes `permissionDecision: "deny"` and Claude refuses the edit outright. Pair this with red-flag files (dependency manifests, schema files, lockfiles) where parallel writes are almost always a mistake.
+
+Globs use [doublestar](https://github.com/bmatcuk/doublestar) syntax: `*` matches within one path segment, `**` matches across segments.
 
 ## Where the file is generated
 

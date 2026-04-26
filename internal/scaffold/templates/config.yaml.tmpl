@@ -55,3 +55,16 @@ hygiene:
   # run the sweep after every squad command (debounced ~10s); set to false
   # to disable in this repo without touching the env
   sweep_on_every_command: true
+
+# Pre-edit touch-check policy. The pre_edit_touch_check.sh hook calls
+# `squad touches policy <file>` and emits the PreToolUse JSON it returns.
+# Default: every conflict prompts Claude with permissionDecision: "ask".
+# Switch to deny + a list of doublestar globs to hard-block edits on
+# red-flag files (dependency manifests, schemas, lockfiles).
+#
+# touch:
+#   enforcement: deny
+#   enforcement_paths:
+#     - go.mod
+#     - go.sum
+#     - "**/*.lock"
