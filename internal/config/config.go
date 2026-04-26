@@ -16,7 +16,22 @@ type Config struct {
 	Defaults     Defaults           `yaml:"defaults"`
 	Verification VerificationConfig `yaml:"verification"`
 	Hygiene      HygieneConfig      `yaml:"hygiene"`
+	Touch        TouchConfig        `yaml:"touch"`
 }
+
+// TouchConfig controls how the pre-edit touch-check hook reacts when an Edit
+// targets a path another agent is currently touching. Default empty =
+// warn-only via permissionDecision: "ask"; set Enforcement to "deny" plus a
+// list of EnforcementPaths globs to block edits on red-flag files.
+type TouchConfig struct {
+	Enforcement      string   `yaml:"enforcement"`
+	EnforcementPaths []string `yaml:"enforcement_paths"`
+}
+
+const (
+	TouchEnforcementWarn = "warn"
+	TouchEnforcementDeny = "deny"
+)
 
 type AgentConfig struct {
 	// ClaimConcurrency caps how many items a single agent can hold open at

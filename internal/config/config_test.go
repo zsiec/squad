@@ -50,6 +50,27 @@ func TestLoad_MalformedYAMLIsError(t *testing.T) {
 	}
 }
 
+func TestLoadTouchConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := "touch:\n  enforcement: deny\n  enforcement_paths:\n    - go.mod\n    - \"**/*.lock\"\n"
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Touch.Enforcement != "deny" {
+		t.Fatalf("Touch.Enforcement=%q want \"deny\"", cfg.Touch.Enforcement)
+	}
+	if !reflect.DeepEqual(cfg.Touch.EnforcementPaths, []string{"go.mod", "**/*.lock"}) {
+		t.Fatalf("Touch.EnforcementPaths=%v want [go.mod **/*.lock]", cfg.Touch.EnforcementPaths)
+	}
+}
+
 func TestLoad_HygieneKnobs(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".squad"), 0o755); err != nil {
