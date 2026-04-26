@@ -31,7 +31,7 @@ squad install-plugin                                  # optional, but recommende
 squad version
 ```
 
-Expected output: `0.1.0-dev` or similar. If `squad: command not found`, your `$GOPATH/bin` isn't on PATH. Add it:
+Expected output: `0.2.0` or similar. If `squad: command not found`, your `$GOPATH/bin` isn't on PATH. Add it:
 
 ```bash
 export PATH="$(go env GOPATH)/bin:$PATH"
