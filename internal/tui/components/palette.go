@@ -62,10 +62,10 @@ func (p Palette) Close() Palette {
 	return p
 }
 
-func (p Palette) IsActive() bool             { return p.active }
-func (p Palette) Cursor() int                { return p.cursor }
-func (p Palette) VisibleMatches() []Command  { return p.matches }
-func (p Palette) HistorySize() int           { return len(p.history) }
+func (p Palette) IsActive() bool            { return p.active }
+func (p Palette) Cursor() int               { return p.cursor }
+func (p Palette) VisibleMatches() []Command { return p.matches }
+func (p Palette) HistorySize() int          { return len(p.history) }
 
 func (p Palette) HasHistory(name string) bool {
 	for _, h := range p.history {

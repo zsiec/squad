@@ -189,4 +189,3 @@ func toDoctorRows(findings []Finding) [][]string {
 	}
 	return rows
 }
-
