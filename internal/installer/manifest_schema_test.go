@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/santhosh-tekuri/jsonschema/v5"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 func TestManifest_ValidatesAgainstUpstreamSchema(t *testing.T) {
@@ -30,11 +30,17 @@ func TestManifest_ValidatesAgainstUpstreamSchema(t *testing.T) {
 		1,
 	)
 
+	const schemaURL = "https://squad.local/plugin-manifest.schema.json"
+
+	schemaDoc, err := jsonschema.UnmarshalJSON(bytes.NewReader(patched))
+	if err != nil {
+		t.Fatalf("parse schema: %v", err)
+	}
 	compiler := jsonschema.NewCompiler()
-	if err := compiler.AddResource("plugin-manifest", bytes.NewReader(patched)); err != nil {
+	if err := compiler.AddResource(schemaURL, schemaDoc); err != nil {
 		t.Fatal(err)
 	}
-	schema, err := compiler.Compile("plugin-manifest")
+	schema, err := compiler.Compile(schemaURL)
 	if err != nil {
 		t.Fatal(err)
 	}
