@@ -6,11 +6,38 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/zsiec/squad/internal/stats"
 )
+
+// safeBuffer guards bytes.Buffer for the --tail test, where the cobra
+// goroutine writes while the polling main goroutine reads. bytes.Buffer is
+// not safe for concurrent use; without this go test -race flags it.
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *safeBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *safeBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]byte, b.buf.Len())
+	copy(out, b.buf.Bytes())
+	return out
+}
+
+func (b *safeBuffer) String() string {
+	return string(b.Bytes())
+}
 
 func setupSquadRepoForStats(t *testing.T) string {
 	t.Helper()
@@ -75,7 +102,7 @@ func TestStatsTailEmitsNDJSON(t *testing.T) {
 	_ = setupSquadRepoForStats(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	var buf bytes.Buffer
+	var buf safeBuffer
 	done := make(chan error, 1)
 	go func() {
 		done <- runStatsRoot(ctx,
