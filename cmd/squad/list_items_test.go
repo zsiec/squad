@@ -92,6 +92,54 @@ func TestListItems_FiltersAndSort(t *testing.T) {
 	}
 }
 
+func TestListItems_AgentFilterFiltersByClaim(t *testing.T) {
+	env := newTestEnv(t)
+	writeMinimalItem(t, env.ItemsDir, "BUG-501")
+	writeMinimalItem(t, env.ItemsDir, "BUG-502")
+	writeMinimalItem(t, env.ItemsDir, "BUG-503")
+
+	if _, err := env.DB.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, ?, ?, 1000, 1000, '', 0)
+	`, env.RepoID, "BUG-501", "agent-alice"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.DB.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES (?, ?, ?, 1000, 1000, '', 0)
+	`, env.RepoID, "BUG-502", "agent-bob"); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := ListItems(context.Background(), ListItemsArgs{
+		ItemsDir: env.ItemsDir,
+		DoneDir:  env.DoneDir,
+		DB:       env.DB,
+		RepoID:   env.RepoID,
+		Agent:    "agent-alice",
+	})
+	if err != nil {
+		t.Fatalf("ListItems(agent=agent-alice): %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "BUG-501" {
+		t.Fatalf("agent filter wrong: %+v", rows)
+	}
+	if rows[0].Agent != "agent-alice" {
+		t.Fatalf("Agent field not populated: %+v", rows[0])
+	}
+}
+
+func TestListItems_AgentFilterRequiresDB(t *testing.T) {
+	itemsDir := t.TempDir()
+	_, err := ListItems(context.Background(), ListItemsArgs{
+		ItemsDir: itemsDir,
+		Agent:    "agent-x",
+	})
+	if err == nil {
+		t.Fatal("want error when Agent set without DB, got nil")
+	}
+}
+
 func TestListItems_DefaultLimitCappedAt200(t *testing.T) {
 	itemsDir := t.TempDir()
 	rows, err := ListItems(context.Background(), ListItemsArgs{

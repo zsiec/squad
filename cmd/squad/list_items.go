@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,12 +12,15 @@ import (
 	"github.com/zsiec/squad/internal/items"
 )
 
-// Agent filtering requires the claims DB; the in-tree caller (MCP registry)
-// will pass DB+RepoID once it's wired. For now leaving Agent set without
-// providing DB resolution is rejected at the boundary.
+// Agent filtering joins against the claims table; DB+RepoID must be set when
+// Agent is non-empty. The error path remains as a fallback when callers can
+// only provide a filesystem-rooted view.
 type ListItemsArgs struct {
 	ItemsDir string `json:"items_dir"`
 	DoneDir  string `json:"done_dir"`
+
+	DB     *sql.DB `json:"-"`
+	RepoID string  `json:"repo_id,omitempty"`
 
 	Status   string `json:"status,omitempty"`
 	Type     string `json:"type,omitempty"`
@@ -40,10 +44,16 @@ const (
 	listItemsMaxLimit     = 200
 )
 
-func ListItems(_ context.Context, args ListItemsArgs) ([]ListItemsRow, error) {
-	if args.Agent != "" {
-		return nil, fmt.Errorf("list_items: agent filter not yet wired (needs claims DB)")
+func ListItems(ctx context.Context, args ListItemsArgs) ([]ListItemsRow, error) {
+	if args.Agent != "" && (args.DB == nil || args.RepoID == "") {
+		return nil, fmt.Errorf("list_items: agent filter requires DB and RepoID")
 	}
+
+	holders, err := claimHolders(ctx, args.DB, args.RepoID)
+	if err != nil {
+		return nil, err
+	}
+
 	includeDone := args.Status == "" || args.Status == "done"
 	includeActive := args.Status != "done"
 
@@ -79,6 +89,9 @@ func ListItems(_ context.Context, args ListItemsArgs) ([]ListItemsRow, error) {
 		if args.Priority != "" && it.Priority != args.Priority {
 			continue
 		}
+		if args.Agent != "" && holders[it.ID] != args.Agent {
+			continue
+		}
 		filtered = append(filtered, it)
 	}
 
@@ -109,9 +122,31 @@ func ListItems(_ context.Context, args ListItemsArgs) ([]ListItemsRow, error) {
 			Status:   it.Status,
 			Type:     it.Type,
 			Priority: it.Priority,
+			Agent:    holders[it.ID],
 		})
 	}
 	return rows, nil
+}
+
+func claimHolders(ctx context.Context, db *sql.DB, repoID string) (map[string]string, error) {
+	out := map[string]string{}
+	if db == nil || repoID == "" {
+		return out, nil
+	}
+	rows, err := db.QueryContext(ctx,
+		`SELECT item_id, agent_id FROM claims WHERE repo_id = ?`, repoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, agent string
+		if err := rows.Scan(&id, &agent); err != nil {
+			return nil, err
+		}
+		out[id] = agent
+	}
+	return out, rows.Err()
 }
 
 func readItemsDir(dir string) ([]items.Item, error) {
