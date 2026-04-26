@@ -20,6 +20,7 @@ type Config struct {
 	Port             int
 	SquadDir         string
 	RepoID           string
+	LearningsRoot    string
 	pingInterval     time.Duration
 	lagFlushInterval time.Duration
 }
@@ -40,6 +41,9 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 	}
 	if cfg.RepoID == "" {
 		cfg.RepoID = repoID
+	}
+	if cfg.LearningsRoot == "" {
+		cfg.LearningsRoot = "."
 	}
 	if cfg.pingInterval == 0 {
 		cfg.pingInterval = 15 * time.Second
