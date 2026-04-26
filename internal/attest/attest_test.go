@@ -208,6 +208,78 @@ func TestLedger_MissingKinds(t *testing.T) {
 	}
 }
 
+func TestRun_CapturesOutputAndHashes(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "g.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	L := New(db, "repo-x", nil)
+
+	rec, err := L.Run(context.Background(), RunOpts{
+		ItemID:   "FEAT-001",
+		Kind:     KindTest,
+		Command:  `printf 'PASS\nok\n'`,
+		AgentID:  "agent-a",
+		AttDir:   filepath.Join(dir, ".squad", "attestations"),
+		RepoRoot: dir,
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if rec.ExitCode != 0 {
+		t.Fatalf("exit = %d, want 0", rec.ExitCode)
+	}
+	body, err := os.ReadFile(rec.OutputPath)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	if string(body) != "PASS\nok\n" {
+		t.Fatalf("body = %q", string(body))
+	}
+	if rec.OutputHash != L.Hash(body) {
+		t.Fatalf("hash mismatch in returned record")
+	}
+
+	// Hash-named filename invariant.
+	want := filepath.Join(dir, ".squad", "attestations", rec.OutputHash+".txt")
+	if rec.OutputPath != want {
+		t.Fatalf("OutputPath = %q, want %q", rec.OutputPath, want)
+	}
+}
+
+func TestRun_NonZeroExitStillRecorded(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "g.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	L := New(db, "repo-x", nil)
+	rec, err := L.Run(context.Background(), RunOpts{
+		ItemID:   "FEAT-001",
+		Kind:     KindTest,
+		Command:  `echo failing >&2 ; exit 1`,
+		AgentID:  "agent-a",
+		AttDir:   filepath.Join(dir, "att"),
+		RepoRoot: dir,
+	})
+	if err != nil {
+		t.Fatalf("Run should not error on non-zero exit, got %v", err)
+	}
+	if rec.ExitCode != 1 {
+		t.Fatalf("exit = %d, want 1", rec.ExitCode)
+	}
+	got, err := L.ListForItem(context.Background(), "FEAT-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ExitCode != 1 {
+		t.Fatalf("expected one row, exit=1, got %+v", got)
+	}
+}
+
 func TestLedger_Verify_MissingFile(t *testing.T) {
 	dir := t.TempDir()
 	db, err := store.Open(filepath.Join(dir, "g.db"))
