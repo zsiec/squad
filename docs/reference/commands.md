@@ -598,7 +598,18 @@ Run an MCP server over stdio (Claude Code transport). Registered in `~/.claude/p
 squad mcp
 ```
 
-Exposes 23 tools to Claude Code: lifecycle (claim, done, release, blocked), chat verbs (say, ask, fyi, milestone, thinking, stuck), inspection (next, status, get_item, list_items), evidence (attest, attestations), learning (propose, list, approve, reject), and progress/touch helpers. See `~/.claude/plugins/squad/.mcp.json` for the registered command line.
+Exposes 36 tools to Claude Code, covering the full agent-driving surface so MCP-only callers don't have to shell out:
+
+- **Lifecycle:** `squad_register`, `squad_whoami`, `squad_next`, `squad_claim`, `squad_release`, `squad_done`, `squad_blocked`, `squad_progress`, `squad_review_request`.
+- **Chat:** `squad_say`, `squad_ask`, `squad_answer`, `squad_knock`, `squad_handoff`, `squad_tick`.
+- **Coordination:** `squad_force_release`, `squad_reassign`, `squad_archive`.
+- **Inspection:** `squad_get_item`, `squad_list_items`, `squad_status`, `squad_who`, `squad_history`.
+- **Touch tracking:** `squad_touch`, `squad_untouch`, `squad_touches_list_others`.
+- **Evidence:** `squad_attest`, `squad_attestations`.
+- **Learning:** `squad_learning_propose`, `squad_learning_list`, `squad_learning_approve`, `squad_learning_reject`, `squad_learning_agents_md_suggest`, `squad_learning_agents_md_approve`, `squad_learning_agents_md_reject`.
+- **PR integration:** `squad_pr_link`, `squad_pr_close`.
+
+See `~/.claude/plugins/squad/.mcp.json` for the registered command line.
 
 ## Server
 
