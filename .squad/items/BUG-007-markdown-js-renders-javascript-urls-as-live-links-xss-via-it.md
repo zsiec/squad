@@ -45,5 +45,20 @@ Surfaces consuming `renderMarkdown`: `drawer.js` (item body sections), `inbox.js
 Related: BUG-006 (inbox-detail panel that newly exposes this surface).
 
 ## Resolution
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+
+### Reproduction
+`TestMarkdownLinkXSS` (Go test that drives `markdown.js` through Node) covers `javascript:`, `data:`, `vbscript:`, case-insensitive `JaVaScRiPt:`, leading-whitespace ` javascript:`, tab-in-scheme, and protocol-relative `//evil.com`. Pre-fix: 5 sub-tests failed with live `<a href="...">`. Post-fix: all 12 pass.
+
+### Fix
+`internal/server/web/markdown.js`:
+- Added `isSafeURL(u)` helper. URL is safe if (after trim) it has no colon, OR a path/hash/query delimiter precedes the first colon, OR its scheme matches `^(?:https?:|mailto:)` (case-insensitive). Protocol-relative `//host` is rejected (it inherits the page scheme).
+- The `LINK` replace callback now branches on `isSafeURL`: safe URLs render as `<a href="...">`; unsafe URLs round-trip as the literal escaped `[text](url)` text so the user sees the URL but cannot click it into script.
+
+### Test
+`internal/server/markdown_xss_test.go` — Go test that spawns `node --input-type=module --eval=<harness>` from `internal/server/web/`, stubs the browser globals util.js touches at module load (`location`, `localStorage`), imports `markdown.js`, runs `renderMarkdown` over a 12-case table, and asserts on the produced HTML. Skipped if `node` is not on PATH.
+
+### Evidence
+```
+ok  	github.com/zsiec/squad/internal/server	0.443s   (TestMarkdownLinkXSS — 12/12)
+```
+Verified RED on prior code (5 failures), GREEN on fix.

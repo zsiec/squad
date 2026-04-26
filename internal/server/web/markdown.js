@@ -9,12 +9,36 @@ const LINK        = /\[([^\]]+)\]\(([^)]+)\)/g;
 // file:line references like server/foo/bar.go:123 or bar.go:12-40
 const FILEREF     = /(\b[\w./-]+?\.(?:go|ts|tsx|js|md|cu|metal|m|mm|h|c|cpp|sh|yml|yaml|toml|json)(?::\d+(?:[-–]\d+)?)?)/g;
 
+const SAFE_SCHEME = /^(?:https?:|mailto:)/i;
+
+function isSafeURL(u) {
+  const s = u.trim();
+  if (!s) return false;
+  // protocol-relative (//host/...) inherits the page scheme — treat as off-allowlist.
+  if (s.startsWith('//')) return false;
+  const colon = s.indexOf(':');
+  if (colon < 0) return true;
+  const slash = s.indexOf('/');
+  const hash = s.indexOf('#');
+  const question = s.indexOf('?');
+  // relative URL if a path/hash/query delimiter precedes the first colon
+  for (const idx of [slash, hash, question]) {
+    if (idx >= 0 && idx < colon) return true;
+  }
+  return SAFE_SCHEME.test(s);
+}
+
 function inline(s) {
   return escapeHtml(s)
     .replace(INLINE_CODE, '<code>$1</code>')
     .replace(BOLD, '<strong>$1</strong>')
     .replace(ITAL, '$1<em>$2</em>')
-    .replace(LINK, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(LINK, (_, text, url) => {
+      if (isSafeURL(url)) {
+        return `<a href="${url}" target="_blank" rel="noopener">${text}</a>`;
+      }
+      return `[${text}](${url})`;
+    });
 }
 
 export function renderMarkdown(md) {
