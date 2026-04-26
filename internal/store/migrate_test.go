@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -85,6 +86,22 @@ func TestMigrate_SortsByVersionNotByName(t *testing.T) {
 	}
 	if err := Migrate(context.Background(), db, fsys); err != nil {
 		t.Fatalf("migrate: %v", err)
+	}
+}
+
+func TestMigrate_RejectsDuplicateVersionNumbers(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	fsys := fstest.MapFS{
+		"migrations/001_a.sql": &fstest.MapFile{Data: []byte("CREATE TABLE foo (x INT)")},
+		"migrations/01_b.sql":  &fstest.MapFile{Data: []byte("CREATE TABLE bar (x INT)")},
+	}
+	err := Migrate(context.Background(), db, fsys)
+	if err == nil {
+		t.Fatalf("want duplicate-version error, got nil")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "duplicate version 1") {
+		t.Fatalf("want error mentioning %q, got %q", "duplicate version 1", msg)
 	}
 }
 

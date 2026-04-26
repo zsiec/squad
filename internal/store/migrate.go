@@ -61,7 +61,11 @@ func loadMigrationFiles(fsys fs.FS) ([]migrationFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read migrations dir: %w", err)
 	}
-	var files []migrationFile
+	type fileWithName struct {
+		migrationFile
+		filename string
+	}
+	var loaded []fileWithName
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -75,9 +79,24 @@ func loadMigrationFiles(fsys fs.FS) ([]migrationFile, error) {
 		if err != nil {
 			return nil, err
 		}
-		files = append(files, migrationFile{v, m[2], string(body)})
+		loaded = append(loaded, fileWithName{migrationFile{v, m[2], string(body)}, e.Name()})
 	}
-	sort.Slice(files, func(i, j int) bool { return files[i].version < files[j].version })
+	sort.Slice(loaded, func(i, j int) bool {
+		if loaded[i].version != loaded[j].version {
+			return loaded[i].version < loaded[j].version
+		}
+		return loaded[i].filename < loaded[j].filename
+	})
+	for i := 1; i < len(loaded); i++ {
+		if loaded[i].version == loaded[i-1].version {
+			return nil, fmt.Errorf("migrations: duplicate version %d in files %s and %s",
+				loaded[i].version, loaded[i-1].filename, loaded[i].filename)
+		}
+	}
+	files := make([]migrationFile, len(loaded))
+	for i, f := range loaded {
+		files[i] = f.migrationFile
+	}
 	return files, nil
 }
 
