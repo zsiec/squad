@@ -1,6 +1,11 @@
 package hooks
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -34,6 +39,67 @@ func TestAll_AsyncRewakeIsDefaultOff(t *testing.T) {
 	for _, h := range All {
 		if h.Name == "async-rewake" && h.DefaultOn {
 			t.Fatal("async-rewake must be opt-in (default off)")
+		}
+	}
+}
+
+func TestEmbedAndHooksJSONStayInSync(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	hooksJSONPath := filepath.Join(filepath.Dir(thisFile), "..", "hooks.json")
+	raw, err := os.ReadFile(hooksJSONPath)
+	if err != nil {
+		t.Fatalf("read hooks.json: %v", err)
+	}
+	var manifest struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+			Hooks   []struct {
+				Type    string `json:"type"`
+				Command string `json:"command"`
+				Squad   string `json:"squad"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatalf("parse hooks.json: %v", err)
+	}
+
+	type entry struct {
+		hookName string
+		matcher  string
+		script   string
+	}
+	manifestEntries := map[string]entry{}
+	for eventType, blocks := range manifest.Hooks {
+		for _, b := range blocks {
+			for _, h := range b.Hooks {
+				name := strings.SplitN(h.Squad, "@", 2)[0]
+				manifestEntries[name] = entry{
+					hookName: eventType,
+					matcher:  b.Matcher,
+					script:   filepath.Base(h.Command),
+				}
+			}
+		}
+	}
+
+	for _, h := range All {
+		if !h.DefaultOn {
+			continue
+		}
+		got, ok := manifestEntries[h.Name]
+		if !ok {
+			t.Errorf("hook %q DefaultOn but absent from hooks.json", h.Name)
+			continue
+		}
+		if got.script != h.Filename {
+			t.Errorf("hook %q script mismatch: hooks.json=%s embed.go=%s", h.Name, got.script, h.Filename)
+		}
+		if got.hookName != h.EventType {
+			t.Errorf("hook %q event type mismatch: hooks.json=%s embed.go=%s", h.Name, got.hookName, h.EventType)
+		}
+		if got.matcher != h.Matcher {
+			t.Errorf("hook %q matcher mismatch: hooks.json=%s embed.go=%s", h.Name, got.matcher, h.Matcher)
 		}
 	}
 }
