@@ -37,6 +37,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newAcceptCmd())
 	root.AddCommand(newRejectCmd())
 	root.AddCommand(newRefineCmd())
+	root.AddCommand(newRecaptureCmd())
 	root.AddCommand(newInboxCmd())
 	root.AddCommand(newReadyCmd())
 	root.AddCommand(newBlockedCmd())
