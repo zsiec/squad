@@ -35,6 +35,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newReleaseCmd())
 	root.AddCommand(newDoneCmd())
 	root.AddCommand(newAcceptCmd())
+	root.AddCommand(newRejectCmd())
 	root.AddCommand(newBlockedCmd())
 	root.AddCommand(newForceReleaseCmd())
 	root.AddCommand(newReassignCmd())
