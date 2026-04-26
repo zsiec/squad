@@ -447,6 +447,17 @@ const schemaReject = `{
   "additionalProperties": false
 }`
 
+const schemaInbox = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mine":        {"type": "boolean"},
+    "ready_only":  {"type": "boolean"},
+    "parent_spec": {"type": "string"}
+  },
+  "additionalProperties": false
+}`
+
 const schemaPRClose = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

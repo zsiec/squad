@@ -403,6 +403,169 @@ func TestMCPSquadReject_ClaimedItemRefused(t *testing.T) {
 	}
 }
 
+const mcpInboxItemA = `---
+id: FEAT-201
+title: First captured item that passes Definition of Ready
+type: feature
+priority: P1
+area: auth
+status: captured
+created: 2026-04-26
+updated: 2026-04-26
+captured_by: agent-alpha
+captured_at: 1714150000
+---
+
+## Acceptance criteria
+- [ ] does the thing
+`
+
+const mcpInboxItemB = `---
+id: FEAT-202
+title: Second captured item also passes the bar
+type: feature
+priority: P1
+area: auth
+status: captured
+created: 2026-04-26
+updated: 2026-04-26
+captured_by: agent-beta
+captured_at: 1714150100
+parent_spec: auth-rotation
+---
+
+## Acceptance criteria
+- [ ] does the thing
+`
+
+const mcpInboxItemBadDoR = `---
+id: FEAT-203
+title: tiny
+type: feature
+priority: P1
+area: <fill-in>
+status: captured
+created: 2026-04-26
+updated: 2026-04-26
+captured_by: agent-alpha
+captured_at: 1714150200
+---
+
+## Acceptance criteria
+no checkboxes here
+`
+
+func TestMCPSquadInbox_EmptyReturnsEmpty(t *testing.T) {
+	env := newTestEnv(t)
+
+	resp := callMCPTool(t, env, "squad_inbox", `{}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	out := resp.Result.StructuredContent
+	items, ok := out["items"]
+	if !ok {
+		t.Fatalf("missing items key: %+v", out)
+	}
+	got := mcpObjSlice(t, items, "items")
+	if len(got) != 0 {
+		t.Fatalf("want empty items, got %+v", got)
+	}
+}
+
+func TestMCPSquadInbox_ListsAllWithDoRFlag(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-201-a.md", mcpInboxItemA)
+	writeItemFile(t, env.Root, "FEAT-202-b.md", mcpInboxItemB)
+	writeItemFile(t, env.Root, "FEAT-203-bad.md", mcpInboxItemBadDoR)
+	mcpPersistFixture(t, env, "FEAT-201-a.md")
+	mcpPersistFixture(t, env, "FEAT-202-b.md")
+	mcpPersistFixture(t, env, "FEAT-203-bad.md")
+
+	resp := callMCPTool(t, env, "squad_inbox", `{}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	rows := mcpObjSlice(t, resp.Result.StructuredContent["items"], "items")
+	if len(rows) != 3 {
+		t.Fatalf("want 3 rows, got %d: %+v", len(rows), rows)
+	}
+	byID := map[string]map[string]any{}
+	for _, r := range rows {
+		id, _ := r["id"].(string)
+		byID[id] = r
+	}
+	for _, want := range []string{"FEAT-201", "FEAT-202", "FEAT-203"} {
+		if byID[want] == nil {
+			t.Fatalf("missing row for %s", want)
+		}
+	}
+	if byID["FEAT-201"]["dor_pass"] != true {
+		t.Errorf("FEAT-201 dor_pass=%v want true", byID["FEAT-201"]["dor_pass"])
+	}
+	if byID["FEAT-203"]["dor_pass"] != false {
+		t.Errorf("FEAT-203 dor_pass=%v want false", byID["FEAT-203"]["dor_pass"])
+	}
+	if byID["FEAT-202"]["parent_spec"] != "auth-rotation" {
+		t.Errorf("FEAT-202 parent_spec=%v want auth-rotation", byID["FEAT-202"]["parent_spec"])
+	}
+	if byID["FEAT-201"]["captured_by"] != "agent-alpha" {
+		t.Errorf("FEAT-201 captured_by=%v want agent-alpha", byID["FEAT-201"]["captured_by"])
+	}
+}
+
+func TestMCPSquadInbox_MineFiltersByCurrentAgent(t *testing.T) {
+	env := newTestEnv(t)
+	t.Setenv("SQUAD_AGENT", "agent-alpha")
+	writeItemFile(t, env.Root, "FEAT-201-a.md", mcpInboxItemA)
+	writeItemFile(t, env.Root, "FEAT-202-b.md", mcpInboxItemB)
+	mcpPersistFixture(t, env, "FEAT-201-a.md")
+	mcpPersistFixture(t, env, "FEAT-202-b.md")
+
+	resp := callMCPTool(t, env, "squad_inbox", `{"mine":true}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	rows := mcpObjSlice(t, resp.Result.StructuredContent["items"], "items")
+	if len(rows) != 1 || rows[0]["id"] != "FEAT-201" {
+		t.Fatalf("want only FEAT-201 for agent-alpha, got %+v", rows)
+	}
+}
+
+func TestMCPSquadInbox_ReadyOnlyFiltersFailingDoR(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-201-a.md", mcpInboxItemA)
+	writeItemFile(t, env.Root, "FEAT-203-bad.md", mcpInboxItemBadDoR)
+	mcpPersistFixture(t, env, "FEAT-201-a.md")
+	mcpPersistFixture(t, env, "FEAT-203-bad.md")
+
+	resp := callMCPTool(t, env, "squad_inbox", `{"ready_only":true}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	rows := mcpObjSlice(t, resp.Result.StructuredContent["items"], "items")
+	if len(rows) != 1 || rows[0]["id"] != "FEAT-201" {
+		t.Fatalf("ready_only should keep only FEAT-201, got %+v", rows)
+	}
+}
+
+func TestMCPSquadInbox_ParentSpecFilters(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-201-a.md", mcpInboxItemA)
+	writeItemFile(t, env.Root, "FEAT-202-b.md", mcpInboxItemB)
+	mcpPersistFixture(t, env, "FEAT-201-a.md")
+	mcpPersistFixture(t, env, "FEAT-202-b.md")
+
+	resp := callMCPTool(t, env, "squad_inbox", `{"parent_spec":"auth-rotation"}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	rows := mcpObjSlice(t, resp.Result.StructuredContent["items"], "items")
+	if len(rows) != 1 || rows[0]["id"] != "FEAT-202" {
+		t.Fatalf("parent_spec filter should keep only FEAT-202, got %+v", rows)
+	}
+}
+
 func TestMCPSquadAccept_UnknownIDIsRejected(t *testing.T) {
 	env := newTestEnv(t)
 

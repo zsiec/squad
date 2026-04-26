@@ -123,6 +123,69 @@ func registerIntakeTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	})
 
 	srv.Register(mcp.Tool{
+		Name:        "squad_inbox",
+		Description: "List captured (inbox) items, optionally filtered by mine/ready_only/parent_spec.",
+		InputSchema: json.RawMessage(schemaInbox),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				Mine       bool   `json:"mine"`
+				ReadyOnly  bool   `json:"ready_only"`
+				ParentSpec string `json:"parent_spec"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			rows, err := queryCapturedItems(ctx, db, repoID)
+			if err != nil {
+				return nil, fmt.Errorf("query inbox: %w", err)
+			}
+			var me string
+			if args.Mine {
+				me, _ = identity.AgentID()
+			}
+			type entry struct {
+				ID         string `json:"id"`
+				Title      string `json:"title"`
+				CapturedBy string `json:"captured_by,omitempty"`
+				CapturedAt int64  `json:"captured_at,omitempty"`
+				ParentSpec string `json:"parent_spec,omitempty"`
+				DoRPass    bool   `json:"dor_pass"`
+			}
+			out := []entry{}
+			for _, r := range rows {
+				if args.Mine && r.CapturedBy != me {
+					continue
+				}
+				it, err := items.Parse(r.Path)
+				if err != nil {
+					continue
+				}
+				if args.ParentSpec != "" && it.ParentSpec != args.ParentSpec {
+					continue
+				}
+				dorPass := len(items.DoRCheck(it)) == 0
+				if args.ReadyOnly && !dorPass {
+					continue
+				}
+				out = append(out, entry{
+					ID:         r.ID,
+					Title:      it.Title,
+					CapturedBy: r.CapturedBy,
+					CapturedAt: r.CapturedAt,
+					ParentSpec: it.ParentSpec,
+					DoRPass:    dorPass,
+				})
+			}
+			return map[string]any{"items": out}, nil
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_reject",
 		Description: "Reject captured items (delete file + write to .squad/rejected.log).",
 		InputSchema: json.RawMessage(schemaReject),
