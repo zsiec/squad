@@ -33,3 +33,26 @@ func (s *Server) handleEpicsList(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+func (s *Server) handleEpicDetail(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	all, _, err := epics.Walk(s.cfg.SquadDir)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, e := range all {
+		if e.Name == name {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"name":          e.Name,
+				"spec":          e.Spec,
+				"status":        e.Status,
+				"parallelism":   e.Parallelism,
+				"body_markdown": e.Body,
+				"path":          e.Path,
+			})
+			return
+		}
+	}
+	writeErr(w, http.StatusNotFound, "epic not found: "+name)
+}
