@@ -8,16 +8,20 @@ The dashboard at `squad serve` shows live which agent holds what, what they last
 
 ## Setup: three terminal panes, one repo
 
-In each pane:
+Open Claude Code in each pane (each pane is its own session) and ask:
+
+> *"Claim the top ready item and walk me through it."*
+
+Claude calls `squad_next` + `squad_claim` in each session, and each session lands a distinct agent id automatically. Squad keys the agent identity off the session env — first one of `SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `TMUX_PANE`, `STY`, `WT_SESSION` that's set — and terminal apps usually set one of these per pane, so collisions don't happen out of the box.
+
+The terminal-equivalent in each pane:
 
 ```bash
 cd ~/dev/your-project
 squad go              # registers a session-derived id and claims the top ready item
 ```
 
-Run `squad go` independently in each pane. Squad keys the *current* agent identity off the session — first one of `SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `TMUX_PANE`, `STY`, `WT_SESSION` that's set. Terminal apps usually set one of these automatically per pane, so each pane lands a distinct agent id out of the box and they will not collide on `squad go`.
-
-If you want explicit names for log-readability, override on first run with `squad register --as agent-blue --name "Blue"` (then `squad go` from the same shell resumes against that id). Otherwise let the derived id stand.
+If you want explicit names for log-readability, override on first run from a terminal: `squad register --as agent-blue --name "Blue"`. Subsequent claims (whether through Claude Code or `squad go`) resume against that id. Otherwise let the derived id stand.
 
 If you're scripting against multiple agents from a single shell (no terminal session), set `SQUAD_SESSION_ID` explicitly per process:
 
@@ -29,7 +33,15 @@ SQUAD_SESSION_ID=violet squad go
 
 Without a session key, every shell shares one persisted agent-id file at `~/.squad/agent-id.txt`, and the most recent registration wins. Set a session env var (`SQUAD_SESSION_ID`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, etc.) to opt into a per-session file at `~/.squad/agent-id.<hash>.txt` so each shell keeps its own identity.
 
-## Coordination commands
+## Coordination
+
+In Claude Code, ask:
+
+- *"Who's working on what right now?"* → calls `squad_who`.
+- *"Ask @agent-green if I should rebase."* → calls `squad_ask`.
+- *"What's ready across all my projects?"* → calls the workspace queries.
+
+Or in a terminal:
 
 ```bash
 squad who                                    # who is registered, current claim, last tick
@@ -40,7 +52,7 @@ squad workspace status                       # cross-repo when you have multiple
 
 ## File-touch warnings
 
-Declare files you're editing on your active claim so peers see the overlap:
+Declare files you're editing on your active claim so peers see the overlap. Claude does this automatically when you ask it to claim and touch files (`squad_touch`), or you can do it yourself:
 
 ```bash
 squad touch FEAT-001 internal/cache/flusher.go

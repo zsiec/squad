@@ -8,11 +8,21 @@ Every session — yours, every coworker's, every parallel agent's — follows th
 
 Skip a step and you produce work that other people have to clean up.
 
+## How you drive the loop
+
+The loop is the same whether you're in Claude Code or a terminal. In **Claude Code**, you describe what you want — *"Claim the top ready item"*, *"Mark this done with summary X"* — and Claude calls the relevant MCP tool (`squad_next`, `squad_claim`, `squad_done`, `squad_attest`, …). In a **terminal**, the same actions are CLI verbs (`squad go`, `squad next`, `squad claim`, `squad done`, …). The eight stages below name what's happening conceptually; each stage shows the CLI form because it's the most compact reference, but the natural-language equivalent works the same way.
+
 ## The eight stages
 
 ### 1. Go
 
-`squad go` registers a session-derived agent id, claims the top ready item, prints its acceptance criteria, and flushes any unread chat into your context — in one command. Idempotent: re-run to resume the same claim. If `squad go` says `no ready items`, drop to step 2 and pick manually. Chat after that point is delivered continuously by hooks, so you do not need to manually tick mid-session.
+The bootstrap step: register a session-derived agent id, claim the top ready item, print its acceptance criteria, and flush any unread chat into your context — all in one move. Idempotent: re-run to resume the same claim.
+
+In Claude Code: *"Claim the top ready item and walk me through it."* Claude calls `squad_next` then `squad_claim`. The slash-command shortcut is `/work`.
+
+In a terminal: `squad go` does init-if-needed + register + claim + AC + mailbox flush in one invocation.
+
+If there's nothing ready (Claude says "no ready items" or `squad go` prints the same), drop to step 2 and pick manually. Chat after this point is delivered continuously by hooks, so you don't need to manually tick mid-session.
 
 ### 2. Pick
 
@@ -61,11 +71,11 @@ Items rot. A symptom described two weeks ago might be fixed by an unrelated comm
 
 ## Anti-patterns
 
-- **Skipping `squad go`** at session start. Continuous chat hooks need a registered identity; without `squad go` you may post under a stale or missing id.
+- **Skipping the "go" step** at session start. Continuous chat hooks need a registered identity; without it (whether you got there via Claude or `squad go`) you may post under a stale or missing id.
 - **Claim-and-walk-away.** Heartbeat handles brief absence; if you're truly done for the day, `handoff` or release. The hygiene sweep auto-flags claims with no activity past the configured threshold.
 - **Test after impl.** Even if the impl works, you've lost the proof that the bug existed — and you've skipped the chance to discover the bug doesn't reproduce.
 - **Marking done without re-reading the AC.** Each box should map to a test you wrote or a step you actually performed.
 
 ## Why the loop works
 
-It's a forcing function for visibility and accountability. `squad go` keeps the team unblocked — register, claim, mailbox flush in one shot. Atomic claim prevents two agents from doing the same work. Premise validation prevents fixing nothing. Evidence-gated done means the next session can trust your "done." Mandatory review catches what self-review misses. The eight steps together are how a squad of agents actually finishes things instead of meandering.
+It's a forcing function for visibility and accountability. The "go" step keeps the team unblocked — register, claim, mailbox flush in one shot. Atomic claim prevents two agents from doing the same work. Premise validation prevents fixing nothing. Evidence-gated done means the next session can trust your "done." Mandatory review catches what self-review misses. The eight steps together are how a squad of agents actually finishes things instead of meandering.

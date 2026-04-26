@@ -26,6 +26,12 @@ If `.squad/` or `AGENTS.md` already exists, stop and inspect — squad's `init` 
 
 ## Run init
 
+Open Claude Code in the project and ask:
+
+> *"Initialize squad here."*
+
+Claude runs `squad init --yes` for you (default ID prefixes, plugin install). If you want to customize anything (project name, prefix list), drop to a terminal and run interactively:
+
 ```bash
 cd ~/dev/your-existing-project
 squad init                          # answers the 3 questions
@@ -78,13 +84,17 @@ Anything outside those markers is yours. Re-running `squad init` re-renders the 
 
 ## Day-1 hygiene
 
+In Claude Code: *"Run a squad health check, then claim the top ready item."* Claude calls `squad_status` (or you can run `squad doctor` in a terminal for the full diagnostic) and `squad_next` + `squad_claim`.
+
+The terminal-only equivalent:
+
 ```bash
 squad doctor                        # should be clean on a fresh install
-squad install-hooks                 # opt-in to the hooks you want
+squad install-hooks                 # opt-in to the optional hooks (six are already on)
 squad go                            # register a session-derived agent id and pick up the top ready item
 ```
 
-For multi-agent work, have a teammate run the same five commands on their machine, then both register and try `squad workspace who`. They should see each other.
+For multi-agent work, a teammate does the same on their machine. Then either of you can ask Claude *"who's working on what across our repos?"* (or run `squad workspace who` in a terminal) and you'll see each other.
 
 ## When things look weird
 
