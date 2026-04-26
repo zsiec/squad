@@ -17,6 +17,11 @@ import (
 // structured RPC error rather than crashing init.
 var errNoRepo = errors.New("squad mcp: no repo discovered (run from inside a squad repo, or pass repo_root)")
 
+type registerEnvelope struct {
+	*RegisterResult
+	Warnings []string `json:"warnings,omitempty"`
+}
+
 func registerTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	registerLifecycleTools(srv, db, repoID, repoRoot)
 	registerChatTools(srv, db, repoID, repoRoot)
@@ -63,10 +68,7 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 			if err != nil {
 				return nil, err
 			}
-			return struct {
-				*RegisterResult
-				Warnings []string `json:"warnings,omitempty"`
-			}{RegisterResult: res, Warnings: warnings}, nil
+			return registerEnvelope{RegisterResult: res, Warnings: warnings}, nil
 		},
 	})
 
