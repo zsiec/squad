@@ -87,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/epics", s.handleEpicsList)
 	mux.HandleFunc("GET /api/epics/{name}", s.handleEpicDetail)
 	mux.HandleFunc("GET /api/learnings", s.handleLearningsList)
+	mux.HandleFunc("GET /api/learnings/{slug}", s.handleLearningDetail)
 	mux.HandleFunc("GET /api/agents", s.handleAgents)
 	mux.HandleFunc("GET /api/whoami", s.handleWhoami)
 	mux.HandleFunc("GET /api/claims", s.handleClaims)

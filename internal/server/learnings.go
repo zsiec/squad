@@ -57,3 +57,40 @@ func (s *Server) handleLearningsList(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+func (s *Server) handleLearningDetail(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	l, err := learning.ResolveSingle(s.cfg.LearningsRoot, slug)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "learning not found: "+slug)
+		return
+	}
+	paths := l.Paths
+	if paths == nil {
+		paths = []string{}
+	}
+	related := l.RelatedItems
+	if related == nil {
+		related = []string{}
+	}
+	evidence := l.Evidence
+	if evidence == nil {
+		evidence = []string{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":            l.ID,
+		"kind":          string(l.Kind),
+		"slug":          l.Slug,
+		"title":         l.Title,
+		"area":          l.Area,
+		"state":         string(l.State),
+		"created":       l.Created,
+		"created_by":    l.CreatedBy,
+		"session":       l.Session,
+		"paths":         paths,
+		"evidence":      evidence,
+		"related_items": related,
+		"body_markdown": l.Body,
+		"path":          l.Path,
+	})
+}
