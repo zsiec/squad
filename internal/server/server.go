@@ -95,6 +95,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/items/{id}", s.handleItemDetail)
 	mux.HandleFunc("GET /api/items/{id}/attestations", s.handleAttestationsForItem)
 	mux.HandleFunc("POST /api/items/{id}/claim", s.handleItemClaim)
+	mux.HandleFunc("POST /api/items/{id}/release", s.handleItemRelease)
 	mux.HandleFunc("GET /api/specs", s.handleSpecsList)
 	mux.HandleFunc("GET /api/specs/{name}", s.handleSpecDetail)
 	mux.HandleFunc("GET /api/epics", s.handleEpicsList)
