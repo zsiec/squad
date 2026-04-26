@@ -1,16 +1,46 @@
 {
+  "$schema": "https://code.claude.com/schemas/plugin-manifest.json",
   "name": "squad",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Operating loop for AI coding agents: atomic claims, typed chat, evidence-gated done, mandatory review, multi-agent coordination.",
-  "author": "Thomas Symborski",
+  "author": {
+    "name": "Thomas Symborski",
+    "url": "https://github.com/zsiec"
+  },
   "license": "MIT",
   "homepage": "https://github.com/zsiec/squad",
-  "min_claude_code_version": "1.0.0",
+  "homepage_docs": "https://github.com/zsiec/squad#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zsiec/squad.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zsiec/squad/issues"
+  },
+  "keywords": [
+    "agents",
+    "coordination",
+    "claims",
+    "chat",
+    "claude-code",
+    "multi-agent",
+    "evidence-ledger"
+  ],
+  "min_claude_code_version": "1.5.0",
+  "engines": {
+    "claude-code": ">=1.5.0"
+  },
   "skills": "skills/",
   "commands": "commands/",
-  "hooks": "hooks/",
+  "agents": "agents/",
+  "hooks": "hooks.json",
+  "mcp_servers": ".mcp.json",
   "requires": {
     "binary": "squad",
-    "min_binary_version": "0.1.0"
+    "min_binary_version": "0.2.0",
+    "install_hint": "Install the squad CLI from https://github.com/zsiec/squad/releases or via 'go install github.com/zsiec/squad/cmd/squad@latest'."
+  },
+  "post_install": {
+    "message": "squad plugin installed. Run 'squad install-plugin --register-mcp' once to wire the MCP server into Claude Code, or restart Claude Code to pick up the .mcp.json automatically."
   }
 }
