@@ -19,7 +19,7 @@ func TestManifest_HasRequiredFields(t *testing.T) {
 	required := []string{
 		"name", "version", "description", "author", "license",
 		"homepage", "repository", "min_claude_code_version",
-		"skills", "commands", "agents", "hooks", "mcp_servers",
+		"skills", "commands", "hooks", "mcp_servers",
 		"keywords", "engines",
 	}
 	for _, k := range required {

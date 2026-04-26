@@ -32,7 +32,6 @@
   },
   "skills": "skills/",
   "commands": "commands/",
-  "agents": "agents/",
   "hooks": "hooks.json",
   "mcp_servers": ".mcp.json",
   "requires": {
