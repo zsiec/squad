@@ -21,7 +21,7 @@ Squad and [Claude Code's experimental agent-teams](https://code.claude.com/docs/
 | **Repo awareness** | None. Tasks are session-scoped, not repo-scoped. | Items, claims, hygiene all repo-scoped. |
 | **Maturity** | Experimental. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. API may change. | GA. Pure-Go static binary. SemVer. |
 | **Persistence of decisions** | Mailbox messages flushed at session end. | Chat verbs (`squad ask`, `squad milestone`, `squad fyi`) durably stored. |
-| **Verification primitive** | None native. | Evidence ledger (`squad attest`) with DoD-gated `squad done` (R4). |
+| **Verification primitive** | None native. | Evidence ledger (`squad attest`) with DoD-gated `squad done`. |
 | **Hygiene / stale claims** | None. | `squad doctor`, stale-claim sweeps, force-release. |
 | **Claim semantics** | File lock per task. | Atomic SQLite `BEGIN IMMEDIATE` per item, with takeover audit trail. |
 | **Onboarding cost** | One env var + lead spawn. | One `squad init` + `squad work`. |
@@ -49,7 +49,7 @@ Pick squad when **any** of the following hold:
 1. The work is going to span multiple sessions, restarts, or days.
 2. Multiple machines are involved (your laptop + a dev box; you + a teammate).
 3. You want a durable record: who claimed what, when, and how it ended.
-4. You need verification gates (R4 evidence ledger, DoD-gated done).
+4. You need verification gates (evidence ledger, DoD-gated done).
 5. You want WIP caps, hygiene sweeps, or force-release semantics.
 6. You're operating on a shared repo with multiple agents over time.
 
@@ -64,7 +64,7 @@ Examples that fit:
 Both have:
 - Claims (file lock vs. atomic DB row).
 - Inter-agent messaging (SendMessage vs. squad chat verbs).
-- Hooks at session boundaries (`TeammateIdle`/`TaskCreated`/`TaskCompleted` vs. squad's R1 `Stop`/`PostToolUse`/`UserPromptSubmit`).
+- Hooks at session boundaries (`TeammateIdle`/`TaskCreated`/`TaskCompleted` vs. squad's `Stop`/`PostToolUse`/`UserPromptSubmit`).
 - Shared task surface within the team / repo.
 
 The overlap is real. Squad does **not** try to replace agent-teams for the cases where agent-teams is better. The question is which lifetime fits the work.
@@ -89,7 +89,7 @@ The optional `squad bridge agent-teams` command (see [bridge spec](#optional-the
 **Behavior (when implemented):**
 1. Reads squad's pending-and-claimed items in the current repo.
 2. Writes them as agent-teams tasks into `~/.claude/tasks/<team>/tasks.json`, prefixed `squad:` to make their origin obvious.
-3. Watches for status changes from the agent-teams side and reflects them back into squad's claim store as touch updates only — never as `done`. Marking complete is still a deliberate `squad done` with evidence (R4).
+3. Watches for status changes from the agent-teams side and reflects them back into squad's claim store as touch updates only — never as `done`. Marking complete is still a deliberate `squad done` with evidence.
 4. Tears down the mirror on `SIGINT`, `SessionEnd`, or `--once` exit.
 
 The bridge does NOT:

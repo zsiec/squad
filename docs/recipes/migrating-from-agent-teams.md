@@ -131,7 +131,7 @@ The items are in git. Anyone else who clones the repo and runs `squad register` 
 **Kept across the migration:**
 - All committed code. Both tools coordinate work *on* the repo; the repo doesn't care.
 - Your mental model of "primary + helper / reviewer." Squad expresses it as two agents on two items.
-- Per-task verification habits. R4's evidence ledger formalizes them.
+- Per-task verification habits. The evidence ledger formalizes them.
 
 **Lost across the migration:**
 - The exact mailbox transcript from inside the agent-teams session. If a specific message mattered, hand-port it into a squad chat verb.

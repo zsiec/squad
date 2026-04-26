@@ -493,7 +493,7 @@ agent-teams session start
 
 #### What it does NOT do
 
-- Mark items `done` from inside agent-teams. Closing requires `squad done` with evidence (R4).
+- Mark items `done` from inside agent-teams. Closing requires `squad done` with evidence.
 - Sync chat between the two systems.
 - Persist between agent-teams sessions. Each new session re-mirrors fresh.
 - Mirror items from repos other than the cwd-rooted one.
@@ -506,7 +506,7 @@ The on-disk format at `~/.claude/tasks/<team>/tasks.json` is documented but flag
 1. Agent-teams exits experimental and the on-disk format is documented as stable, OR
 2. Anthropic publishes a `claude tasks` (or equivalent) command surface that gives a stable shell-level API for reading and writing the same data.
 
-When that happens, the implementation skeleton is documented in the R8 phase plan kept under `docs/plans/` (gitignored, local-only).
+When that happens, the implementation can match the behavior specified above.
 
 #### See also
 
