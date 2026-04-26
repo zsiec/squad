@@ -151,6 +151,46 @@ func TestSchema_ItemsHasR3Columns(t *testing.T) {
 	}
 }
 
+func TestSchema_AttestationsTable(t *testing.T) {
+	dir := t.TempDir()
+	db, err := Open(filepath.Join(dir, "global.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+
+	const insert = `
+		INSERT INTO attestations (item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	if _, err := db.Exec(insert,
+		"FEAT-001", "test", "go test ./...", 0,
+		"a1b2c3", ".squad/attestations/a1b2c3.txt",
+		1700000000, "agent-x", "repo-y"); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	var got struct {
+		ItemID, Kind, Command, OutputHash, OutputPath, AgentID, RepoID string
+		ExitCode                                                       int
+		CreatedAt                                                      int64
+	}
+	row := db.QueryRow(`SELECT item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id FROM attestations WHERE item_id = ?`, "FEAT-001")
+	if err := row.Scan(&got.ItemID, &got.Kind, &got.Command, &got.ExitCode, &got.OutputHash, &got.OutputPath, &got.CreatedAt, &got.AgentID, &got.RepoID); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if got.ItemID != "FEAT-001" || got.Kind != "test" || got.ExitCode != 0 || got.OutputHash != "a1b2c3" {
+		t.Fatalf("round-trip mismatch: %+v", got)
+	}
+
+	if _, err := db.Exec(insert,
+		"FEAT-001", "test", "go test ./...", 0,
+		"a1b2c3", ".squad/attestations/a1b2c3.txt",
+		1700000001, "agent-x", "repo-y"); err == nil {
+		t.Fatalf("expected unique-violation on (item_id, output_hash)")
+	}
+}
+
 func TestSchema_SpecsAndEpicsTablesExist(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

@@ -142,3 +142,19 @@ CREATE TABLE IF NOT EXISTS notify_endpoints (
   PRIMARY KEY (instance, kind)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_notify_endpoints_repo ON notify_endpoints(repo_id);
+
+CREATE TABLE IF NOT EXISTS attestations (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id     TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  command     TEXT NOT NULL,
+  exit_code   INTEGER NOT NULL,
+  output_hash TEXT NOT NULL,
+  output_path TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,
+  agent_id    TEXT NOT NULL,
+  repo_id     TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attestations_item ON attestations(repo_id, item_id);
+CREATE INDEX IF NOT EXISTS idx_attestations_kind ON attestations(repo_id, item_id, kind);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_attestations_dedup ON attestations(item_id, output_hash);
