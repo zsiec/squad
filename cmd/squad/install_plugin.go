@@ -39,13 +39,24 @@ func newInstallPluginCmd() *cobra.Command {
 					return fmt.Errorf("uninstall plugin at %s: %w", pluginDir, err)
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "uninstalled squad plugin from %s\n", pluginDir)
-				if registerMCP {
+				if registerMCP || !skipHooks {
 					settingsPath, err := defaultSettingsPath()
 					if err != nil {
 						return err
 					}
-					if err := installer.UnmergeMCPServers(settingsPath, []string{"squad"}); err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not unmerge mcpServers from %s: %v\n", settingsPath, err)
+					if registerMCP {
+						if err := installer.UnmergeMCPServers(settingsPath, []string{"squad"}); err != nil {
+							fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not unmerge mcpServers from %s: %v\n", settingsPath, err)
+						}
+					}
+					if !skipHooks {
+						if err := uninstallSquadHooks(settingsPath); err != nil {
+							fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not unregister hooks from %s: %v\n", settingsPath, err)
+						} else if dir, err := materializedHooksDir(); err == nil {
+							if err := os.RemoveAll(dir); err != nil {
+								fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not remove materialized hooks dir %s: %v\n", dir, err)
+							}
+						}
 					}
 				}
 				return nil

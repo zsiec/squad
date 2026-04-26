@@ -181,6 +181,64 @@ func TestInstallPlugin_WarnsOnLegacyManifestPath(t *testing.T) {
 	}
 }
 
+func TestInstallPlugin_UninstallRemovesHooks(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
+	t.Setenv("HOME", tmp)
+
+	cmd := newInstallPluginCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	settingsPath := filepath.Join(tmp, ".claude", "settings.json")
+	pre, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json absent after install: %v", err)
+	}
+	for _, ev := range []string{"SessionStart", "UserPromptSubmit", "PreCompact"} {
+		if !strings.Contains(string(pre), ev) {
+			t.Fatalf("install: settings.json missing %s entry", ev)
+		}
+	}
+	hooksDir := filepath.Join(tmp, ".squad", "hooks")
+	if _, err := os.Stat(hooksDir); err != nil {
+		t.Fatalf("install: materialized hooks dir missing: %v", err)
+	}
+
+	cmd2 := newInstallPluginCmd()
+	cmd2.SetOut(&bytes.Buffer{})
+	cmd2.SetErr(&bytes.Buffer{})
+	cmd2.SetArgs([]string{"--uninstall"})
+	if err := cmd2.Execute(); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+
+	post, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json missing after uninstall: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(post, &got); err != nil {
+		t.Fatalf("settings.json parse: %v", err)
+	}
+	servers, _ := got["mcpServers"].(map[string]any)
+	if _, ok := servers["squad"]; ok {
+		t.Errorf("uninstall: mcpServers.squad still present")
+	}
+	for _, marker := range []string{"session-start@", "user-prompt-tick@", "pre-compact@"} {
+		if strings.Contains(string(post), marker) {
+			t.Errorf("uninstall: settings.json still contains squad hook marker %q:\n%s", marker, post)
+		}
+	}
+	if _, err := os.Stat(hooksDir); !os.IsNotExist(err) {
+		t.Errorf("uninstall: materialized hooks dir should be gone, err=%v", err)
+	}
+}
+
 func TestInstallPlugin_RegistersMCPServer(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))

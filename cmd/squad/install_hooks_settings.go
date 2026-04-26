@@ -131,11 +131,10 @@ func writeSettingsAtomic(path string, data map[string]any) error {
 }
 
 func materializeHooks() (string, error) {
-	squadHome, err := store.Home()
+	dir, err := materializedHooksDir()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(squadHome, "hooks")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -149,4 +148,12 @@ func materializeHooks() (string, error) {
 		}
 	}
 	return dir, nil
+}
+
+func materializedHooksDir() (string, error) {
+	squadHome, err := store.Home()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(squadHome, "hooks"), nil
 }
