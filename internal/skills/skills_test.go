@@ -15,7 +15,7 @@ type Frontmatter struct {
 	AllowedTools           []string `yaml:"allowed-tools"`
 	Paths                  []string `yaml:"paths"`
 	DisableModelInvocation bool     `yaml:"disable-model-invocation"`
-	Hooks                  []any    `yaml:"hooks"`
+	Hooks                  map[string]any `yaml:"hooks"`
 }
 
 func TestEverySkillHasValidFrontmatter(t *testing.T) {

@@ -10,10 +10,11 @@ paths:
   - ".squad/**"
 disable-model-invocation: false
 hooks:
-  - event: PreToolUse
-    matcher: Bash
-    run: "${CLAUDE_PLUGIN_ROOT}/hooks/loop_pre_bash_tick.sh"
-    description: "Quick squad tick before every Bash invocation while the loop skill is active."
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: "${CLAUDE_PLUGIN_ROOT}/hooks/loop_pre_bash_tick.sh"
 ---
 
 > **Depth tier:** for ≥1d items, parallel-dispatch decisions, time-boxing, handoff, or chat-cadence questions, open `docs/agents-deep.md`. The fast tier in `AGENTS.md` covers the loop; the deep tier covers the corners. Skills with their own `paths:` glob (e.g. `squad-handoff.md`) auto-load when you touch a file matching their glob — that's the mechanism by which the right depth tier reaches the right session at the right time.

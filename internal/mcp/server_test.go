@@ -59,6 +59,33 @@ func TestServer_UnknownMethodReturnsMethodNotFound(t *testing.T) {
 	}
 }
 
+func TestServer_NotificationProducesNoResponse(t *testing.T) {
+	// Per JSON-RPC 2.0, a request without an id is a notification — the
+	// server MUST NOT respond. Claude Code sends notifications/initialized
+	// after the initialize handshake; if we reply, the client treats it as
+	// an unknown response id and drops the stdio transport.
+	srv := NewServer(ServerInfo{Name: "squad"})
+	req := strings.NewReader(`{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}` + "\n")
+	var out bytes.Buffer
+	if err := srv.Serve(context.Background(), req, &out); err != nil && err != io.EOF {
+		t.Fatalf("Serve: %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no response to a notification, got %q", out.String())
+	}
+}
+
+func TestServer_NotificationWithExplicitNullIDProducesNoResponse(t *testing.T) {
+	// Edge case: id explicitly set to null is also a notification per spec.
+	srv := NewServer(ServerInfo{Name: "squad"})
+	req := strings.NewReader(`{"jsonrpc":"2.0","id":null,"method":"notifications/initialized"}` + "\n")
+	var out bytes.Buffer
+	_ = srv.Serve(context.Background(), req, &out)
+	if out.Len() != 0 {
+		t.Fatalf("expected no response, got %q", out.String())
+	}
+}
+
 func TestServer_InvalidJSONReturnsParseError(t *testing.T) {
 	srv := NewServer(ServerInfo{Name: "squad"})
 	req := strings.NewReader("{not json\n")

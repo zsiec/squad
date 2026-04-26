@@ -6,6 +6,7 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -78,6 +79,15 @@ const (
 	errInternal       = -32603
 )
 
+// isNotification reports whether a parsed JSON-RPC request lacks an id field
+// (i.e. is a notification, which must not receive a response). json.RawMessage
+// is empty when omitted, "null" when explicitly set to null; both are
+// notifications per the spec.
+func isNotification(id json.RawMessage) bool {
+	t := bytes.TrimSpace(id)
+	return len(t) == 0 || bytes.Equal(t, []byte("null"))
+}
+
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
@@ -98,6 +108,13 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 				ID:      json.RawMessage("null"),
 				Error:   &rpcError{Code: errParseError, Message: err.Error()},
 			})
+			continue
+		}
+		// JSON-RPC notifications carry no id field. Per spec, notifications
+		// MUST NOT receive a response. Claude Code sends notifications/
+		// initialized after the initialize handshake; replying with
+		// "method not found" caused the client to drop the stdio transport.
+		if isNotification(req.ID) {
 			continue
 		}
 		resp := s.dispatch(ctx, req)

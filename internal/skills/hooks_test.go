@@ -17,26 +17,34 @@ func TestSquadLoopSkill_RegistersScopedHook(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Claude Code's plugin schema requires hooks to be a map keyed by event
+	// name (PreToolUse, PostToolUse, etc.), each value an array of matcher
+	// blocks containing nested hook commands. The earlier flat-array shape
+	// (event/matcher/run sibling keys) was rejected by the plugin loader as
+	// "expected record, received array".
 	var f struct {
-		Hooks []struct {
-			Event   string `yaml:"event"`
+		Hooks map[string][]struct {
 			Matcher string `yaml:"matcher"`
-			Run     string `yaml:"run"`
+			Hooks   []struct {
+				Type    string `yaml:"type"`
+				Command string `yaml:"command"`
+			} `yaml:"hooks"`
 		} `yaml:"hooks"`
 	}
 	if err := yaml.Unmarshal(fm, &f); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.Hooks) == 0 {
-		t.Fatal("squad-loop should declare at least one scoped hook")
+	preTool, ok := f.Hooks["PreToolUse"]
+	if !ok || len(preTool) == 0 {
+		t.Fatal("squad-loop should declare a PreToolUse scoped hook")
 	}
-	var hasPreToolBash bool
-	for _, h := range f.Hooks {
-		if h.Event == "PreToolUse" && h.Matcher == "Bash" {
-			hasPreToolBash = true
+	var hasBash bool
+	for _, m := range preTool {
+		if m.Matcher == "Bash" && len(m.Hooks) > 0 && m.Hooks[0].Command != "" {
+			hasBash = true
 		}
 	}
-	if !hasPreToolBash {
-		t.Error("expected PreToolUse:Bash scoped hook")
+	if !hasBash {
+		t.Error("expected PreToolUse:Bash hook with a command")
 	}
 }
