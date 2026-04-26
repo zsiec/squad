@@ -104,6 +104,67 @@ squad install-hooks --yes                        # rewrites from squad's side
 
 Make sure exactly one start and one end exist, in that order. Delete the entire block (markers included) if you want a clean re-init, then re-run `squad init`.
 
+## `squad init` says "not a git repository"
+
+**Symptom:** `squad init` exits with `detect repo: not a git repository: <git stderr>`.
+
+**Cause:** Squad uses `git rev-parse --show-toplevel` to derive a stable repo identity. Without git, the directory path would be the only fallback — which is unstable across moves and clones.
+
+**Fix:** Initialize the repository first.
+
+```bash
+git init
+git add .
+git commit -m "chore: initial commit"
+squad init
+```
+
+If you genuinely want squad in a non-git directory (rare), the answer is to make it a git repo. There is no `--no-git` mode, by design.
+
+## `squad done` fails with "evidence_required not satisfied"
+
+**Symptom:**
+
+```text
+FEAT-001: evidence_required not satisfied. Missing kinds: test, review.
+Run squad attest --item FEAT-001 --kind <kind> --command "..." for each, or pass --force.
+```
+
+**Cause:** The item's frontmatter has `evidence_required: [test, review]` (or similar), and you haven't recorded an attestation for each kind. Squad refuses to close out without the evidence — the whole point of the ledger is that "the agent said it's done" isn't sufficient.
+
+**Fix:** Run the verifications squad is asking for, capturing each into the ledger.
+
+```bash
+# kind=test|lint|typecheck|build — squad runs the command and stores stdout+exit.
+squad attest --item FEAT-001 --kind test --command "go test ./..."
+
+# kind=review — write your findings to a file first; squad reads and stores it.
+echo "approved: tests green, no regressions" > /tmp/review.md
+squad attest --item FEAT-001 --kind review \
+    --reviewer-agent agent-helper --findings-file /tmp/review.md
+
+squad done FEAT-001 --summary "..."
+```
+
+If the verification genuinely doesn't apply (the item was wrongly tagged, or the failure is a flake you've ruled out), use `--force`:
+
+```bash
+squad done FEAT-001 --summary "..." --force
+```
+
+This records a manual attestation logging the override; the audit trail is preserved.
+
+To set up `evidence_required` on an item you're filing, add it to the frontmatter:
+
+```yaml
+---
+id: FEAT-001
+evidence_required: [test, review]
+---
+```
+
+See [reference/commands.md#squad-attest](reference/commands.md#squad-attest) for the full attestation flow.
+
 ## Touch warnings won't go away
 
 **Symptom:** `squad touch` keeps warning about a peer's touch even though the peer says they're done.
