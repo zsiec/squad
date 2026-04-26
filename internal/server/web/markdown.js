@@ -11,7 +11,7 @@ const FILEREF     = /(\b[\w./-]+?\.(?:go|ts|tsx|js|md|cu|metal|m|mm|h|c|cpp|sh|y
 
 const SAFE_SCHEME = /^(?:https?:|mailto:)/i;
 
-function isSafeURL(u) {
+export function isSafeURL(u) {
   const s = u.trim();
   if (!s) return false;
   // protocol-relative (//host/...) inherits the page scheme — treat as off-allowlist.

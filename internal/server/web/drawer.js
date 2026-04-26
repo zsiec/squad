@@ -1,7 +1,7 @@
 // drawer.js — rich item detail drawer (inline middle column)
 
 import { fetchJSON, postJSON, escapeHtml, fmtDate, fmtAgo, priClass, copyText } from './util.js';
-import { renderMarkdown, splitBodySections } from './markdown.js';
+import { renderMarkdown, splitBodySections, isSafeURL } from './markdown.js';
 import { ActivityFeed } from './activity.js';
 import { attachScrollAnchor } from './scroll-anchor.js';
 import { autolinkDOM } from './autolink.js';
@@ -525,9 +525,13 @@ async function loadCodeLinks(itemID, root) {
   } catch (err) {
     // Silently drop the section on failure — the user has no action they
     // can take. The dashboard's network indicator already covers connectivity.
-    host.remove();
+    if (currentItemId() === itemID) host.remove();
     return;
   }
+  // Drawer may have moved on to another item while we were waiting — bail
+  // rather than stamp this item's data into someone else's drawer body.
+  if (currentItemId() !== itemID) return;
+
   const pr = data?.pr || null;
   const commits = data?.commits || [];
   if (!pr && !commits.length) {
@@ -537,9 +541,8 @@ async function loadCodeLinks(itemID, root) {
 
   const parts = [];
   if (pr) {
-    const branchSafe = escapeHtml(pr.branch || '');
     const labelText = pr.number ? `PR #${pr.number} ${pr.branch || ''}` : `Branch ${pr.branch || ''}`;
-    if (pr.url) {
+    if (pr.url && isSafeURL(pr.url)) {
       parts.push(`<a class="code-row code-pr" href="${escapeHtml(pr.url)}" target="_blank" rel="noopener">${escapeHtml(labelText)}</a>`);
     } else {
       parts.push(`<div class="code-row code-pr">${escapeHtml(labelText)}</div>`);
@@ -547,11 +550,20 @@ async function loadCodeLinks(itemID, root) {
   }
   for (const c of commits) {
     const short = (c.sha || '').slice(0, 7);
-    parts.push(`
-      <a class="code-row code-commit" href="${escapeHtml(c.url || '#')}" target="_blank" rel="noopener">
-        <code class="code-sha">${escapeHtml(short)}</code>
-        <span class="code-subject">${escapeHtml(c.subject || '')}</span>
-      </a>`);
+    const subject = c.subject || '';
+    if (c.url && isSafeURL(c.url)) {
+      parts.push(`
+        <a class="code-row code-commit" href="${escapeHtml(c.url)}" target="_blank" rel="noopener" title="${escapeHtml(subject)}">
+          <code class="code-sha">${escapeHtml(short)}</code>
+          <span class="code-subject">${escapeHtml(subject)}</span>
+        </a>`);
+    } else {
+      parts.push(`
+        <div class="code-row code-commit" title="${escapeHtml(subject)}">
+          <code class="code-sha">${escapeHtml(short)}</code>
+          <span class="code-subject">${escapeHtml(subject)}</span>
+        </div>`);
+    }
   }
   host.dataset.state = 'loaded';
   host.innerHTML = `
