@@ -93,6 +93,60 @@ updated: 2026-04-20
 	}
 }
 
+func TestDone_PersistsItemRowImmediately(t *testing.T) {
+	s, db := newTestStore(t)
+	ctx := context.Background()
+
+	tmp := t.TempDir()
+	itemsDir := filepath.Join(tmp, "items")
+	doneDir := filepath.Join(tmp, "done")
+	if err := os.MkdirAll(itemsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	itemPath := filepath.Join(itemsDir, "BUG-077-persist.md")
+	contents := `---
+id: BUG-077
+title: persist
+type: bug
+status: ready
+created: 2026-04-20
+updated: 2026-04-20
+---
+
+## Problem
+.
+`
+	if err := os.WriteFile(itemPath, []byte(contents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_ = s.Claim(ctx, "BUG-077", "agent-a", "", nil, false)
+	if err := s.Done(ctx, "BUG-077", "agent-a", DoneOpts{
+		Summary:  "shipped",
+		ItemPath: itemPath,
+		DoneDir:  doneDir,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var status string
+	var archived int
+	var path string
+	if err := db.QueryRow(`SELECT status, archived, path FROM items WHERE repo_id='repo-test' AND item_id='BUG-077'`).Scan(&status, &archived, &path); err != nil {
+		t.Fatalf("items row missing after Done: %v", err)
+	}
+	if status != "done" {
+		t.Errorf("status=%q want done", status)
+	}
+	if archived != 1 {
+		t.Errorf("archived=%d want 1", archived)
+	}
+	wantPath := filepath.Join(doneDir, "BUG-077-persist.md")
+	if path != wantPath {
+		t.Errorf("path=%q want %q", path, wantPath)
+	}
+}
+
 func TestDone_RewritesFrontmatterAndMovesToDoneDir(t *testing.T) {
 	s, _ := newTestStore(t)
 	ctx := context.Background()

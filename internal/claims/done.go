@@ -65,5 +65,14 @@ func (s *Store) Done(ctx context.Context, itemID, agentID string, opts DoneOpts)
 		}
 		return dbErr
 	}
+	if movedTo != "" {
+		parsed, err := items.Parse(movedTo)
+		if err != nil {
+			return fmt.Errorf("parse moved item for persist: %w", err)
+		}
+		if err := items.Persist(ctx, s.db, s.repoID, parsed, true); err != nil {
+			return fmt.Errorf("persist items row: %w", err)
+		}
+	}
 	return nil
 }
