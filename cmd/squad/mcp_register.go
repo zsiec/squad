@@ -67,7 +67,7 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 		Description: "Return the agent id this session resolves to, plus any current claim.",
 		InputSchema: json.RawMessage(schemaWhoami),
 		Handler: func(ctx context.Context, _ json.RawMessage) (any, error) {
-			return Whoami(ctx, WhoamiArgs{})
+			return Whoami(ctx, WhoamiArgs{DB: db})
 		},
 	})
 

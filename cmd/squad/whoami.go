@@ -13,7 +13,9 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
-type WhoamiArgs struct{}
+type WhoamiArgs struct {
+	DB *sql.DB `json:"-"`
+}
 
 type WhoamiResult struct {
 	AgentID    string `json:"id"`
@@ -23,7 +25,7 @@ type WhoamiResult struct {
 	LastTouch  int64  `json:"last_touch,omitempty"`
 }
 
-func Whoami(_ context.Context, _ WhoamiArgs) (*WhoamiResult, error) {
+func Whoami(_ context.Context, args WhoamiArgs) (*WhoamiResult, error) {
 	if err := store.EnsureHome(); err != nil {
 		return nil, err
 	}
@@ -32,7 +34,16 @@ func Whoami(_ context.Context, _ WhoamiArgs) (*WhoamiResult, error) {
 		return nil, err
 	}
 	res := &WhoamiResult{AgentID: id}
-	if err := annotateWhoamiFromDB(res, id); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	db := args.DB
+	if db == nil {
+		opened, oerr := store.OpenDefault()
+		if oerr != nil {
+			return res, nil
+		}
+		defer opened.Close()
+		db = opened
+	}
+	if err := annotateWhoamiFromDB(db, res, id); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	return res, nil
@@ -77,13 +88,7 @@ func newWhoamiCmd() *cobra.Command {
 	return cmd
 }
 
-func annotateWhoamiFromDB(res *WhoamiResult, agentID string) error {
-	db, err := store.OpenDefault()
-	if err != nil {
-		return nil
-	}
-	defer db.Close()
-
+func annotateWhoamiFromDB(db *sql.DB, res *WhoamiResult, agentID string) error {
 	var lastTick sql.NullInt64
 	if err := db.QueryRow(`SELECT last_tick_at FROM agents WHERE id = ? LIMIT 1`, agentID).Scan(&lastTick); err == nil && lastTick.Valid {
 		res.LastTickAt = lastTick.Int64

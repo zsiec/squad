@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 )
@@ -31,6 +32,35 @@ func TestWhoami_AfterRegister_PrintsAgentID(t *testing.T) {
 	}
 	if got := strings.TrimSpace(out.String()); got != "agent-zed" {
 		t.Fatalf("got %q want agent-zed", got)
+	}
+}
+
+func TestWhoami_WithExistingDB(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := context.Background()
+
+	withDB, err := Whoami(ctx, WhoamiArgs{DB: env.DB})
+	if err != nil {
+		t.Fatalf("Whoami with DB: %v", err)
+	}
+	withoutDB, err := Whoami(ctx, WhoamiArgs{})
+	if err != nil {
+		t.Fatalf("Whoami without DB: %v", err)
+	}
+	if withDB.AgentID != withoutDB.AgentID {
+		t.Fatalf("AgentID drift: with=%q without=%q", withDB.AgentID, withoutDB.AgentID)
+	}
+	if withDB.LastTickAt != withoutDB.LastTickAt {
+		t.Fatalf("LastTickAt drift: with=%d without=%d", withDB.LastTickAt, withoutDB.LastTickAt)
+	}
+	if withDB.ItemID != withoutDB.ItemID {
+		t.Fatalf("ItemID drift: with=%q without=%q", withDB.ItemID, withoutDB.ItemID)
+	}
+	if withDB.Intent != withoutDB.Intent {
+		t.Fatalf("Intent drift: with=%q without=%q", withDB.Intent, withoutDB.Intent)
+	}
+	if withDB.LastTouch != withoutDB.LastTouch {
+		t.Fatalf("LastTouch drift: with=%d without=%d", withDB.LastTouch, withoutDB.LastTouch)
 	}
 }
 
