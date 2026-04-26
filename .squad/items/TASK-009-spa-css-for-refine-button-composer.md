@@ -40,3 +40,25 @@ Full reference (with paste-in CSS) in Task 9 of the implementation plan.
 ## Notes
 
 Pairs with TASK-008 — they can land in the same commit if convenient.
+
+## Resolution
+
+### Fix
+
+`internal/server/web/style.css`:
+- Added `.action-btn.warn:hover` — fills with the warn color on hover, matching the existing brightening pattern of `.action-btn.ok`/`.action-btn.danger`. The `.action-btn.warn` base rule already existed.
+- Added `.refine-composer` (column flex with gap), `.refine-composer textarea` (multi-line input matching the existing `.compose input` style with focus border in the warn palette), and `.refine-composer-actions` (right-aligned button row).
+
+`--warn` already exists as `#e0a860` in the palette; the warn-button colors (`#d9a650`, border `#8a6f33`) reuse the values from the existing `.action-btn.warn` rule for consistency.
+
+### Visual evidence
+
+Synthesized the markup TASK-008 will emit (Refine button + composer with Cancel/Send) to verify the styles render before TASK-008 lands. Screenshots at:
+- `/tmp/browser-test/refine-resting.png` — Refine button distinct from Accept/Reject; composer lays textarea above a right-aligned action row.
+- `/tmp/browser-test/refine-hover.png` — Refine button fills with warn color on hover.
+
+### AC verification
+
+- [x] `.action-btn.warn` has a distinguishable warn color (orange) and brightens (fills) on hover.
+- [x] `.refine-composer` lays the textarea above a right-aligned button row.
+- [x] No regressions in inbox/detail-panel — existing `.action-btn`, `.inbox-details`, etc. unchanged. TASK-010 will run the integration smoke once the wiring is in place.

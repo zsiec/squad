@@ -2235,6 +2235,7 @@ a.item-chip:hover {
 .action-btn.ok      { color: #6dbf6d; border-color: #4d8a4d; }
 .action-btn.ok:hover{ background: #6dbf6d; color: var(--bg); }
 .action-btn.warn    { color: #d9a650; border-color: #8a6f33; }
+.action-btn.warn:hover { background: #d9a650; color: var(--bg); }
 .action-btn.danger  { color: var(--danger); border-color: var(--danger); }
 .action-btn.danger:hover { background: var(--danger); color: var(--bg); }
 .action-btn.ghost   { color: var(--fg-dim); border-color: var(--border); }
@@ -2536,6 +2537,24 @@ a.item-chip:hover {
 .inbox-details .md ul, .inbox-details .md ol { margin: 6px 0 6px 20px; }
 .inbox-details .md code { background: var(--panel); padding: 0 4px; border-radius: 2px; }
 .inbox-details .md pre { background: var(--panel); padding: 8px; overflow-x: auto; }
+
+.refine-composer {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 6px;
+}
+.refine-composer textarea {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  font: 13px var(--font-sans);
+  min-height: 80px;
+  resize: vertical;
+}
+.refine-composer textarea:focus { outline: none; border-color: #8a6f33; }
+.refine-composer-actions {
+  display: flex; justify-content: flex-end; gap: 6px;
+}
 
 /* ------------------------------------------------------------------------
    Learnings panel + evidence drawer section
