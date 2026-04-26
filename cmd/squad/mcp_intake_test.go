@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zsiec/squad/internal/items"
 )
@@ -298,6 +299,107 @@ func TestMCPSquadAccept_MixedDoR(t *testing.T) {
 	}
 	if first["rule"] == nil || first["message"] == nil {
 		t.Fatalf("violation[0] missing rule/message: %+v", first)
+	}
+}
+
+func mcpSeedClaim(t *testing.T, env *testEnv, itemID, agentID string) {
+	t.Helper()
+	now := time.Now().Unix()
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		env.RepoID, itemID, agentID, now, now, "", 0,
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+}
+
+func TestMCPSquadReject_HappyPath(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-001-ready.md", mcpAcceptItemReady)
+	writeItemFile(t, env.Root, "FEAT-101-also.md", strings.Replace(mcpAcceptItemReady, "FEAT-001", "FEAT-101", 1))
+	mcpPersistFixture(t, env, "FEAT-001-ready.md")
+	mcpPersistFixture(t, env, "FEAT-101-also.md")
+
+	resp := callMCPTool(t, env, "squad_reject",
+		`{"ids":["FEAT-001","FEAT-101"],"reason":"out of scope"}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %+v", resp.Result.StructuredContent)
+	}
+	out := resp.Result.StructuredContent
+	deleted := mcpStringSlice(t, out["deleted"], "deleted")
+	if len(deleted) != 2 || deleted[0] != "FEAT-001" || deleted[1] != "FEAT-101" {
+		t.Fatalf("deleted=%v want [FEAT-001 FEAT-101]", deleted)
+	}
+	refused := mcpObjSlice(t, out["refused"], "refused")
+	if len(refused) != 0 {
+		t.Fatalf("refused len=%d want 0: %+v", len(refused), refused)
+	}
+
+	for _, fn := range []string{"FEAT-001-ready.md", "FEAT-101-also.md"} {
+		if _, err := os.Stat(filepath.Join(env.Root, ".squad", "items", fn)); !os.IsNotExist(err) {
+			t.Errorf("%s still exists after reject (err=%v)", fn, err)
+		}
+	}
+
+	logBytes, err := os.ReadFile(filepath.Join(env.Root, ".squad", "rejected.log"))
+	if err != nil {
+		t.Fatalf("read rejected.log: %v", err)
+	}
+	for _, want := range []string{"FEAT-001", "FEAT-101", "out of scope"} {
+		if !strings.Contains(string(logBytes), want) {
+			t.Errorf("rejected.log missing %q:\n%s", want, logBytes)
+		}
+	}
+}
+
+func TestMCPSquadReject_ReasonRequired(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-001-ready.md", mcpAcceptItemReady)
+	mcpPersistFixture(t, env, "FEAT-001-ready.md")
+
+	resp := callMCPTool(t, env, "squad_reject",
+		`{"ids":["FEAT-001"],"reason":""}`)
+	if resp.Error == nil {
+		t.Fatalf("want rpc error for empty reason, got result: %+v", resp.Result.StructuredContent)
+	}
+	if !strings.Contains(strings.ToLower(resp.Error.Message), "reason") {
+		t.Errorf("error message %q should mention reason", resp.Error.Message)
+	}
+}
+
+func TestMCPSquadReject_ClaimedItemRefused(t *testing.T) {
+	env := newTestEnv(t)
+	writeItemFile(t, env.Root, "FEAT-001-ready.md", mcpAcceptItemReady)
+	writeItemFile(t, env.Root, "FEAT-002-claimed.md", strings.Replace(mcpAcceptItemReady, "FEAT-001", "FEAT-002", 1))
+	mcpPersistFixture(t, env, "FEAT-001-ready.md")
+	mcpPersistFixture(t, env, "FEAT-002-claimed.md")
+	mcpSeedClaim(t, env, "FEAT-002", "another-agent")
+
+	resp := callMCPTool(t, env, "squad_reject",
+		`{"ids":["FEAT-001","FEAT-002"],"reason":"duplicate"}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	out := resp.Result.StructuredContent
+	deleted := mcpStringSlice(t, out["deleted"], "deleted")
+	if len(deleted) != 1 || deleted[0] != "FEAT-001" {
+		t.Fatalf("deleted=%v want [FEAT-001]", deleted)
+	}
+	refused := mcpObjSlice(t, out["refused"], "refused")
+	if len(refused) != 1 {
+		t.Fatalf("refused len=%d want 1: %+v", len(refused), refused)
+	}
+	row := refused[0]
+	if row["id"] != "FEAT-002" {
+		t.Fatalf("refused[0].id=%v want FEAT-002", row["id"])
+	}
+	errMsg, _ := row["error"].(string)
+	if !strings.Contains(strings.ToLower(errMsg), "claimed") {
+		t.Fatalf("refused[0].error=%q want substring 'claimed'", errMsg)
 	}
 }
 

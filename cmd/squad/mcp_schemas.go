@@ -436,6 +436,17 @@ const schemaAccept = `{
   "additionalProperties": false
 }`
 
+const schemaReject = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["ids", "reason"],
+  "properties": {
+    "ids":    {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "reason": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}`
+
 const schemaPRClose = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

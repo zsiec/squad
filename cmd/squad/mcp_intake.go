@@ -121,6 +121,46 @@ func registerIntakeTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 			return map[string]any{"accepted": accepted, "rejected": rejected}, nil
 		},
 	})
+
+	srv.Register(mcp.Tool{
+		Name:        "squad_reject",
+		Description: "Reject captured items (delete file + write to .squad/rejected.log).",
+		InputSchema: json.RawMessage(schemaReject),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				IDs    []string `json:"ids"`
+				Reason string   `json:"reason"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			if strings.TrimSpace(args.Reason) == "" {
+				return nil, fmt.Errorf("reason required")
+			}
+			agentID, _ := identity.AgentID()
+			squadDir := filepath.Join(repoRoot, ".squad")
+			type refusal struct {
+				ID    string `json:"id"`
+				Error string `json:"error"`
+			}
+			deleted := []string{}
+			refused := []refusal{}
+			for _, id := range args.IDs {
+				err := items.Reject(ctx, db, repoID, id, args.Reason, agentID, squadDir)
+				if err == nil {
+					deleted = append(deleted, id)
+					continue
+				}
+				refused = append(refused, refusal{ID: id, Error: err.Error()})
+			}
+			return map[string]any{"deleted": deleted, "refused": refused}, nil
+		},
+	})
 }
 
 func nonEmpty(v, def string) string {
