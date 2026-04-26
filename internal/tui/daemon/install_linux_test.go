@@ -137,6 +137,75 @@ func TestLinux_StatusReportsInstalledAndRunning(t *testing.T) {
 	}
 }
 
+func TestLinux_Install_GracefulWhenNoUserBus(t *testing.T) {
+	tmp := t.TempDir()
+	// Force XDG_RUNTIME_DIR to a path with no `bus` socket — emulates a
+	// container without systemd-user.
+	t.Setenv("XDG_RUNTIME_DIR", filepath.Join(tmp, "no-such-runtime"))
+
+	fe := &fakeExec{}
+	m := newWithExec(tmp, fe)
+	err := m.Install(InstallOpts{
+		BinaryPath: "/usr/local/bin/squad",
+		Bind:       "127.0.0.1", Port: 7777, Token: "tok",
+		LogDir:  filepath.Join(tmp, ".squad/logs"),
+		HomeDir: tmp,
+	})
+	if err != nil {
+		t.Fatalf("expected nil error when no user bus, got %v", err)
+	}
+
+	// Unit file should be written
+	unit := filepath.Join(tmp, ".config", "systemd", "user", "squad-serve.service")
+	if _, err := os.Stat(unit); err != nil {
+		t.Errorf("unit file should be written even without systemd: %v", err)
+	}
+
+	// systemctl should NOT have been called (graceful skip)
+	for _, call := range fe.runCalls {
+		if strings.Contains(call, "systemctl") {
+			t.Errorf("systemctl should not be called without user bus, got %q", call)
+		}
+	}
+}
+
+func TestLinux_Install_CallsSystemctlWhenBusPresent(t *testing.T) {
+	tmp := t.TempDir()
+	// Set up a fake bus socket so the helper detects systemd-user.
+	runtimeDir := filepath.Join(tmp, "runtime")
+	if err := os.MkdirAll(runtimeDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	busPath := filepath.Join(runtimeDir, "bus")
+	if f, err := os.Create(busPath); err != nil {
+		t.Fatal(err)
+	} else {
+		f.Close()
+	}
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+
+	fe := &fakeExec{}
+	m := newWithExec(tmp, fe)
+	if err := m.Install(InstallOpts{
+		BinaryPath: "/usr/local/bin/squad",
+		Bind:       "127.0.0.1", Port: 7777, Token: "tok",
+		LogDir:  filepath.Join(tmp, ".squad/logs"),
+		HomeDir: tmp,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// systemctl should have been called twice (daemon-reload + enable --now)
+	systemctlCalls := 0
+	for _, call := range fe.runCalls {
+		if strings.Contains(call, "systemctl") {
+			systemctlCalls++
+		}
+	}
+	if systemctlCalls != 2 {
+		t.Errorf("expected 2 systemctl calls when bus present, got %d (calls=%v)", systemctlCalls, fe.runCalls)
+	}
+}
+
 func TestLinux_ReinstallUninstallsThenInstalls(t *testing.T) {
 	tmp := t.TempDir()
 	fe := &fakeExec{}
