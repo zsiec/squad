@@ -26,6 +26,7 @@ type messagesPump struct {
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
+	doneCh   chan struct{}
 }
 
 func newMessagesPump(db *sql.DB, repoID string, bus *chat.Bus) *messagesPump {
@@ -35,6 +36,7 @@ func newMessagesPump(db *sql.DB, repoID string, bus *chat.Bus) *messagesPump {
 		bus:      bus,
 		interval: 500 * time.Millisecond,
 		stopCh:   make(chan struct{}),
+		doneCh:   make(chan struct{}),
 	}
 }
 
@@ -42,11 +44,17 @@ func (p *messagesPump) start() {
 	go p.loop()
 }
 
+// stop signals the loop and blocks until the goroutine has actually exited.
+// Synchronous teardown matches claimsPump/agentsPump and prevents the
+// "TempDir RemoveAll: directory not empty" race where SQLite WAL handles
+// outlive Server.Close.
 func (p *messagesPump) stop() {
 	p.stopOnce.Do(func() { close(p.stopCh) })
+	<-p.doneCh
 }
 
 func (p *messagesPump) loop() {
+	defer close(p.doneCh)
 	// Initialize cursor at current high-water so we don't replay history
 	// at server start. Subscribers that want history can fetch it via
 	// /api/messages.
