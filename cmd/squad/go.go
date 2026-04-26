@@ -44,6 +44,7 @@ the mailbox.`,
 
 func runGo(cmd *cobra.Command) error {
 	out := cmd.OutOrStdout()
+	errOut := cmd.ErrOrStderr()
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -51,7 +52,7 @@ func runGo(cmd *cobra.Command) error {
 	if err := ensureSquadInit(wd, out); err != nil {
 		return err
 	}
-	if err := ensureRegistered(out); err != nil {
+	if err := ensureRegistered(out, errOut); err != nil {
 		return err
 	}
 	if err := ensureClaim(out); err != nil {
@@ -162,7 +163,7 @@ func ensureSquadInit(wd string, out io.Writer) error {
 	return runInit(&cobra.Command{}, initOptions{Yes: true, Dir: wd})
 }
 
-func ensureRegistered(out io.Writer) error {
+func ensureRegistered(out, errOut io.Writer) error {
 	id, err := identity.AgentID()
 	if err != nil {
 		return err
@@ -174,7 +175,7 @@ func ensureRegistered(out io.Writer) error {
 	if known {
 		return nil
 	}
-	return runRegisterWithOpts(out, "", "", false, false)
+	return runRegisterWithOpts(out, errOut, "", "", false, false)
 }
 
 func printItemAC(out io.Writer, itemsDir, itemID string) error {

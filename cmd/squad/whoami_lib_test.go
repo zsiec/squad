@@ -11,7 +11,7 @@ func TestWhoami_PureReturnsAgentID(t *testing.T) {
 	t.Setenv("SQUAD_SESSION_ID", "test-session-whoami-pure")
 	t.Setenv("SQUAD_AGENT", "")
 
-	if _, err := Register(context.Background(), RegisterArgs{
+	if _, _, err := Register(context.Background(), RegisterArgs{
 		As:          "agent-zed-pure",
 		NoRepoCheck: true,
 	}); err != nil {

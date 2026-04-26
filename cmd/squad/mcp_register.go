@@ -59,7 +59,14 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 					return nil, err
 				}
 			}
-			return Register(ctx, RegisterArgs{As: args.As, Name: args.Name})
+			res, warnings, err := Register(ctx, RegisterArgs{As: args.As, Name: args.Name})
+			if err != nil {
+				return nil, err
+			}
+			return struct {
+				*RegisterResult
+				Warnings []string `json:"warnings,omitempty"`
+			}{RegisterResult: res, Warnings: warnings}, nil
 		},
 	})
 

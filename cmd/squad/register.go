@@ -47,23 +47,24 @@ type RegisterResult struct {
 	CreatedAt int64  `json:"created_at"`
 }
 
-func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, error) {
+func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, []string, error) {
+	var warnings []string
 	if len(args.As) > MaxAgentIDLen {
-		return nil, fmt.Errorf("--as: id too long (%d bytes, max %d)", len(args.As), MaxAgentIDLen)
+		return nil, nil, fmt.Errorf("--as: id too long (%d bytes, max %d)", len(args.As), MaxAgentIDLen)
 	}
 	if len(args.Name) > MaxDisplayNameLen {
-		return nil, fmt.Errorf("--name: too long (%d bytes, max %d)", len(args.Name), MaxDisplayNameLen)
+		return nil, nil, fmt.Errorf("--name: too long (%d bytes, max %d)", len(args.Name), MaxDisplayNameLen)
 	}
 	if err := store.EnsureHome(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	dbPath, err := store.DBPath()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	db, err := store.Open(dbPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer db.Close()
 
@@ -71,7 +72,7 @@ func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, error) {
 	if id != "" {
 		if !args.Force && identity.PersistedAgentID() != id {
 			if other, ok, _ := lookupAgent(ctx, db, id); ok {
-				return nil, fmt.Errorf(
+				return nil, nil, fmt.Errorf(
 					"%w: agent id %q is already registered (worktree=%s pid=%d) — "+
 						"re-using it from this session would re-point the agent row at you; "+
 						"pass --force if you really mean to replace it, or pick a different id with --as",
@@ -79,15 +80,15 @@ func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, error) {
 			}
 		}
 		if err := identity.WritePersistedAgentID(id); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		id, err = identity.AgentID()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if perr := identity.WritePersistedAgentID(id); perr != nil {
-			return nil, perr
+			return nil, nil, perr
 		}
 	}
 	name := args.Name
@@ -95,24 +96,49 @@ func Register(ctx context.Context, args RegisterArgs) (*RegisterResult, error) {
 		name = id
 	}
 
+	ourWorktree := identity.DetectWorktree()
+	ourPid := os.Getpid()
+	warnings = appendCollisionWarning(ctx, db, id, ourWorktree, ourPid, warnings)
+
 	repoID := unscopedRepoID
 	if !args.NoRepoCheck {
-		root, derr := repo.Discover(identity.DetectWorktree())
+		root, derr := repo.Discover(ourWorktree)
 		if derr != nil {
-			return nil, derr
+			return nil, nil, derr
 		}
 		remote, _ := repo.ReadRemoteURL(root)
 		repoID, err = repo.RegisterRepo(ctx, db, root, remote, filepath.Base(root))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	now := time.Now().Unix()
-	if err := upsertAgent(ctx, db, repoID, id, name, identity.DetectWorktree(), os.Getpid()); err != nil {
-		return nil, err
+	if err := upsertAgent(ctx, db, repoID, id, name, ourWorktree, ourPid); err != nil {
+		return nil, nil, err
 	}
-	return &RegisterResult{AgentID: id, Name: name, RepoID: repoID, CreatedAt: now}, nil
+	return &RegisterResult{AgentID: id, Name: name, RepoID: repoID, CreatedAt: now}, warnings, nil
+}
+
+const identityCollisionWindow = 60 // seconds
+
+func appendCollisionWarning(ctx context.Context, db *sql.DB, id, ourWorktree string, ourPid int, warnings []string) []string {
+	existing, ok, err := lookupAgent(ctx, db, id)
+	if err != nil || !ok {
+		return warnings
+	}
+	if existing.PID == ourPid || existing.Worktree == ourWorktree {
+		return warnings
+	}
+	if time.Now().Unix()-existing.LastTickAt > identityCollisionWindow {
+		return warnings
+	}
+	return append(warnings, fmt.Sprintf(
+		"squad: identity collision detected — another live session is registered as %q "+
+			"(worktree=%s pid=%d). Re-registering will re-point the agent row at this session. "+
+			"Set SQUAD_SESSION_ID=<unique> in this shell to give it a distinct id.",
+		id, existing.Worktree, existing.PID,
+	))
 }
 
 func newRegisterCmd() *cobra.Command {
@@ -126,7 +152,7 @@ func newRegisterCmd() *cobra.Command {
 		Use:   "register",
 		Short: "Register this agent in the squad global database",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRegisterWithOpts(cmd.OutOrStdout(), asFlag, nameFlag, noRepoCheck, force)
+			return runRegisterWithOpts(cmd.OutOrStdout(), cmd.ErrOrStderr(), asFlag, nameFlag, noRepoCheck, force)
 		},
 	}
 	cmd.Flags().StringVar(&asFlag, "as", "", "agent id override (persisted per-session)")
@@ -137,8 +163,8 @@ func newRegisterCmd() *cobra.Command {
 	return cmd
 }
 
-func runRegisterWithOpts(stdout io.Writer, asFlag, nameFlag string, noRepoCheck, force bool) error {
-	res, err := Register(context.Background(), RegisterArgs{
+func runRegisterWithOpts(stdout, stderr io.Writer, asFlag, nameFlag string, noRepoCheck, force bool) error {
+	res, warnings, err := Register(context.Background(), RegisterArgs{
 		As:          asFlag,
 		Name:        nameFlag,
 		NoRepoCheck: noRepoCheck,
@@ -147,22 +173,27 @@ func runRegisterWithOpts(stdout io.Writer, asFlag, nameFlag string, noRepoCheck,
 	if err != nil {
 		return err
 	}
+	for _, w := range warnings {
+		fmt.Fprintln(stderr, w)
+	}
 	fmt.Fprintf(stdout, "registered %s\n", res.AgentID)
 	return nil
 }
 
 type agentRow struct {
-	Worktree string
-	PID      int
+	Worktree   string
+	PID        int
+	LastTickAt int64
 }
 
 // lookupAgent returns the agents row for id, if any. ok is false when the
-// id is not registered. Used by `register --as` to detect identity-reuse.
+// id is not registered. Used by `register --as` to detect identity-reuse
+// and by the auto-derived collision check.
 func lookupAgent(ctx context.Context, db *sql.DB, id string) (agentRow, bool, error) {
 	var r agentRow
 	err := db.QueryRowContext(ctx,
-		`SELECT COALESCE(worktree,''), COALESCE(pid,0) FROM agents WHERE id = ?`, id,
-	).Scan(&r.Worktree, &r.PID)
+		`SELECT COALESCE(worktree,''), COALESCE(pid,0), COALESCE(last_tick_at,0) FROM agents WHERE id = ?`, id,
+	).Scan(&r.Worktree, &r.PID, &r.LastTickAt)
 	if err == sql.ErrNoRows {
 		return r, false, nil
 	}
