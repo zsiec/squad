@@ -13,6 +13,7 @@ import (
 
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/config"
+	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/stats"
 )
@@ -156,6 +157,11 @@ func newClaimCmd() *cobra.Command {
 			if err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), "claimed %s\n", res.ItemID)
 				printCadenceNudge(cmd.ErrOrStderr(), "claim")
+				if itemPath := findItemPath(bc.itemsDir, itemID); itemPath != "" {
+					if parsed, perr := items.Parse(itemPath); perr == nil {
+						printSecondOpinionNudge(cmd.ErrOrStderr(), parsed.Priority, parsed.Risk)
+					}
+				}
 				return nil
 			}
 			var capErr *ConcurrencyExceededError

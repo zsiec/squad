@@ -42,3 +42,16 @@ func cadenceNudgesSilenced() bool {
 	v := os.Getenv("SQUAD_NO_CADENCE_NUDGES")
 	return v == "1" || v == "true" || v == "TRUE"
 }
+
+// printSecondOpinionNudge writes a one-line stderr nudge suggesting a peer
+// sanity-check before work starts on a high-stakes claim — P0/P1 priority
+// or risk:high. Redirecting at claim-time is much cheaper than at review.
+func printSecondOpinionNudge(w io.Writer, priority, risk string) {
+	if cadenceNudgesSilenced() {
+		return
+	}
+	if priority != "P0" && priority != "P1" && risk != "high" {
+		return
+	}
+	fmt.Fprintln(w, "  tip: high-stakes claim — consider `squad ask @<peer> \"sanity-check my approach?\"` before starting · silence with SQUAD_NO_CADENCE_NUDGES=1")
+}

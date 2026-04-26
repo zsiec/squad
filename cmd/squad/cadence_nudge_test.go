@@ -110,3 +110,63 @@ func TestPrintCadenceNudgeFor_SuppressedByEnv(t *testing.T) {
 		t.Fatalf("env=1 should suppress all variants, got %q", buf.String())
 	}
 }
+
+func TestPrintSecondOpinionNudge_FiresForP0(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printSecondOpinionNudge(&buf, "P0", "low")
+	got := buf.String()
+	if !strings.Contains(got, "squad ask @") {
+		t.Fatalf("P0 should mention `squad ask @`, got %q", got)
+	}
+	if !strings.Contains(got, "SQUAD_NO_CADENCE_NUDGES") {
+		t.Fatalf("nudge should advertise the silence env var, got %q", got)
+	}
+}
+
+func TestPrintSecondOpinionNudge_FiresForP1(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printSecondOpinionNudge(&buf, "P1", "low")
+	got := buf.String()
+	if !strings.Contains(got, "squad ask @") {
+		t.Fatalf("P1 should mention `squad ask @`, got %q", got)
+	}
+}
+
+func TestPrintSecondOpinionNudge_FiresForHighRisk(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printSecondOpinionNudge(&buf, "P2", "high")
+	got := buf.String()
+	if !strings.Contains(got, "squad ask @") {
+		t.Fatalf("risk=high should mention `squad ask @`, got %q", got)
+	}
+}
+
+func TestPrintSecondOpinionNudge_QuietForP2Low(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printSecondOpinionNudge(&buf, "P2", "low")
+	if buf.Len() != 0 {
+		t.Fatalf("P2+low should be silent, got %q", buf.String())
+	}
+}
+
+func TestPrintSecondOpinionNudge_QuietForP3Low(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printSecondOpinionNudge(&buf, "P3", "low")
+	if buf.Len() != 0 {
+		t.Fatalf("P3+low should be silent, got %q", buf.String())
+	}
+}
+
+func TestPrintSecondOpinionNudge_RespectsSilence(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "1")
+	var buf bytes.Buffer
+	printSecondOpinionNudge(&buf, "P0", "high")
+	if buf.Len() != 0 {
+		t.Fatalf("env=1 should suppress nudge even on P0+high, got %q", buf.String())
+	}
+}
