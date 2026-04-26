@@ -1,14 +1,47 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/claims"
 )
+
+type ReleaseArgs struct {
+	DB      *sql.DB `json:"-"`
+	RepoID  string  `json:"repo_id"`
+	AgentID string  `json:"agent_id"`
+	ItemID  string  `json:"item_id"`
+	Outcome string  `json:"outcome,omitempty"`
+}
+
+type ReleaseResult struct {
+	ItemID     string `json:"item_id"`
+	Outcome    string `json:"outcome"`
+	ReleasedAt int64  `json:"released_at"`
+}
+
+func Release(ctx context.Context, args ReleaseArgs) (*ReleaseResult, error) {
+	outcome := args.Outcome
+	if outcome == "" {
+		outcome = "released"
+	}
+	store := claims.New(args.DB, args.RepoID, nil)
+	if err := store.Release(ctx, args.ItemID, args.AgentID, outcome); err != nil {
+		return nil, err
+	}
+	return &ReleaseResult{
+		ItemID:     args.ItemID,
+		Outcome:    outcome,
+		ReleasedAt: time.Now().Unix(),
+	}, nil
+}
 
 func newReleaseCmd() *cobra.Command {
 	var outcome string
@@ -25,9 +58,15 @@ func newReleaseCmd() *cobra.Command {
 			}
 			defer bc.Close()
 
-			err = bc.store.Release(ctx, itemID, bc.agentID, outcome)
+			res, err := Release(ctx, ReleaseArgs{
+				DB:      bc.db,
+				RepoID:  bc.repoID,
+				AgentID: bc.agentID,
+				ItemID:  itemID,
+				Outcome: outcome,
+			})
 			if err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "released %s (%s)\n", itemID, outcome)
+				fmt.Fprintf(cmd.OutOrStdout(), "released %s (%s)\n", res.ItemID, res.Outcome)
 				return nil
 			}
 			if errors.Is(err, claims.ErrNotYours) {
