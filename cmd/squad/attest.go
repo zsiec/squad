@@ -2,16 +2,107 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/attest"
-	"github.com/zsiec/squad/internal/repo"
 )
+
+// ErrInvalidKind signals that AttestArgs.Kind is not one of the
+// attest.Kind enum values. Cobra wrapper renders it as the legacy
+// "invalid kind" message; MCP callers can errors.Is it.
+var ErrInvalidKind = errors.New("invalid attestation kind")
+
+type AttestArgs struct {
+	DB      *sql.DB `json:"-"`
+	RepoID  string  `json:"repo_id"`
+	AgentID string  `json:"agent_id"`
+
+	ItemID string `json:"item_id"`
+	Kind   string `json:"kind"`
+
+	Command       string `json:"command,omitempty"`
+	FindingsFile  string `json:"findings_file,omitempty"`
+	ReviewerAgent string `json:"reviewer_agent,omitempty"`
+
+	AttDir   string `json:"att_dir,omitempty"`
+	RepoRoot string `json:"repo_root,omitempty"`
+
+	Now func() time.Time `json:"-"`
+}
+
+type AttestResult struct {
+	ID         int64  `json:"id"`
+	ItemID     string `json:"item_id"`
+	Kind       string `json:"kind"`
+	Command    string `json:"command"`
+	ExitCode   int    `json:"exit_code"`
+	OutputHash string `json:"output_hash"`
+	OutputPath string `json:"output_path"`
+	AgentID    string `json:"agent_id"`
+}
+
+func Attest(ctx context.Context, args AttestArgs) (*AttestResult, error) {
+	if args.ItemID == "" {
+		return nil, fmt.Errorf("item_id is required")
+	}
+	k := attest.Kind(args.Kind)
+	if !k.Valid() {
+		return nil, fmt.Errorf("%w %q (want test|lint|typecheck|build|review|manual)", ErrInvalidKind, args.Kind)
+	}
+
+	L := attest.New(args.DB, args.RepoID, args.Now)
+
+	if k == attest.KindReview {
+		rec, err := recordReviewAttestation(ctx, L, recordReviewArgs{
+			ItemID:        args.ItemID,
+			AgentID:       args.AgentID,
+			ReviewerAgent: args.ReviewerAgent,
+			FindingsFile:  args.FindingsFile,
+			AttDir:        args.AttDir,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return recordToResult(rec), nil
+	}
+
+	if args.Command == "" {
+		return nil, fmt.Errorf("command is required for kind=%s", args.Kind)
+	}
+	rec, err := L.Run(ctx, attest.RunOpts{
+		ItemID:   args.ItemID,
+		Kind:     k,
+		Command:  args.Command,
+		AgentID:  args.AgentID,
+		AttDir:   args.AttDir,
+		RepoRoot: args.RepoRoot,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return recordToResult(rec), nil
+}
+
+func recordToResult(r attest.Record) *AttestResult {
+	return &AttestResult{
+		ID:         r.ID,
+		ItemID:     r.ItemID,
+		Kind:       string(r.Kind),
+		Command:    r.Command,
+		ExitCode:   r.ExitCode,
+		OutputHash: r.OutputHash,
+		OutputPath: r.OutputPath,
+		AgentID:    r.AgentID,
+	}
+}
 
 func newAttestCmd() *cobra.Command {
 	var item, kind, command, findingsFile, reviewerAgent string
@@ -19,67 +110,45 @@ func newAttestCmd() *cobra.Command {
 		Use:   "attest",
 		Short: "Record a verification artifact (test/lint/build/typecheck/manual) into the evidence ledger",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if item == "" {
-				return fmt.Errorf("--item is required")
-			}
-			k := attest.Kind(kind)
-			if !k.Valid() {
-				return fmt.Errorf("invalid kind %q (want test|lint|typecheck|build|review|manual)", kind)
-			}
-
 			ctx := cmd.Context()
 			bc, err := bootClaimContext(ctx)
 			if err != nil {
 				return err
 			}
 			defer bc.Close()
-			wd, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			repoRoot, err := repo.Discover(wd)
+			repoRoot, err := discoverRepoRoot()
 			if err != nil {
 				return err
 			}
 			attDir := filepath.Join(repoRoot, ".squad", "attestations")
 
-			L := attest.New(bc.db, bc.repoID, nil)
-
-			if k == attest.KindReview {
-				rec, err := recordReviewAttestation(ctx, L, recordReviewArgs{
-					ItemID:        item,
-					AgentID:       bc.agentID,
-					ReviewerAgent: reviewerAgent,
-					FindingsFile:  findingsFile,
-					AttDir:        attDir,
-				})
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "attest review %s exit=%d hash=%s\n", item, rec.ExitCode, rec.OutputHash)
-				return nil
-			}
-
-			if command == "" {
-				return fmt.Errorf("--command is required for kind=%s", kind)
-			}
-
-			rec, err := L.Run(ctx, attest.RunOpts{
-				ItemID:   item,
-				Kind:     k,
-				Command:  command,
-				AgentID:  bc.agentID,
-				AttDir:   attDir,
-				RepoRoot: repoRoot,
+			res, err := Attest(ctx, AttestArgs{
+				DB:            bc.db,
+				RepoID:        bc.repoID,
+				AgentID:       bc.agentID,
+				ItemID:        item,
+				Kind:          kind,
+				Command:       command,
+				FindingsFile:  findingsFile,
+				ReviewerAgent: reviewerAgent,
+				AttDir:        attDir,
+				RepoRoot:      repoRoot,
 			})
 			if err != nil {
+				if errors.Is(err, ErrInvalidKind) {
+					return fmt.Errorf("invalid kind %q (want test|lint|typecheck|build|review|manual)", kind)
+				}
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "attest %s %s exit=%d hash=%s\n", k, item, rec.ExitCode, rec.OutputHash)
-			if rec.ExitCode != 0 {
-				// explicit Close: os.Exit skips the deferred bc.Close above.
+
+			if attest.Kind(res.Kind) == attest.KindReview {
+				fmt.Fprintf(cmd.OutOrStdout(), "attest review %s exit=%d hash=%s\n", res.ItemID, res.ExitCode, res.OutputHash)
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "attest %s %s exit=%d hash=%s\n", res.Kind, res.ItemID, res.ExitCode, res.OutputHash)
+			if res.ExitCode != 0 {
 				bc.Close()
-				os.Exit(rec.ExitCode)
+				os.Exit(res.ExitCode)
 			}
 			return nil
 		},
