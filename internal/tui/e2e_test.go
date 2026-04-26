@@ -58,9 +58,9 @@ func TestE2E_ClaimFlow(t *testing.T) {
 		t.Fatalf("expected BUG-100 in items view, got %q", out)
 	}
 
-	_, cmd := mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	_, cmd := mm.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if cmd == nil {
-		t.Fatal("expected non-nil cmd from c key")
+		t.Fatal("expected non-nil cmd from space key")
 	}
 	msg := cmd()
 

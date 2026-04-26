@@ -34,12 +34,22 @@ type itemsLoadedMsg struct {
 	err   error
 }
 
+type itemsFilter int
+
+const (
+	filterOpen itemsFilter = iota
+	filterCaptured
+	filterBlocked
+	filterAll
+)
+
 type ItemsModel struct {
 	client *client.Client
 	table  components.Table
 	items  []client.Item
 	err    error
 	toast  string
+	filter itemsFilter
 }
 
 // NewItems constructs an ItemsModel with empty rows.
@@ -83,13 +93,17 @@ func (m ItemsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.items = msg.items
 		m.err = msg.err
 		if msg.err == nil {
-			m.table = m.table.SetRows(toItemsRows(msg.items))
+			m.table = m.table.SetRows(m.visibleRows())
 		}
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "c":
+			m.filter = (m.filter + 1) % 4
+			m.table = m.table.SetRows(m.visibleRows())
+			return m, nil
+		case " ":
 			id := m.selectedItemID()
 			if id == "" {
 				return m, nil
@@ -132,11 +146,74 @@ func (m ItemsModel) View() string {
 	if !m.loaded() {
 		return "loading..."
 	}
-	out := m.table.View()
+	out := m.filterBand() + "\n" + m.table.View()
 	if m.toast != "" {
 		out += "\n" + m.toast
 	}
 	return out
+}
+
+func (m ItemsModel) filterBand() string {
+	counts := m.filterCounts()
+	entries := []struct {
+		key       string
+		matchesAt itemsFilter
+		isFilter  bool
+	}{
+		{"captured", filterCaptured, true},
+		{"open", filterOpen, true},
+		{"blocked", filterBlocked, true},
+		{"done", 0, false},
+	}
+	out := ""
+	for i, e := range entries {
+		seg := fmt.Sprintf("%s: %d", e.key, counts[e.key])
+		if e.isFilter && e.matchesAt == m.filter {
+			seg = "[" + seg + "]"
+		}
+		if i > 0 {
+			out += "  "
+		}
+		out += seg
+	}
+	if m.filter == filterAll {
+		out += "  [all]"
+	}
+	return out
+}
+
+func (m ItemsModel) filterCounts() map[string]int {
+	c := map[string]int{"captured": 0, "open": 0, "blocked": 0, "done": 0}
+	for _, it := range m.items {
+		if _, ok := c[it.Status]; ok {
+			c[it.Status]++
+		}
+	}
+	return c
+}
+
+func (m ItemsModel) visibleRows() [][]string {
+	filtered := make([]client.Item, 0, len(m.items))
+	for _, it := range m.items {
+		if m.matchesFilter(it.Status) {
+			filtered = append(filtered, it)
+		}
+	}
+	return toItemsRows(filtered)
+}
+
+func (m ItemsModel) matchesFilter(status string) bool {
+	switch m.filter {
+	case filterOpen:
+		return status != "captured"
+	case filterCaptured:
+		return status == "captured"
+	case filterBlocked:
+		return status == "blocked"
+	case filterAll:
+		return true
+	}
+	return false
 }
 
 func (m ItemsModel) loaded() bool {

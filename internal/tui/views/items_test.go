@@ -108,8 +108,8 @@ func TestItems_ClaimKeyHitsClaimEndpoint(t *testing.T) {
 	// Load
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
-	// Press 'c' on first row
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	// Press space on first row to claim ('c' is now the filter-cycle key)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeySpace})
 	// Run the cmd to fire the POST
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from claim key")
@@ -117,6 +117,118 @@ func TestItems_ClaimKeyHitsClaimEndpoint(t *testing.T) {
 	_ = cmd()
 	if got := f.PostURL(); got != "/api/items/BUG-1/claim" {
 		t.Fatalf("claim url=%q", got)
+	}
+}
+
+func TestItems_DefaultFilterExcludesCaptured(t *testing.T) {
+	items := []client.Item{
+		{ID: "CAP-1", Title: "captured-one", Status: "captured"},
+		{ID: "OPN-1", Title: "open-one", Status: "open"},
+		{ID: "BLK-1", Title: "blocked-one", Status: "blocked"},
+	}
+	f := newFixture(t, items)
+	c := client.New(f.srv.URL, "")
+	m := NewItems(c)
+	updated, _ := m.Update(runCmd(t, m.Init()))
+	mm := updated.(ItemsModel)
+	out := mm.View()
+	if strings.Contains(out, "CAP-1") {
+		t.Fatalf("default filter should hide captured, got %q", out)
+	}
+	if !strings.Contains(out, "OPN-1") {
+		t.Fatalf("default filter should show open, got %q", out)
+	}
+	if !strings.Contains(out, "BLK-1") {
+		t.Fatalf("default filter should show blocked (active work), got %q", out)
+	}
+	if !strings.Contains(out, "captured: 1") || !strings.Contains(out, "open: 1") || !strings.Contains(out, "blocked: 1") {
+		t.Fatalf("count band missing expected counts, got %q", out)
+	}
+}
+
+func TestItems_PressCCyclesFilter(t *testing.T) {
+	items := []client.Item{
+		{ID: "CAP-1", Title: "captured-one", Status: "captured"},
+		{ID: "OPN-1", Title: "open-one", Status: "open"},
+		{ID: "BLK-1", Title: "blocked-one", Status: "blocked"},
+	}
+	f := newFixture(t, items)
+	c := client.New(f.srv.URL, "")
+	m := NewItems(c)
+	updated, _ := m.Update(runCmd(t, m.Init()))
+	mm := updated.(ItemsModel)
+
+	// Press 'c': filter should advance from open → captured.
+	updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	mm = updated.(ItemsModel)
+	out := mm.View()
+	if !strings.Contains(out, "CAP-1") {
+		t.Fatalf("after 1x c expected CAP-1 visible, got %q", out)
+	}
+	if strings.Contains(out, "OPN-1") || strings.Contains(out, "BLK-1") {
+		t.Fatalf("after 1x c only captured should show, got %q", out)
+	}
+
+	// Press 'c' again: filter → blocked.
+	updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	mm = updated.(ItemsModel)
+	out = mm.View()
+	if !strings.Contains(out, "BLK-1") {
+		t.Fatalf("after 2x c expected BLK-1 visible, got %q", out)
+	}
+	if strings.Contains(out, "OPN-1") || strings.Contains(out, "CAP-1") {
+		t.Fatalf("after 2x c only blocked should show, got %q", out)
+	}
+
+	// Press 'c' again: filter → all.
+	updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	mm = updated.(ItemsModel)
+	out = mm.View()
+	if !strings.Contains(out, "CAP-1") || !strings.Contains(out, "OPN-1") || !strings.Contains(out, "BLK-1") {
+		t.Fatalf("after 3x c all rows should show, got %q", out)
+	}
+
+	// Press 'c' again: back to open (active work, captured excluded).
+	updated, _ = mm.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+	mm = updated.(ItemsModel)
+	out = mm.View()
+	if !strings.Contains(out, "OPN-1") || !strings.Contains(out, "BLK-1") {
+		t.Fatalf("after 4x c expected open + blocked visible, got %q", out)
+	}
+	if strings.Contains(out, "CAP-1") {
+		t.Fatalf("after 4x c captured should be hidden, got %q", out)
+	}
+}
+
+func TestItems_FilterRowFormatting(t *testing.T) {
+	items := []client.Item{
+		{ID: "CAP-1", Title: "c", Status: "captured"},
+		{ID: "OPN-1", Title: "o", Status: "open"},
+		{ID: "BLK-1", Title: "b", Status: "blocked"},
+		{ID: "DON-1", Title: "d", Status: "done"},
+	}
+	f := newFixture(t, items)
+	c := client.New(f.srv.URL, "")
+	m := NewItems(c)
+	updated, _ := m.Update(runCmd(t, m.Init()))
+	mm := updated.(ItemsModel)
+	out := mm.View()
+
+	// Order of statuses on the band: captured, open, blocked, done.
+	cap := strings.Index(out, "captured:")
+	op := strings.Index(out, "open:")
+	bl := strings.Index(out, "blocked:")
+	dn := strings.Index(out, "done:")
+	if cap < 0 || op < 0 || bl < 0 || dn < 0 {
+		t.Fatalf("count band missing entries, got %q", out)
+	}
+	if !(cap < op && op < bl && bl < dn) {
+		t.Fatalf("count band order wrong: cap=%d open=%d blocked=%d done=%d (%q)", cap, op, bl, dn, out)
+	}
+
+	// Default filter is open; the active filter should be highlighted with [ ].
+	if !strings.Contains(out, "[open: 1]") {
+		t.Fatalf("expected active filter [open: 1], got %q", out)
 	}
 }
 
