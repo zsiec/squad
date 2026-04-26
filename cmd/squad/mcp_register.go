@@ -23,6 +23,7 @@ func registerTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	registerInspectionTools(srv, db, repoID, repoRoot)
 	registerEvidenceTools(srv, db, repoID, repoRoot)
 	registerLearningTools(srv, repoRoot)
+	registerCoordinationTools(srv, db, repoID, repoRoot)
 }
 
 func resolveAgentID(explicit string) (string, error) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,6 +10,39 @@ import (
 
 	"github.com/zsiec/squad/internal/claims"
 )
+
+// ForceReleaseArgs is the input for ForceRelease.
+type ForceReleaseArgs struct {
+	Store   *claims.Store
+	ItemID  string
+	AgentID string
+	Reason  string
+}
+
+// ForceReleaseResult reports a successful force-release plus who held the
+// claim before.
+type ForceReleaseResult struct {
+	ItemID     string `json:"item_id"`
+	HeldBy     string `json:"held_by"`
+	ReleasedBy string `json:"released_by"`
+	Reason     string `json:"reason"`
+}
+
+// ForceRelease forcibly releases a stuck claim held by another agent.
+// Returns claims.ErrReasonRequired when reason is empty (the caller is
+// expected to surface that to the user).
+func ForceRelease(ctx context.Context, args ForceReleaseArgs) (*ForceReleaseResult, error) {
+	prior, err := args.Store.ForceRelease(ctx, args.ItemID, args.AgentID, args.Reason)
+	if err != nil {
+		return nil, err
+	}
+	return &ForceReleaseResult{
+		ItemID:     args.ItemID,
+		HeldBy:     prior,
+		ReleasedBy: args.AgentID,
+		Reason:     args.Reason,
+	}, nil
+}
 
 func newForceReleaseCmd() *cobra.Command {
 	var reason string
@@ -25,9 +59,14 @@ func newForceReleaseCmd() *cobra.Command {
 			}
 			defer bc.Close()
 
-			prior, err := bc.store.ForceRelease(ctx, itemID, bc.agentID, reason)
+			res, err := ForceRelease(ctx, ForceReleaseArgs{
+				Store:   bc.store,
+				ItemID:  itemID,
+				AgentID: bc.agentID,
+				Reason:  reason,
+			})
 			if err == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "force-released %s (was held by %s)\n", itemID, prior)
+				fmt.Fprintf(cmd.OutOrStdout(), "force-released %s (was held by %s)\n", res.ItemID, res.HeldBy)
 				return nil
 			}
 			if errors.Is(err, claims.ErrReasonRequired) {

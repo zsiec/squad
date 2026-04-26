@@ -33,18 +33,54 @@ func newHistoryCmd() *cobra.Command {
 	return cmd
 }
 
-func runHistoryBody(ctx context.Context, c *chat.Chat, itemID string, w io.Writer) int {
-	if itemID == "" {
-		fmt.Fprintln(os.Stderr, "usage: squad history <ITEM-ID>")
-		return 4
+// HistoryArgs is the input for History.
+type HistoryArgs struct {
+	Chat   *chat.Chat
+	ItemID string
+}
+
+// HistoryEntry is one row of an item's chat history. TS is unix seconds so
+// JSON consumers can format on their side.
+type HistoryEntry struct {
+	ID    int64  `json:"id"`
+	TS    int64  `json:"ts"`
+	Agent string `json:"agent"`
+	Kind  string `json:"kind"`
+	Body  string `json:"body"`
+}
+
+// HistoryResult is the structured form of one item's full chat history.
+type HistoryResult struct {
+	ItemID  string         `json:"item_id"`
+	Entries []HistoryEntry `json:"entries"`
+}
+
+// History returns every chat message attached to an item, in time order.
+func History(ctx context.Context, args HistoryArgs) (*HistoryResult, error) {
+	if args.ItemID == "" {
+		return nil, fmt.Errorf("history: item id required")
 	}
-	entries, err := c.History(ctx, itemID)
+	entries, err := args.Chat.History(ctx, args.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]HistoryEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, HistoryEntry{
+			ID: e.ID, TS: e.TS, Agent: e.Agent, Kind: e.Kind, Body: e.Body,
+		})
+	}
+	return &HistoryResult{ItemID: args.ItemID, Entries: out}, nil
+}
+
+func runHistoryBody(ctx context.Context, c *chat.Chat, itemID string, w io.Writer) int {
+	res, err := History(ctx, HistoryArgs{Chat: c, ItemID: itemID})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 4
 	}
-	fmt.Fprintf(w, "history for %s:\n", itemID)
-	for _, e := range entries {
+	fmt.Fprintf(w, "history for %s:\n", res.ItemID)
+	for _, e := range res.Entries {
 		fmt.Fprintf(w, "  #%-5d [%s] %s (%s): %s\n",
 			e.ID, time.Unix(e.TS, 0).Format("2006-01-02 15:04"), e.Agent, e.Kind, e.Body)
 	}

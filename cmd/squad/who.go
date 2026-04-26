@@ -40,13 +40,25 @@ func newWhoCmd() *cobra.Command {
 	return cmd
 }
 
-func runWhoBody(ctx context.Context, c *chat.Chat, jsonOut, activeOnly bool, w io.Writer) int {
-	rows, err := c.WhoList(ctx)
+// WhoArgs is the input for Who.
+type WhoArgs struct {
+	Chat       *chat.Chat
+	ActiveOnly bool
+}
+
+// WhoResult lists registered agents with their current state.
+type WhoResult struct {
+	Agents []chat.WhoRow `json:"agents"`
+}
+
+// Who returns every registered agent in this repo, optionally filtered to
+// those with status active|idle.
+func Who(ctx context.Context, args WhoArgs) (*WhoResult, error) {
+	rows, err := args.Chat.WhoList(ctx)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 4
+		return nil, err
 	}
-	if activeOnly {
+	if args.ActiveOnly {
 		filtered := rows[:0]
 		for _, r := range rows {
 			if r.Status == "active" || r.Status == "idle" {
@@ -55,6 +67,16 @@ func runWhoBody(ctx context.Context, c *chat.Chat, jsonOut, activeOnly bool, w i
 		}
 		rows = filtered
 	}
+	return &WhoResult{Agents: rows}, nil
+}
+
+func runWhoBody(ctx context.Context, c *chat.Chat, jsonOut, activeOnly bool, w io.Writer) int {
+	res, err := Who(ctx, WhoArgs{Chat: c, ActiveOnly: activeOnly})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 4
+	}
+	rows := res.Agents
 
 	if jsonOut {
 		enc := json.NewEncoder(w)

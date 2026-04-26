@@ -41,6 +41,11 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_attest", "squad_attestations",
 		"squad_learning_propose", "squad_learning_list", "squad_learning_approve", "squad_learning_reject",
 		"squad_learning_agents_md_suggest", "squad_learning_agents_md_approve", "squad_learning_agents_md_reject",
+		"squad_handoff", "squad_knock", "squad_answer",
+		"squad_force_release", "squad_reassign", "squad_archive",
+		"squad_history", "squad_who", "squad_status",
+		"squad_touch", "squad_untouch", "squad_touches_list_others",
+		"squad_pr_link", "squad_pr_close",
 	}
 	have := map[string]bool{}
 	for _, tt := range toolsResp.Result.Tools {
@@ -156,5 +161,51 @@ func mustWriteItem(t *testing.T, repoRoot, id, title string) {
 	path := filepath.Join(dir, id+".md")
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestMCP_StatusRoundTrip is a smoke test for the new coordination tools:
+// it calls squad_status (a read-only tool from the registerCoordinationTools
+// batch) and confirms the structured response shape decodes cleanly.
+func TestMCP_StatusRoundTrip(t *testing.T) {
+	env := newTestEnv(t)
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_status","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				Claimed int `json:"claimed"`
+				Ready   int `json:"ready"`
+				Blocked int `json:"blocked"`
+				Done    int `json:"done"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error: %+v", resp.Error)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	// EXAMPLE-001 ships as a ready item by default, so Ready should be ≥ 1.
+	if resp.Result.StructuredContent.Ready < 1 {
+		t.Errorf("expected ≥1 ready item; got %+v", resp.Result.StructuredContent)
 	}
 }

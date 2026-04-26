@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -9,6 +10,103 @@ import (
 
 	"github.com/zsiec/squad/internal/touch"
 )
+
+// TouchArgs is the input for Touch.
+type TouchArgs struct {
+	Tracker *touch.Tracker
+	AgentID string
+	ItemID  string
+	Paths   []string
+}
+
+// TouchedFile records each declared file plus any peer agents already
+// touching it.
+type TouchedFile struct {
+	Path      string   `json:"path"`
+	Conflicts []string `json:"conflicts,omitempty"`
+}
+
+// TouchResult lists every path touched in this call.
+type TouchResult struct {
+	ItemID string        `json:"item_id"`
+	Files  []TouchedFile `json:"files"`
+}
+
+// Touch declares the agent is editing the given paths under itemID, and
+// reports any peer agents already touching the same files.
+func Touch(ctx context.Context, args TouchArgs) (*TouchResult, error) {
+	if args.ItemID == "" {
+		return nil, fmt.Errorf("touch: item id required")
+	}
+	if len(args.Paths) == 0 {
+		return nil, fmt.Errorf("touch: at least one path required")
+	}
+	out := make([]TouchedFile, 0, len(args.Paths))
+	for _, p := range args.Paths {
+		conflicts, err := args.Tracker.Add(ctx, args.AgentID, args.ItemID, p)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, TouchedFile{Path: p, Conflicts: conflicts})
+	}
+	return &TouchResult{ItemID: args.ItemID, Files: out}, nil
+}
+
+// UntouchArgs is the input for Untouch. Empty Paths releases everything
+// the agent is touching.
+type UntouchArgs struct {
+	Tracker *touch.Tracker
+	AgentID string
+	Paths   []string
+}
+
+// UntouchResult reports how many touches were released.
+type UntouchResult struct {
+	Released int      `json:"released"`
+	Paths    []string `json:"paths,omitempty"`
+}
+
+// Untouch releases the named paths (or all of the agent's touches when
+// Paths is empty).
+func Untouch(ctx context.Context, args UntouchArgs) (*UntouchResult, error) {
+	if len(args.Paths) == 0 {
+		n, err := args.Tracker.ReleaseAll(ctx, args.AgentID)
+		if err != nil {
+			return nil, err
+		}
+		return &UntouchResult{Released: n}, nil
+	}
+	for _, p := range args.Paths {
+		if err := args.Tracker.Release(ctx, args.AgentID, p); err != nil {
+			return nil, err
+		}
+	}
+	return &UntouchResult{Released: len(args.Paths), Paths: args.Paths}, nil
+}
+
+// TouchesListOthersArgs is the input for TouchesListOthers.
+type TouchesListOthersArgs struct {
+	Tracker *touch.Tracker
+	AgentID string
+}
+
+// TouchesListOthersResult lists active touches by peer agents.
+type TouchesListOthersResult struct {
+	Touches []touch.ActiveTouch `json:"touches"`
+}
+
+// TouchesListOthers returns active file touches held by agents other than
+// the caller — used by the pre-edit-touch-check hook.
+func TouchesListOthers(ctx context.Context, args TouchesListOthersArgs) (*TouchesListOthersResult, error) {
+	rows, err := args.Tracker.ListOthers(ctx, args.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	if rows == nil {
+		rows = []touch.ActiveTouch{}
+	}
+	return &TouchesListOthersResult{Touches: rows}, nil
+}
 
 func newTouchesCmd() *cobra.Command {
 	cmd := &cobra.Command{

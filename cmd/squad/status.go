@@ -28,30 +28,49 @@ func newStatusCmd() *cobra.Command {
 	}
 }
 
-func runStatus(_ []string, stdout io.Writer) int {
-	wd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "getwd: %v\n", err)
-		return 4
+// StatusArgs is the input for Status. RepoRoot defaults to the cwd when
+// empty (CLI use); MCP callers pass it explicitly.
+type StatusArgs struct {
+	RepoRoot string
+}
+
+// StatusResult reports per-repo item counts.
+type StatusResult struct {
+	Claimed int `json:"claimed"`
+	Ready   int `json:"ready"`
+	Blocked int `json:"blocked"`
+	Done    int `json:"done"`
+}
+
+// Status returns claimed / ready / blocked / done counts for the repo.
+// Pure read-side aggregation: walks .squad/items + queries the active
+// claims table, with no writes.
+func Status(ctx context.Context, args StatusArgs) (*StatusResult, error) {
+	root := args.RepoRoot
+	if root == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("getwd: %w", err)
+		}
+		discovered, err := repo.Discover(wd)
+		if err != nil {
+			return nil, fmt.Errorf("find repo: %w", err)
+		}
+		root = discovered
 	}
-	root, err := repo.Discover(wd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "find repo: %v\n", err)
-		return 4
-	}
+
 	squadDir := filepath.Join(root, ".squad")
 	w, err := items.Walk(squadDir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "walk items: %v\n", err)
-		return 4
+		return nil, fmt.Errorf("walk items: %w", err)
 	}
 
 	claimed := make(map[string]struct{})
 	if db, derr := store.OpenDefault(); derr == nil {
 		defer db.Close()
 		if repoID, rerr := repo.IDFor(root); rerr == nil {
-			_ = items.Mirror(context.Background(), db, repoID, w)
-			rows, qerr := db.QueryContext(context.Background(),
+			_ = items.Mirror(ctx, db, repoID, w)
+			rows, qerr := db.QueryContext(ctx,
 				`SELECT item_id FROM claims WHERE repo_id = ?`, repoID)
 			if qerr == nil {
 				defer rows.Close()
@@ -83,8 +102,22 @@ func runStatus(_ []string, stdout io.Writer) int {
 		}
 	}
 
+	return &StatusResult{
+		Claimed: len(claimed),
+		Ready:   ready,
+		Blocked: c.Blocked,
+		Done:    c.Done,
+	}, nil
+}
+
+func runStatus(_ []string, stdout io.Writer) int {
+	res, err := Status(context.Background(), StatusArgs{})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 4
+	}
 	fmt.Fprintf(stdout, "claimed: %d\nready: %d\nblocked: %d\ndone: %d\n",
-		len(claimed), ready, c.Blocked, c.Done)
+		res.Claimed, res.Ready, res.Blocked, res.Done)
 	return 0
 }
 

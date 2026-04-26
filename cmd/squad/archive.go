@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +13,42 @@ import (
 	"github.com/zsiec/squad/internal/hygiene"
 	"github.com/zsiec/squad/internal/store"
 )
+
+// ArchiveArgs is the input for Archive. Before is the cutoff: messages
+// older than (now - Before) are rolled into the per-month archive DB.
+type ArchiveArgs struct {
+	DB     *sql.DB
+	RepoID string
+	Before time.Duration
+}
+
+// ArchiveResult reports the result of one archive run.
+type ArchiveResult struct {
+	MessagesArchived int    `json:"messages_archived"`
+	ArchivePath      string `json:"archive_path"`
+}
+
+// Archive rolls chat messages older than args.Before into a per-month
+// archive DB under ~/.squad/archive/.
+func Archive(ctx context.Context, args ArchiveArgs) (*ArchiveResult, error) {
+	if args.Before <= 0 {
+		return nil, fmt.Errorf("archive: before must be positive")
+	}
+	home, err := store.Home()
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Join(home, "archive")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	cutoff := time.Now().Add(-args.Before).Unix()
+	n, path, err := hygiene.Archive(ctx, args.DB, args.RepoID, dir, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	return &ArchiveResult{MessagesArchived: n, ArchivePath: path}, nil
+}
 
 func newArchiveCmd() *cobra.Command {
 	var before string
@@ -29,20 +67,14 @@ func newArchiveCmd() *cobra.Command {
 			}
 			defer bc.Close()
 
-			home, err := store.Home()
+			res, err := Archive(ctx, ArchiveArgs{
+				DB: bc.db, RepoID: bc.repoID, Before: dur,
+			})
 			if err != nil {
 				return err
 			}
-			dir := filepath.Join(home, "archive")
-			if err := os.MkdirAll(dir, 0o755); err != nil {
-				return err
-			}
-			cutoff := time.Now().Add(-dur).Unix()
-			n, path, err := hygiene.Archive(ctx, bc.db, bc.repoID, dir, cutoff)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "archived %d message(s) to %s\n", n, path)
+			fmt.Fprintf(cmd.OutOrStdout(), "archived %d message(s) to %s\n",
+				res.MessagesArchived, res.ArchivePath)
 			return nil
 		},
 	}
