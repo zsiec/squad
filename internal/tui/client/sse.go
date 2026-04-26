@@ -72,6 +72,20 @@ func (c *Client) streamEvents(ctx context.Context, out chan<- Event) error {
 			ev.Payload = json.RawMessage(strings.TrimPrefix(line, "data: "))
 		case line == "":
 			if ev.Kind != "" {
+				// The server marshals chat.Event ({kind, payload}) onto the
+				// data: line, so what's currently in ev.Payload is the
+				// envelope, not the inner payload. Unwrap so typed payload
+				// structs decode against the inner object. If unmarshal
+				// fails or the inner kind disagrees with the SSE event:
+				// line, leave ev.Payload as the raw data so the consumer
+				// can still see the frame and surface the anomaly.
+				var env struct {
+					Kind    string          `json:"kind"`
+					Payload json.RawMessage `json:"payload"`
+				}
+				if err := json.Unmarshal(ev.Payload, &env); err == nil && env.Kind == ev.Kind {
+					ev.Payload = env.Payload
+				}
 				select {
 				case out <- ev:
 				case <-ctx.Done():
