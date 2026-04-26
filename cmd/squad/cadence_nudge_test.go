@@ -19,13 +19,15 @@ func TestPrintCadenceNudge_ClaimEmitsThinkingTip(t *testing.T) {
 	}
 }
 
-func TestPrintCadenceNudge_DoneEmitsLearningTip(t *testing.T) {
+func TestPrintCadenceNudge_DoneWithoutTypeIsSilent(t *testing.T) {
 	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
 	var buf bytes.Buffer
+	// The 2-arg wrapper passes itemType="" — overhead/unknown types are
+	// silent under the type-aware contract. Done call sites that want a
+	// nudge must call printCadenceNudgeFor with the actual item type.
 	printCadenceNudge(&buf, "done")
-	got := buf.String()
-	if !strings.Contains(got, "squad learning propose") {
-		t.Fatalf("done nudge should mention `squad learning propose`, got %q", got)
+	if buf.Len() != 0 {
+		t.Fatalf("done with no type should be silent, got %q", buf.String())
 	}
 }
 
@@ -49,5 +51,62 @@ func TestPrintCadenceNudge_UnknownKindIsNoOp(t *testing.T) {
 	printCadenceNudge(&buf, "bogus")
 	if buf.Len() != 0 {
 		t.Fatalf("unknown kind should print nothing, got %q", buf.String())
+	}
+}
+
+func TestPrintCadenceNudgeFor_DoneBugMentionsGotcha(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printCadenceNudgeFor(&buf, "done", "bug")
+	got := buf.String()
+	if !strings.Contains(got, "gotcha") {
+		t.Fatalf("done+bug should mention gotcha, got %q", got)
+	}
+	if !strings.Contains(got, "squad learning propose gotcha") {
+		t.Fatalf("done+bug should mention `squad learning propose gotcha`, got %q", got)
+	}
+}
+
+func TestPrintCadenceNudgeFor_DoneFeatureOrTaskUsesGenericCopy(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	for _, typ := range []string{"feat", "feature", "task"} {
+		t.Run("type="+typ, func(t *testing.T) {
+			var buf bytes.Buffer
+			printCadenceNudgeFor(&buf, "done", typ)
+			got := buf.String()
+			if !strings.Contains(got, "surprised by anything?") {
+				t.Fatalf("done+%s should use generic copy, got %q", typ, got)
+			}
+			if !strings.Contains(got, "squad learning propose") {
+				t.Fatalf("done+%s should mention `squad learning propose`, got %q", typ, got)
+			}
+			if strings.Contains(got, "gotcha") {
+				t.Fatalf("done+%s should NOT mention gotcha, got %q", typ, got)
+			}
+		})
+	}
+}
+
+func TestPrintCadenceNudgeFor_DoneOverheadTypesAreSilent(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	for _, typ := range []string{"chore", "tech-debt", "bet", ""} {
+		t.Run("type="+typ, func(t *testing.T) {
+			var buf bytes.Buffer
+			printCadenceNudgeFor(&buf, "done", typ)
+			if buf.Len() != 0 {
+				t.Fatalf("done+%q should print nothing, got %q", typ, buf.String())
+			}
+		})
+	}
+}
+
+func TestPrintCadenceNudgeFor_SuppressedByEnv(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "1")
+	var buf bytes.Buffer
+	printCadenceNudgeFor(&buf, "done", "bug")
+	printCadenceNudgeFor(&buf, "done", "feat")
+	printCadenceNudgeFor(&buf, "claim", "")
+	if buf.Len() != 0 {
+		t.Fatalf("env=1 should suppress all variants, got %q", buf.String())
 	}
 }

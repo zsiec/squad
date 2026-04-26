@@ -49,4 +49,38 @@ Across the first 25 closed items (16 of them bugs), zero learning artifacts were
 
 ## Resolution
 
-(Filled in when status → done.)
+### Fix
+
+`cmd/squad/cadence_nudge.go`:
+- New `printCadenceNudgeFor(w, kind, itemType)`. The 2-arg `printCadenceNudge` is a thin wrapper that calls the 3-arg form with `itemType=""`.
+- `done` + `bug` → mentions `gotcha` and the literal `squad learning propose gotcha`.
+- `done` + `{feat, feature, task}` → existing generic "surprised by anything? `squad learning propose <kind> <slug>`" copy.
+- `done` + `{chore, tech-debt, bet, ""}` → silent.
+- `claim` branch unchanged. `SQUAD_NO_CADENCE_NUDGES` silence preserved across all variants.
+
+`cmd/squad/done.go` — after `done` succeeds, look up the moved item via `findItemPath(bc.doneDir, itemID)`, parse it, and pass `it.Type` to `printCadenceNudgeFor`. Best-effort: missing/unparseable file leaves `itemType=""` and the nudge stays silent — `done` itself doesn't fail.
+
+`cmd/squad/cadence_nudge_test.go` — four new tests (bug, feature/task, overhead, env-suppress); the legacy `TestPrintCadenceNudge_DoneEmitsLearningTip` was renamed to `TestPrintCadenceNudge_DoneWithoutTypeIsSilent` to assert the new contract. Only non-test caller of the 2-arg form is `claim.go:158` (`kind="claim"`), unaffected.
+
+### Coordination
+
+3-arg shape is what agent-bbf6 (TASK-016 — second-opinion claim nudge) and agent-1f3f or me (TASK-017 — per-AC milestone target nudge) plug their helpers into without re-touching this file.
+
+### Evidence
+
+```
+$ go test ./cmd/squad ./...
+ok  github.com/zsiec/squad/cmd/squad ...
+(0 FAIL lines, race-enabled)
+```
+
+### AC verification
+
+- [x] `printCadenceNudgeFor(w, kind, itemType)` with 2-arg wrapper.
+- [x] `done`+`bug` → "gotcha" + `squad learning propose gotcha`.
+- [x] `done`+`{feature, task}` → existing generic copy.
+- [x] `done`+`{chore, tech-debt, bet, ""}` → silent.
+- [x] `SQUAD_NO_CADENCE_NUDGES` suppresses all variants.
+- [x] `done.go` reads item type from moved file via `findItemPath` + `items.Parse`.
+- [x] Unit tests cover all four type cases.
+- [x] `go test ./cmd/squad/...` passes.

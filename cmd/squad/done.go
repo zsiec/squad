@@ -188,7 +188,13 @@ func newDoneCmd() *cobra.Command {
 						res.ItemID, joinKinds(res.BypassedKinds))
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "done %s\n", res.ItemID)
-				printCadenceNudge(cmd.ErrOrStderr(), "done")
+				itemType := ""
+				if donePath := findItemPath(bc.doneDir, itemID); donePath != "" {
+					if it, err := items.Parse(donePath); err == nil {
+						itemType = it.Type
+					}
+				}
+				printCadenceNudgeFor(cmd.ErrOrStderr(), "done", itemType)
 				return nil
 			}
 			var miss *EvidenceMissingError
