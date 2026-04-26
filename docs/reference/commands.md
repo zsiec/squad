@@ -39,12 +39,13 @@ squad who
 
 ### `squad new`
 
-Create a new item file under `.squad/items/`.
+Create a new item file under `.squad/items/`. New items default to `status: captured` — filed in the inbox, not yet eligible for `squad next`. Pass `--ready` to file straight to `status: open` if the body already passes the [Definition of Ready](../concepts/intake.md#definition-of-ready); the command refuses with an error if it doesn't.
 
 ```bash
 squad new feat "add the export button"
 squad new bug "race in the cache flusher"
 squad new feat "kafka migration" --priority P0 --area infra --estimate 4h --risk high
+squad new chore "rotate keys" --ready                # skip the inbox; must pass DoR
 ```
 
 Flags (each falls back to `defaults.<key>` in `.squad/config.yaml`, finally to a built-in default):
@@ -52,6 +53,54 @@ Flags (each falls back to `defaults.<key>` in `.squad/config.yaml`, finally to a
 - `--area <tag>` (default: `<fill-in>`)
 - `--estimate 30m|1h|4h|1d` (default: 1h)
 - `--risk low|medium|high` (default: low)
+- `--ready` (default: off; file as `open` instead of `captured`)
+
+### `squad inbox`
+
+List captured items — items filed but not yet promoted to `open`. Captured items don't appear in `squad next` and can't be claimed.
+
+```bash
+squad inbox                       # everything captured in this repo
+squad inbox --mine                # only items you captured
+squad inbox --ready-only          # only items that already pass DoR
+squad inbox --rejected            # log of rejected items (separate flow)
+```
+
+Each line shows the id, kind, title, age, and DoR status (which rules pass / fail).
+
+### `squad accept`
+
+Promote a captured item to `open`. Runs the [Definition of Ready](../concepts/intake.md#definition-of-ready) check; refuses with the violations listed if the item isn't ready. Accepts multiple ids in one call.
+
+```bash
+squad accept FEAT-001
+squad accept FEAT-002 BUG-007 TASK-014
+```
+
+On success, the frontmatter is rewritten to `status: open`, `accepted_by` and `accepted_at` are set, and the item shows up in `squad next`.
+
+### `squad reject`
+
+Permanently drop a captured item. Deletes the file and appends a row to `.squad/inbox/rejected.log` with the id, title, reason, agent, and timestamp. The `--reason` flag is required — there is no anonymous reject.
+
+```bash
+squad reject BUG-001 --reason "duplicate of BUG-007"
+squad reject FEAT-009 TASK-022 --reason "merged into FEAT-014"
+```
+
+There is no un-reject. To re-file rejected content, use `squad new`.
+
+### `squad ready`
+
+Inspect Definition of Ready status without changing state. Useful in edit loops while you flesh out a captured item.
+
+```bash
+squad ready --check FEAT-001               # one item
+squad ready --check FEAT-001 BUG-007       # several
+squad ready --check --strict               # exit non-zero on any violation (CI use)
+```
+
+Exit 0 with no violations; exit 0 with violations printed unless `--strict`.
 
 ### `squad next`
 
@@ -111,6 +160,19 @@ squad spec-new auth "rebuild authentication around OIDC"
 ```
 
 Prints the absolute path to the created file on success. Names must be kebab-case; titles are free-form.
+
+### `squad decompose`
+
+Draft a set of captured items from a spec. Reads `.squad/specs/<spec>.md`, asks the model to suggest a parallel decomposition, and writes one captured item per chunk under `.squad/items/` with `parent_spec: <spec>` set in frontmatter. Triage the drafts via `squad inbox --parent-spec=<spec>`.
+
+```bash
+squad decompose auth-rework
+squad decompose auth-rework --print-prompt    # echo the prompt for debugging
+```
+
+Drafts are captured, not open — each one runs through the [Definition of Ready](../concepts/intake.md#definition-of-ready) on `squad accept`. The slash-command equivalent is `/squad-decompose <spec>`.
+
+See [recipes/decomposition.md](../recipes/decomposition.md) for the full workflow.
 
 ## Onboarding
 

@@ -123,19 +123,9 @@ That's the whole cycle. Everything else is repetition.
 
 ## Day 1 — your first real item
 
-Ask Claude:
+New items land in `captured` state — filed but not yet claimable — so you can capture fast and shape later. Ask Claude *"capture a feat for [the smallest real thing you can think of in this repo]"* (or `squad new feat "..."` in a terminal, or the `/squad-capture` slash command from anywhere in the conversation). The item shows up in `squad inbox`, not in `squad next`. When you're ready, edit the file to set an `area:` and add `## Acceptance criteria` checkboxes, then run `squad accept FEAT-001` — the Definition of Ready check decides whether it's ready to claim. Reject the ones that don't make the cut with `squad reject FEAT-001 --reason "..."`.
 
-> *"File a feat for [the smallest real thing you can think of in this repo]."*
-
-Claude calls `squad_new feat "..."`, which scaffolds a frontmatter-only stub at `.squad/items/FEAT-001-...md`. Then ask Claude to draft the acceptance criteria, or open the file yourself and fill in:
-
-- `## Problem` — what's wrong / what doesn't exist.
-- `## Acceptance criteria` — the list of testable things; **be specific**, not "works correctly."
-- `## Notes` — anything else.
-
-Then: *"Claim FEAT-001 and start."*
-
-(Terminal: `squad new feat "..."` then `squad claim FEAT-001 --intent "..."`.)
+For the full triage loop, see [recipes/triage.md](recipes/triage.md). For larger work that decomposes into many items, see [recipes/decomposition.md](recipes/decomposition.md).
 
 ## Day 1 — install optional hooks
 
