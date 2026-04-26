@@ -2,6 +2,8 @@ package attest
 
 import (
 	"context"
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -112,5 +114,69 @@ func TestLedger_Insert_DuplicateHashDedupes(t *testing.T) {
 	}
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (dedup)", len(got))
+	}
+}
+
+func TestLedger_Verify_DetectsTampering(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "g.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	L := New(db, "repo-x", nil)
+
+	payload := []byte("PASS\nok  \tgithub.com/x/y\t0.123s\n")
+	hash := L.Hash(payload)
+	outPath := filepath.Join(dir, "att", hash+".txt")
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rec := Record{
+		ItemID: "FEAT-001", Kind: KindTest, Command: "go test ./...",
+		OutputHash: hash, OutputPath: outPath, AgentID: "a",
+	}
+	if _, err := L.Insert(context.Background(), rec); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := L.Verify(context.Background(), "FEAT-001"); err != nil {
+		t.Fatalf("clean ledger should verify, got %v", err)
+	}
+
+	if err := os.WriteFile(outPath, []byte("FAKED PASS\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err = L.Verify(context.Background(), "FEAT-001")
+	if err == nil {
+		t.Fatal("expected tampering error")
+	}
+	if !errors.Is(err, ErrHashMismatch) {
+		t.Fatalf("want ErrHashMismatch, got %v", err)
+	}
+}
+
+func TestLedger_Verify_MissingFile(t *testing.T) {
+	dir := t.TempDir()
+	db, err := store.Open(filepath.Join(dir, "g.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	L := New(db, "repo-x", nil)
+	rec := Record{
+		ItemID: "FEAT-001", Kind: KindTest, Command: "x",
+		OutputHash: "h", OutputPath: filepath.Join(dir, "missing.txt"),
+		AgentID: "a",
+	}
+	if _, err := L.Insert(context.Background(), rec); err != nil {
+		t.Fatal(err)
+	}
+	err = L.Verify(context.Background(), "FEAT-001")
+	if !errors.Is(err, ErrOutputMissing) {
+		t.Fatalf("want ErrOutputMissing, got %v", err)
 	}
 }

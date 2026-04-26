@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"time"
 
 	sqlite "modernc.org/sqlite"
@@ -105,6 +107,33 @@ func isUniqueViolation(err error) bool {
 			sErr.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE
 	}
 	return false
+}
+
+var (
+	ErrHashMismatch  = errors.New("attestation output hash mismatch")
+	ErrOutputMissing = errors.New("attestation output file missing")
+)
+
+func (l *Ledger) Verify(ctx context.Context, itemID string) error {
+	recs, err := l.ListForItem(ctx, itemID)
+	if err != nil {
+		return err
+	}
+	for _, r := range recs {
+		data, err := os.ReadFile(r.OutputPath)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return fmt.Errorf("%w: %s (kind=%s, hash=%s)", ErrOutputMissing, r.OutputPath, r.Kind, r.OutputHash)
+			}
+			return fmt.Errorf("read attestation %d: %w", r.ID, err)
+		}
+		got := l.Hash(data)
+		if got != r.OutputHash {
+			return fmt.Errorf("%w: kind=%s file=%s recorded=%s actual=%s",
+				ErrHashMismatch, r.Kind, r.OutputPath, r.OutputHash, got)
+		}
+	}
+	return nil
 }
 
 func (l *Ledger) ListForItem(ctx context.Context, itemID string) ([]Record, error) {
