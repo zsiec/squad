@@ -1,8 +1,14 @@
 package learning
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+var (
+	ErrNotFound  = errors.New("learning not found")
+	ErrAmbiguous = errors.New("ambiguous learning slug")
 )
 
 func ResolveSingle(repoRoot, slug string) (Learning, error) {
@@ -18,7 +24,7 @@ func ResolveSingle(repoRoot, slug string) (Learning, error) {
 	}
 	switch len(hits) {
 	case 0:
-		return Learning{}, fmt.Errorf("no learning with slug %q", slug)
+		return Learning{}, fmt.Errorf("no learning with slug %q: %w", slug, ErrNotFound)
 	case 1:
 		return hits[0], nil
 	default:
@@ -26,7 +32,7 @@ func ResolveSingle(repoRoot, slug string) (Learning, error) {
 		for _, h := range hits {
 			pp = append(pp, h.Path)
 		}
-		return Learning{}, fmt.Errorf("slug %q is ambiguous, matches:\n  %s",
-			slug, strings.Join(pp, "\n  "))
+		return Learning{}, fmt.Errorf("slug %q is ambiguous, matches:\n  %s: %w",
+			slug, strings.Join(pp, "\n  "), ErrAmbiguous)
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -64,21 +63,6 @@ func newLearningApproveCmd() *cobra.Command {
 	}
 }
 
-// resolveLearning wraps learning.ResolveSingle to translate its plain-string
-// errors into typed sentinels. ResolveSingle currently formats "no learning
-// with slug" / "slug %q is ambiguous" — we keep its full message for the
-// user-facing surface but classify via errors.Is.
 func resolveLearning(repoRoot, slug string) (learning.Learning, error) {
-	l, err := learning.ResolveSingle(repoRoot, slug)
-	if err == nil {
-		return l, nil
-	}
-	msg := err.Error()
-	switch {
-	case strings.Contains(msg, "no learning with slug"):
-		return learning.Learning{}, fmt.Errorf("%w: %s", ErrLearningNotFound, msg)
-	case strings.Contains(msg, "ambiguous"):
-		return learning.Learning{}, fmt.Errorf("%w: %s", ErrAmbiguousSlug, msg)
-	}
-	return learning.Learning{}, err
+	return learning.ResolveSingle(repoRoot, slug)
 }

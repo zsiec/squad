@@ -1,13 +1,18 @@
 package main
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/zsiec/squad/internal/learning"
+)
 
 // Sentinel errors shared by the learning approve/reject pure functions.
-// The cobra wrappers preserve pre-lift user-facing messages by composing
-// new error strings; MCP callers can errors.Is to discriminate.
+// ErrLearningNotFound and ErrAmbiguousSlug alias the internal/learning
+// sentinels so callers can errors.Is against either name; ResolveSingle
+// is the single source of truth for the wrapped value.
 var (
-	ErrLearningNotFound = errors.New("learning not found")
-	ErrAmbiguousSlug    = errors.New("learning slug ambiguous")
+	ErrLearningNotFound = learning.ErrNotFound
+	ErrAmbiguousSlug    = learning.ErrAmbiguous
 	ErrNotProposed      = errors.New("learning is not in proposed state")
 	ErrReasonRequired   = errors.New("--reason is required")
 )
