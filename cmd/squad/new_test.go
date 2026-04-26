@@ -88,6 +88,45 @@ func TestRunNew_PersistsItemRowImmediately(t *testing.T) {
 	}
 }
 
+func TestRunNew_PropagatesPersistError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".squad", "config.yaml"), []byte(""), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Point SQUAD_HOME at a path whose parent is a regular file. EnsureHome
+	// MkdirAll fails because a path component is not a directory, which makes
+	// store.OpenDefault return an error. runNew must propagate that error
+	// rather than silently swallow it (re-introducing the items-table lag
+	// the persist hook was meant to fix).
+	parentFile := filepath.Join(dir, "not-a-dir")
+	if err := os.WriteFile(parentFile, []byte("blocker"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SQUAD_HOME", filepath.Join(parentFile, "home"))
+	t.Chdir(dir)
+
+	var stdout bytes.Buffer
+	code := runNew([]string{"bug", "Should fail loudly"}, &stdout, items.Options{})
+	if code == 0 {
+		t.Fatalf("expected non-zero exit when persist fails; got 0 with stdout %q", stdout.String())
+	}
+	// File should still exist on disk — the failure is in persist, not in the
+	// disk write. Re-running idempotently must remain possible.
+	matches, err := filepath.Glob(filepath.Join(dir, ".squad", "items", "BUG-*.md"))
+	if err != nil {
+		t.Fatalf("glob items: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one BUG-*.md left on disk, got %d: %v", len(matches), matches)
+	}
+}
+
 func TestRunNew_RejectsUnknownPrefix(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".squad", "items"), 0o755); err != nil {

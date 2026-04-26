@@ -106,17 +106,33 @@ func runNew(args []string, stdout io.Writer, opts items.Options) int {
 		return 4
 	}
 
-	if db, derr := store.OpenDefault(); derr == nil {
-		defer db.Close()
-		if repoID, rerr := repo.IDFor(root); rerr == nil {
-			if parsed, perr := items.Parse(path); perr == nil {
-				_ = items.Persist(context.Background(), db, repoID, parsed, false)
-			}
-		}
+	if err := persistNewItem(root, path); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 4
 	}
 
 	fmt.Fprintln(stdout, path)
 	return 0
+}
+
+func persistNewItem(root, path string) error {
+	db, err := store.OpenDefault()
+	if err != nil {
+		return fmt.Errorf("persist new item: open store: %w", err)
+	}
+	defer db.Close()
+	repoID, err := repo.IDFor(root)
+	if err != nil {
+		return fmt.Errorf("persist new item: repo id: %w", err)
+	}
+	parsed, err := items.Parse(path)
+	if err != nil {
+		return fmt.Errorf("persist new item: parse: %w", err)
+	}
+	if err := items.Persist(context.Background(), db, repoID, parsed, false); err != nil {
+		return fmt.Errorf("persist new item: %w", err)
+	}
+	return nil
 }
 
 func containsString(list []string, s string) bool {
