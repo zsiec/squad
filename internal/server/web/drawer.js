@@ -128,6 +128,7 @@ function renderDrawer(it, activity) {
     ${progressBar(it.progress_pct || 0)}
     ${depsSection(it)}
     ${referencesSection(it)}
+    ${evidenceSection(it)}
     ${acSection(it)}
     ${bodySection(sections)}
     ${stateTimelineSection(it, activity)}
@@ -161,6 +162,9 @@ function renderDrawer(it, activity) {
 
   // wire mutation buttons
   wireItemActions(drawerBody, it);
+
+  // lazy-load evidence list once the section is mounted
+  loadEvidence(it.id, drawerBody);
 
   // wire similar-row clicks
   drawerBody.querySelectorAll('.similar-row').forEach((r) => {
@@ -364,6 +368,56 @@ async function annotateReferenceHotness(root) {
 export function refreshHotness() {
   if (!state.itemId) return;
   annotateReferenceHotness(drawerBody);
+}
+
+function evidenceSection(it) {
+  const required = (it.evidence_required || []);
+  // section is rendered as a placeholder; populated lazily by loadEvidence().
+  return `
+    <section class="drawer-section evidence-section" data-evidence-host>
+      <div class="drawer-section-head">Evidence <span class="count" data-ev-count></span></div>
+      ${required.length ? `
+        <div class="ev-required" data-ev-required>
+          <div class="ev-required-head">Required</div>
+          <ul class="ev-required-list">
+            ${required.map((k) => `<li data-ev-kind="${escapeHtml(k)}"><span class="ev-status" data-ev-status>—</span> ${escapeHtml(k)}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+      <ul class="ev-list" data-ev-list><li class="ev-loading">loading…</li></ul>
+    </section>`;
+}
+
+async function loadEvidence(itemId, root) {
+  const list = root.querySelector('[data-ev-list]');
+  const countEl = root.querySelector('[data-ev-count]');
+  if (!list) return;
+  try {
+    const recs = await fetchJSON('/api/items/' + encodeURIComponent(itemId) + '/attestations');
+    countEl.textContent = recs.length ? recs.length + '' : '';
+    if (!recs.length) {
+      list.innerHTML = '<li class="ev-empty">no attestations yet</li>';
+    } else {
+      list.innerHTML = recs.map((r) => `
+        <li class="ev-row">
+          <span class="ev-kind">${escapeHtml(r.kind)}</span>
+          <code class="ev-cmd" title="${escapeHtml(r.command)}">${escapeHtml(r.command)}</code>
+          <span class="ev-exit ${r.exit_code === 0 ? 'ok' : 'bad'}">exit ${r.exit_code}</span>
+          <span class="ev-hash" title="${escapeHtml(r.output_hash)}">${escapeHtml(String(r.output_hash || '').slice(0, 8))}</span>
+          <span class="ev-when">${escapeHtml(fmtAgo(r.created_at))} ago</span>
+          <span class="ev-agent">${escapeHtml(r.agent_id)}</span>
+        </li>`).join('');
+    }
+    // tick the required-status checks
+    const haveKinds = new Set(recs.map((r) => r.kind));
+    root.querySelectorAll('[data-ev-kind]').forEach((li) => {
+      const k = li.dataset.evKind;
+      const status = li.querySelector('[data-ev-status]');
+      if (haveKinds.has(k)) { status.textContent = '✓'; status.className = 'ev-status ok'; }
+      else                  { status.textContent = '✗'; status.className = 'ev-status bad'; }
+    });
+  } catch (err) {
+    list.innerHTML = `<li class="ev-empty">${escapeHtml(err.message)}</li>`;
+  }
 }
 
 function acSection(it) {

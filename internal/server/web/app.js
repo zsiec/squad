@@ -15,6 +15,7 @@ import { initSavedViews } from './savedviews.js';
 import { openNewItemModal, setOnMutated as setOnActionMutated } from './actions.js';
 import { initSidebar } from './sidebar.js';
 import { initInbox, refreshCount as refreshInboxCount } from './inbox.js';
+import { initLearnings } from './learnings.js';
 
 // clock
 clock(document.getElementById('clock'));
@@ -60,6 +61,7 @@ document.getElementById('depgraph-btn')?.addEventListener('click', openDepGraph)
 document.getElementById('new-item-btn')?.addEventListener('click', openNewItemModal);
 initSidebar({ onItem: (id) => { openItem(id); setSelected(id); } });
 initInbox({ onChange: () => { refreshBoard().then(refreshChrome); } });
+initLearnings();
 
 // after any item mutation: refresh board + drawer; optionally open the new item.
 setOnActionMutated(async (id, opts) => {
