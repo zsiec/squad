@@ -106,7 +106,6 @@ CREATE TABLE IF NOT EXISTS items (
   PRIMARY KEY (repo_id, item_id)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS idx_items_repo_status ON items(repo_id, status);
-CREATE INDEX IF NOT EXISTS idx_items_epic ON items(repo_id, epic_id);
 
 CREATE TABLE IF NOT EXISTS specs (
   repo_id     TEXT NOT NULL,

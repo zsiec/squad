@@ -2,8 +2,11 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestOpen_AppliesSchemaIdempotently(t *testing.T) {
@@ -205,5 +208,74 @@ func TestSchema_SpecsAndEpicsTablesExist(t *testing.T) {
 		if n != 1 {
 			t.Errorf("table %q missing (count=%d)", table, n)
 		}
+	}
+}
+
+// TestOpen_UpgradesPreR3Schema simulates a pre-R3 DB (items table without
+// epic_id) and confirms Open() applies the additive migration cleanly. The
+// regression this guards against: schema.sql used to CREATE INDEX on epic_id
+// before additiveAlters added the column, so any pre-R3 DB failed to open
+// with "no such column: epic_id".
+func TestOpen_UpgradesPreR3Schema(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "global.db")
+
+	pre, err := sql.Open("sqlite", "file:"+path+"?_pragma=journal_mode(WAL)")
+	if err != nil {
+		t.Fatalf("pre-Open: %v", err)
+	}
+	const preR3Items = `
+		CREATE TABLE items (
+		  repo_id    TEXT NOT NULL,
+		  item_id    TEXT NOT NULL,
+		  type       TEXT NOT NULL,
+		  title      TEXT NOT NULL,
+		  status     TEXT NOT NULL,
+		  priority   TEXT,
+		  estimate   TEXT,
+		  risk       TEXT,
+		  not_before TEXT,
+		  ac_total   INTEGER NOT NULL DEFAULT 0,
+		  ac_checked INTEGER NOT NULL DEFAULT 0,
+		  archived   INTEGER NOT NULL DEFAULT 0,
+		  path       TEXT NOT NULL,
+		  updated_at INTEGER NOT NULL,
+		  PRIMARY KEY (repo_id, item_id)
+		) STRICT
+	`
+	if _, err := pre.Exec(preR3Items); err != nil {
+		pre.Close()
+		t.Fatalf("seed pre-R3 items: %v", err)
+	}
+	pre.Close()
+
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open against pre-R3 DB: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query(`SELECT name FROM pragma_table_info('items')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	cols := map[string]bool{}
+	for rows.Next() {
+		var n string
+		_ = rows.Scan(&n)
+		cols[n] = true
+	}
+	for _, c := range []string{"epic_id", "parallel", "conflicts_with"} {
+		if !cols[c] {
+			t.Errorf("items missing column %q after upgrade", c)
+		}
+	}
+
+	var idx string
+	if err := db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='index' AND name='idx_items_epic'`,
+	).Scan(&idx); err != nil {
+		t.Errorf("idx_items_epic missing after upgrade: %v", err)
 	}
 }
