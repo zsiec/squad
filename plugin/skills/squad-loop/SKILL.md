@@ -48,3 +48,7 @@ The loop is a forcing function for visibility and accountability. `squad go` kee
 - Skipping `squad go` because "I know what I'm doing." Continuous hooks need a registered identity; without `squad go` you may post under a stale id.
 - Marking done without re-reading the AC. Each box must map to a test you wrote or a step you actually performed.
 - Treating review as ceremony. Review costs ~30 seconds and catches what you cannot see in your own diff.
+
+## Refinement claims (special case)
+
+Items in `needs-refinement` are markdown edits, not code work — a reviewer sent the item back with notes under `## Reviewer feedback`. The verbs are `squad refine` (list what's waiting) → `squad claim <ID>` → edit the body to address the feedback → `squad recapture <ID>`. Skip TDD, skip evidence gates, skip `squad done`: there is no code to test, and `recapture` is the close-out. The claim ledger is the only correctness contract — hold the claim while editing so two agents do not refine the same item. `recapture` moves the working `## Reviewer feedback` into `## Refinement history` as `### Round N — YYYY-MM-DD`, flips status back to `captured`, and releases the claim; you do not manage that bookkeeping by hand.
