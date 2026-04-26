@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/zsiec/squad/internal/store"
 )
 
 type Scope int
@@ -315,20 +317,17 @@ func (w *Workspace) Forget(ctx context.Context, repoID string, force bool) error
 			return fmt.Errorf("repo %s has %d active claims; pass --force to forget anyway", repoID, n)
 		}
 	}
-	tx, err := w.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	for _, q := range []string{
-		`DELETE FROM claims WHERE repo_id = ?`,
-		`DELETE FROM messages WHERE repo_id = ?`,
-		`DELETE FROM agents WHERE repo_id = ?`,
-		`DELETE FROM repos WHERE id = ?`,
-	} {
-		if _, err := tx.ExecContext(ctx, q, repoID); err != nil {
-			return err
+	return store.WithTxRetry(ctx, w.db, func(tx *sql.Tx) error {
+		for _, q := range []string{
+			`DELETE FROM claims WHERE repo_id = ?`,
+			`DELETE FROM messages WHERE repo_id = ?`,
+			`DELETE FROM agents WHERE repo_id = ?`,
+			`DELETE FROM repos WHERE id = ?`,
+		} {
+			if _, err := tx.ExecContext(ctx, q, repoID); err != nil {
+				return err
+			}
 		}
-	}
-	return tx.Commit()
+		return nil
+	})
 }
