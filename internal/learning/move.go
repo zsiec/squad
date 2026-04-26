@@ -17,7 +17,11 @@ func RewriteState(body []byte, target State) []byte {
 }
 
 // Promote moves a learning to a new state directory and rewrites its
-// frontmatter state: line atomically (write to .tmp, rename).
+// frontmatter state: line atomically (write to .tmp, rename). If the
+// final src removal fails, dst is rolled back so a subsequent Walk
+// returns at most one copy and ResolveSingle stays unambiguous; if the
+// rollback itself fails, the returned error names both paths so the
+// user can clean up by hand.
 func Promote(l Learning, target State) (string, error) {
 	if l.State == target {
 		return l.Path, nil
