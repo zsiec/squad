@@ -4,11 +4,11 @@ title: squad recapture CLI verb
 type: task
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777242006
 accepted_by: agent-1f3f
@@ -34,9 +34,9 @@ Full reference in Task 7 of the implementation plan.
 
 ## Acceptance criteria
 
-- [ ] Happy path: `squad recapture <ID>` (with held claim, item in `needs-refinement`) produces a body with `## Reviewer feedback` removed, `## Refinement history` containing the round, frontmatter `status: captured`. Claim released.
-- [ ] No-claim case errors with a message mentioning "claim".
-- [ ] 2 CLI tests in `cmd/squad/recapture_test.go`; output pasted.
+- [x] Happy path: `squad recapture <ID>` (with held claim, item in `needs-refinement`) produces a body with `## Reviewer feedback` removed, `## Refinement history` containing the round, frontmatter `status: captured`. Claim released.
+- [x] No-claim case errors with a message mentioning "claim".
+- [x] 2 CLI tests in `cmd/squad/recapture_test.go`; output pasted.
 
 ## Notes
 

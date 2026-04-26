@@ -4,7 +4,7 @@ title: web SPA — EventSource never closed and drawer rebinds listeners on each
 type: bug
 priority: P2
 area: spa
-status: open
+status: done
 estimate: 45m
 risk: low
 created: 2026-04-26

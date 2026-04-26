@@ -4,11 +4,11 @@ title: squad refine CLI verb (mark + list)
 type: task
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777242005
 accepted_by: agent-1f3f

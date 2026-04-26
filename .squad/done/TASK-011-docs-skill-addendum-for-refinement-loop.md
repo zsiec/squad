@@ -4,11 +4,11 @@ title: docs + skill addendum for refinement loop
 type: task
 priority: P3
 area: docs
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777242010
 accepted_by: agent-1f3f
@@ -41,10 +41,10 @@ Watch the token budget regression test in `internal/scaffold/` — small changes
 
 ## Acceptance criteria
 
-- [ ] `plugin/skills/squad-loop/SKILL.md` has a "Refinement claims (special case)" section.
-- [ ] `internal/scaffold/templates/AGENTS.md.tmpl` references the refinement verbs in the loop summary.
-- [ ] `docs/recipes/refining-captured-items.md` exists.
-- [ ] `go test ./internal/scaffold/ -count=1` passes (token budget regression intact); output pasted.
+- [x] `plugin/skills/squad-loop/SKILL.md` has a "Refinement claims (special case)" section.
+- [x] `internal/scaffold/templates/AGENTS.md.tmpl` references the refinement verbs in the loop summary.
+- [x] `docs/recipes/refining-captured-items.md` exists.
+- [x] `go test ./internal/scaffold/ -count=1` passes (token budget regression intact); output pasted.
 
 ## Notes
 

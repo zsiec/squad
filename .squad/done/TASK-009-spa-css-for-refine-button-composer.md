@@ -4,11 +4,11 @@ title: SPA — CSS for Refine button + composer
 type: task
 priority: P2
 area: web-ui
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777242008
 accepted_by: agent-1f3f
