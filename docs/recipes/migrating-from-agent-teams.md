@@ -87,16 +87,19 @@ squad fyi @agent-you "I'm on FEAT-002, will ping when ready for review"
 
 You'll feel the difference immediately: agent-teams' SendMessage was synchronous within a session; squad chat is durable, async, and you can hand off the conversation to a fresh session tomorrow.
 
-## Step 6 — Verify with the evidence ledger (R4)
+## Step 6 — Verify with the evidence ledger
 
-Once R4 has landed, every `squad done` can be backed by `squad attest` evidence. This is the durability dividend you didn't have under agent-teams:
+Every `squad done` can be backed by `squad attest` evidence. This is the durability dividend you didn't have under agent-teams:
 
 ```bash
 # Run your tests, capture the result.
 squad attest --item FEAT-001 --kind test --command "go test ./..."
 
-# Run your reviewer (or self-review with disprove-before-report skill).
-squad attest --item FEAT-001 --kind review --reviewer-agent agent-helper
+# Run your reviewer. Write findings to a file first; squad attest reads the
+# body, hashes it, and stores it as the review record.
+echo "approved: tests green, claims structurally sound" > /tmp/review.md
+squad attest --item FEAT-001 --kind review \
+    --reviewer-agent agent-helper --findings-file /tmp/review.md
 
 # Close out.
 squad done FEAT-001 --summary "..."
@@ -153,7 +156,7 @@ You initialized squad twice in nested repos. Run `squad doctor` to find which on
 That's the default. `squad next` shows them; `squad claim` picks them up.
 
 **I want the agent-teams `TeammateIdle` hook behavior in squad.**
-Squad's R1 plugin uses the `Stop` hook for the same effect. After R6, `squad install_plugin` wires it up. See [reference/hooks.md](../reference/hooks.md).
+Squad's plugin uses the `Stop` hook for the same effect. `squad install-plugin` wires it up. See [reference/hooks.md](../reference/hooks.md).
 
 ## See also
 
