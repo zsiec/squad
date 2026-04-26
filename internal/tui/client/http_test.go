@@ -71,6 +71,42 @@ func TestClient_GET_ReturnsStatusErrOn404(t *testing.T) {
 	}
 }
 
+func TestClient_GET_AddsAgentHeader(t *testing.T) {
+	var gotAgent string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAgent = r.Header.Get("X-Squad-Agent")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "").WithAgent("agent-me")
+	var got map[string]any
+	if err := c.GET(context.Background(), "/api/health", &got); err != nil {
+		t.Fatal(err)
+	}
+	if gotAgent != "agent-me" {
+		t.Fatalf("agent header=%q", gotAgent)
+	}
+}
+
+func TestClient_GET_NoAgentHeaderWhenNotSet(t *testing.T) {
+	var gotAgent string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAgent = r.Header.Get("X-Squad-Agent")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	var got map[string]any
+	if err := c.GET(context.Background(), "/api/health", &got); err != nil {
+		t.Fatal(err)
+	}
+	if gotAgent != "" {
+		t.Fatalf("expected no agent header, got %q", gotAgent)
+	}
+}
+
 func TestClient_POST_SendsJSONBody(t *testing.T) {
 	var gotBody map[string]any
 	var gotContentType string
