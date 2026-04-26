@@ -108,8 +108,21 @@ func TestSession_EnterSendsMessage(t *testing.T) {
 		t.Fatal("POST not made")
 	}
 	bm := body.(map[string]any)
-	if bm["body"] != "hello" || bm["thread"] != "target" {
-		t.Errorf("post body=%v", bm)
+	if bm["thread"] != "global" {
+		t.Errorf("post thread=%v want global", bm["thread"])
+	}
+	mentions, _ := bm["mentions"].([]any)
+	hasTarget := false
+	for _, m := range mentions {
+		if m == "target" {
+			hasTarget = true
+		}
+	}
+	if !hasTarget {
+		t.Errorf("expected mentions to include 'target', got %v", mentions)
+	}
+	if bm["body"] != "hello" {
+		t.Errorf("post body=%v", bm["body"])
 	}
 	if bm["kind"] != "say" {
 		t.Errorf("expected kind=say, got %v", bm["kind"])
