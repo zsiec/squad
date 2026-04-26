@@ -123,6 +123,65 @@ func TestAttest_TestKind_HappyPath(t *testing.T) {
 	}
 }
 
+func TestAttest_PositionalItemID(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-attest-positional")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDir(t, repoDir)
+	t.Chdir(repoDir)
+
+	initCmd := newInitCmd()
+	initCmd.SetOut(&bytes.Buffer{})
+	initCmd.SetErr(&bytes.Buffer{})
+	initCmd.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := initCmd.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	if err := os.WriteFile(
+		filepath.Join(repoDir, ".squad", "items", "FEAT-001-test.md"),
+		[]byte(attestTestItemBody),
+		0o644,
+	); err != nil {
+		t.Fatalf("write item: %v", err)
+	}
+
+	claim := newRootCmd()
+	claim.SetOut(&bytes.Buffer{})
+	claim.SetErr(&bytes.Buffer{})
+	claim.SetArgs([]string{"claim", "FEAT-001"})
+	if err := claim.Execute(); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	// Positional item id, no --item flag — matches the convention every
+	// other claim verb (done, release, claim, blocked, etc.) uses.
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"attest", "FEAT-001", "--kind", "test", "--command", "printf 'ok\\n'"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("attest with positional: %v\nout=%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "FEAT-001") {
+		t.Errorf("output missing FEAT-001: %s", out.String())
+	}
+
+	// Conflict between positional and --item should surface, not silently
+	// pick one.
+	conflict := newRootCmd()
+	var cOut bytes.Buffer
+	conflict.SetOut(&cOut)
+	conflict.SetErr(&cOut)
+	conflict.SetArgs([]string{"attest", "FEAT-001", "--item", "FEAT-002", "--kind", "test", "--command", "true"})
+	if err := conflict.Execute(); err == nil {
+		t.Errorf("expected error on positional/--item conflict; got none\nout=%s", cOut.String())
+	}
+}
+
 func TestAttest_BadKind(t *testing.T) {
 	repoDir := t.TempDir()
 	state := t.TempDir()

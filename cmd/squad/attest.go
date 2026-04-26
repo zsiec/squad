@@ -107,9 +107,18 @@ func recordToResult(r attest.Record) *AttestResult {
 func newAttestCmd() *cobra.Command {
 	var item, kind, command, findingsFile, reviewerAgent string
 	cmd := &cobra.Command{
-		Use:   "attest",
+		Use:   "attest [<item-id>]",
 		Short: "Record a verification artifact (test/lint/build/typecheck/manual) into the evidence ledger",
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			itemID := item
+			if len(args) == 1 {
+				if itemID != "" && itemID != args[0] {
+					return fmt.Errorf("item id given twice (positional %q, --item %q)", args[0], itemID)
+				}
+				itemID = args[0]
+			}
+
 			ctx := cmd.Context()
 			bc, err := bootClaimContext(ctx)
 			if err != nil {
@@ -126,7 +135,7 @@ func newAttestCmd() *cobra.Command {
 				DB:            bc.db,
 				RepoID:        bc.repoID,
 				AgentID:       bc.agentID,
-				ItemID:        item,
+				ItemID:        itemID,
 				Kind:          kind,
 				Command:       command,
 				FindingsFile:  findingsFile,
@@ -153,7 +162,7 @@ func newAttestCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&item, "item", "", "item id (required)")
+	cmd.Flags().StringVar(&item, "item", "", "item id (or pass as the positional argument)")
 	cmd.Flags().StringVar(&kind, "kind", "", "test|lint|typecheck|build|review|manual")
 	cmd.Flags().StringVar(&command, "command", "", "shell command to run and capture")
 	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "review findings file (kind=review only)")

@@ -332,24 +332,29 @@ squad touches list-others --json
 
 Record a verification artifact (test/lint/build/typecheck/manual/review) into the evidence ledger. Items with `evidence_required: [...]` in their frontmatter need an attestation per kind before `squad done` will close them out (without `--force`).
 
+The item id is taken either as a positional argument (matches every other claim verb's convention) or via `--item`. Both forms work; passing both with conflicting values is an error.
+
 ```bash
 # Test, lint, typecheck, build — squad runs the command and stores stdout+exit.
-squad attest --item FEAT-001 --kind test     --command "go test ./..."
-squad attest --item FEAT-001 --kind lint     --command "golangci-lint run"
-squad attest --item FEAT-001 --kind build    --command "go build ./..."
+squad attest FEAT-001 --kind test     --command "go test ./..."
+squad attest FEAT-001 --kind lint     --command "golangci-lint run"
+squad attest FEAT-001 --kind build    --command "go build ./..."
 
 # Review — write findings to a file first; squad reads, hashes, and stores it.
-squad attest --item FEAT-001 --kind review \
+squad attest FEAT-001 --kind review \
     --reviewer-agent agent-helper \
     --findings-file /tmp/review.md
 
 # Manual — record an out-of-band verification (compliance sign-off etc).
-squad attest --item FEAT-001 --kind manual --command "compliance review e-mailed 2026-04-26"
+squad attest FEAT-001 --kind manual --command "compliance review e-mailed 2026-04-26"
+
+# --item form (still supported; useful when scripting):
+squad attest --item FEAT-001 --kind test --command "go test ./..."
 ```
 
 | Flag | Required when | Meaning |
 |---|---|---|
-| `--item <ID>` | always | Item id; the attestation is scoped to one item. |
+| (positional) or `--item` | always | Item id; the attestation is scoped to one item. |
 | `--kind <kind>` | always | One of `test`, `lint`, `typecheck`, `build`, `review`, `manual`. |
 | `--command <cmd>` | always except `kind=review` | Shell command to run; squad captures stdout and exit code into the ledger. |
 | `--findings-file <path>` | `kind=review` | File whose body becomes the review record. |
