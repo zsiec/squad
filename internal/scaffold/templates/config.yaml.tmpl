@@ -15,10 +15,13 @@ id_prefixes:
 {{range .IDPrefixes}}  - {{.}}
 {{end}}
 # Default priority + estimate for newly-filed items if you don't pass flags.
+# `evidence_required` here applies to every item that doesn't override the
+# field in its own frontmatter; per-item lists win outright (replace, not merge).
 defaults:
   priority: P2
   estimate: 1h
   risk: low
+  evidence_required: [test]
 
 # Cap on how many items a single agent can hold open at once. Default 1.
 # Set to a large number (e.g. 100) to effectively disable.

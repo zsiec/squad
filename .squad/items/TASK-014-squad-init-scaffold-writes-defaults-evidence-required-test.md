@@ -45,4 +45,28 @@ Templates live under `internal/scaffold/templates/` (run `find internal/scaffold
 
 ## Resolution
 
-(Filled in when status → done.)
+### Fix
+
+`internal/scaffold/templates/config.yaml.tmpl` — appended `evidence_required: [test]` to the existing `defaults:` block, with a one-line comment explaining replace-not-merge semantics inherited from TASK-012's `Done()` fallback.
+
+### Test
+
+`internal/scaffold/scaffold_test.go::TestConfigTemplate_RendersAllKnobs` — new assertion that the rendered template contains `evidence_required: [test]`. Verified RED before the template change, GREEN after.
+
+> Note: AC #3 mentions `scaffold.Write(tmp, scaffold.Options{})` but no such API exists in this codebase. The actual scaffold flow goes `Templates.ReadFile` → `Render(string(raw), Data{})`. The new assertion plugs into the existing `TestConfigTemplate_RendersAllKnobs` which exercises that same path — same coverage, idiomatic location.
+
+### Evidence
+
+```
+$ go test ./internal/scaffold/...
+ok  	github.com/zsiec/squad/internal/scaffold	0.529s
+```
+
+Full `go test ./...` passes (0 FAIL lines).
+
+### AC verification
+
+- [x] Scaffolded `.squad/config.yaml` defaults block includes `evidence_required: [test]` with explanatory comment.
+- [x] Line appended to existing block (no new block created).
+- [x] Unit test asserts the rendered template contains the new line.
+- [x] `go test ./internal/scaffold/...` passes.

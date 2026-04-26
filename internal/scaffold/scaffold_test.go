@@ -167,6 +167,7 @@ func TestConfigTemplate_RendersAllKnobs(t *testing.T) {
 		"hygiene:",
 		"stale_claim_minutes:",
 		"sweep_on_every_command:",
+		"evidence_required: [test]",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("config template missing %q", want)
