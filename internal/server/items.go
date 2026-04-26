@@ -9,17 +9,23 @@ import (
 )
 
 type itemListRow struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Type      string `json:"type"`
-	Priority  string `json:"priority"`
-	Area      string `json:"area"`
-	Status    string `json:"status"`
-	Estimate  string `json:"estimate"`
-	Risk      string `json:"risk"`
-	ACTotal   int    `json:"ac_total"`
-	ACChecked int    `json:"ac_checked"`
-	Progress  int    `json:"progress_pct"`
+	ID               string   `json:"id"`
+	Title            string   `json:"title"`
+	Type             string   `json:"type"`
+	Priority         string   `json:"priority"`
+	Area             string   `json:"area"`
+	Status           string   `json:"status"`
+	Estimate         string   `json:"estimate"`
+	Risk             string   `json:"risk"`
+	ACTotal          int      `json:"ac_total"`
+	ACChecked        int      `json:"ac_checked"`
+	Progress         int      `json:"progress_pct"`
+	Epic             string   `json:"epic"`
+	DependsOn        []string `json:"depends_on"`
+	Parallel         bool     `json:"parallel"`
+	EvidenceRequired []string `json:"evidence_required"`
+	ClaimedBy        string   `json:"claimed_by"`
+	LastTouch        int64    `json:"last_touch"`
 }
 
 // walkAll returns all active + done items below s.cfg.SquadDir.
@@ -40,17 +46,52 @@ func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	type claimInfo struct {
+		Agent     string
+		LastTouch int64
+	}
+	claimByItem := map[string]claimInfo{}
+	rows, err := s.db.QueryContext(r.Context(),
+		`SELECT item_id, agent_id, last_touch FROM claims WHERE repo_id = ?`, s.cfg.RepoID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for rows.Next() {
+		var id, agent string
+		var lt int64
+		if err := rows.Scan(&id, &agent, &lt); err == nil {
+			claimByItem[id] = claimInfo{Agent: agent, LastTouch: lt}
+		}
+	}
+	rows.Close()
+
 	statusFilter := r.URL.Query().Get("status")
 	out := make([]itemListRow, 0, len(all))
 	for _, it := range all {
 		if statusFilter != "" && it.Status != statusFilter {
 			continue
 		}
-		out = append(out, itemListRow{
+		deps := it.DependsOn
+		if deps == nil {
+			deps = []string{}
+		}
+		evReq := it.EvidenceRequired
+		if evReq == nil {
+			evReq = []string{}
+		}
+		row := itemListRow{
 			ID: it.ID, Title: it.Title, Type: it.Type, Priority: it.Priority,
 			Area: it.Area, Status: it.Status, Estimate: it.Estimate, Risk: it.Risk,
 			ACTotal: it.ACTotal, ACChecked: it.ACChecked, Progress: it.ProgressPct(),
-		})
+			Epic: it.Epic, DependsOn: deps, Parallel: it.Parallel, EvidenceRequired: evReq,
+		}
+		if c, ok := claimByItem[it.ID]; ok {
+			row.ClaimedBy = c.Agent
+			row.LastTouch = c.LastTouch
+		}
+		out = append(out, row)
 	}
 	writeJSON(w, http.StatusOK, out)
 }
