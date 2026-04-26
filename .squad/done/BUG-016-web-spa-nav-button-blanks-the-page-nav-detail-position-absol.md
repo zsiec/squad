@@ -4,11 +4,11 @@ title: web SPA nav button blanks the page — nav-detail position:absolute inset
 type: bug
 priority: P1
 area: web-ui
-status: open
+status: done
 estimate: 15m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-401f
 captured_at: 1777242496
 accepted_by: agent-401f

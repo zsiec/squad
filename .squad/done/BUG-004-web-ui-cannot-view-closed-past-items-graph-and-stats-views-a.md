@@ -4,11 +4,11 @@ title: web UI cannot view closed/past items; graph and stats views are broken
 type: bug
 priority: P2
 area: web-ui
-status: open
+status: done
 estimate: 2h
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-1f3f
 captured_at: 1777238416
 accepted_by: agent-1f3f

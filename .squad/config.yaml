@@ -1,0 +1,64 @@
+# .squad/config.yaml
+# Project-level configuration for squad. Every knob has a default; you can
+# delete any block you don't care about and squad will fall back. The schema
+# is documented at https://github.com/zsiec/squad/blob/main/docs/reference/config.md
+#
+# This file IS checked into git. Operational state (claims, chat, file
+# touches) lives in ~/.squad/global.db and is machine-local.
+
+project_name: squad
+
+# ID prefixes squad will accept on `squad new <prefix>` and `squad claim`.
+# The defaults work for most projects; add your own (e.g. `INFRA`, `SEC`,
+# `STD`) and squad will treat them as first-class types.
+id_prefixes:
+  - BUG
+  - FEAT
+  - TASK
+  - CHORE
+
+# Default priority + estimate for newly-filed items if you don't pass flags.
+defaults:
+  priority: P2
+  estimate: 1h
+  risk: low
+
+# Cap on how many items a single agent can hold open at once. Default 1.
+# Set to a large number (e.g. 100) to effectively disable.
+agent:
+  claim_concurrency: 1
+
+# Verification gates. `squad done` runs these and refuses to move the item
+# until they pass. Pass `--skip-verify` to override locally.
+#
+# Each entry is a command + an optional evidence pattern squad greps from
+# stdout to confirm the run was real. Replace these with YOUR project's
+# test commands.
+verification:
+  pre_commit:
+    - cmd: "go test ./... -race"
+      evidence: "ok\\s.*\\s[0-9.]+s"
+    - cmd: "go vet ./..."
+      evidence: ""
+
+# Hygiene sweep. Reclaims stale claims, marks ghost agents, validates the
+# items/done file tree. Disable per-invocation with SQUAD_NO_HYGIENE=1.
+hygiene:
+  # claims with no last_touch past this are flagged stale and auto-reclaimed
+  stale_claim_minutes: 60
+  # run the sweep after every squad command (debounced ~10s); set to false
+  # to disable in this repo without touching the env
+  sweep_on_every_command: true
+
+# Pre-edit touch-check policy. The pre_edit_touch_check.sh hook calls
+# `squad touches policy <file>` and emits the PreToolUse JSON it returns.
+# Default: every conflict prompts Claude with permissionDecision: "ask".
+# Switch to deny + a list of doublestar globs to hard-block edits on
+# red-flag files (dependency manifests, schemas, lockfiles).
+#
+# touch:
+#   enforcement: deny
+#   enforcement_paths:
+#     - go.mod
+#     - go.sum
+#     - "**/*.lock"

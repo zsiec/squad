@@ -127,3 +127,44 @@ All four documents live in `/Users/zsiec/dev/switchframe/docs/plans/`. They are 
 ## Updating this file
 
 Update this file when codebase structure or conventions change materially. The conventions section is load-bearing — every contributor reads it. Keep the codebase orientation in sync with the actual tree.
+
+<!-- squad-managed:start -->
+# squad (managed by squad)
+
+This block is owned by `squad init`. Edits inside the markers may be
+overwritten on `squad init` re-runs. Edit OUTSIDE the markers freely;
+those sections are yours.
+
+## For agents starting a session
+
+Read these in order before doing any work:
+
+1. **`AGENTS.md`** — operating manual: how to pick work, work it, commit, update, hand off
+2. **`.squad/STATUS.md`** — what's in flight, what's ready, what's blocked
+3. The relevant item under `.squad/items/<ID>-*.md` — the acceptance criteria are the contract
+
+Then take the one-command path:
+
+```bash
+squad go
+```
+
+`squad go` registers a session-stable id, claims the top ready item, prints
+its acceptance criteria, and flushes any unread chat. It's idempotent —
+re-run it to resume the same claim and re-flush the mailbox.
+
+## Loop summary
+
+- Pick top item: `squad next`
+- Claim: `squad claim <ID> --intent "<one sentence>"`
+- Stay visible: `squad thinking <msg>` / `squad milestone <msg>` / `squad stuck <msg>`
+- Close: `squad done <ID> --summary "<outcome>"`
+
+## Conventions
+
+- TDD by default. Failing test → implementation → passing test → commit.
+- Commits: `feat:` / `fix:` / `test:` / `docs:` / `perf:` / `refactor:` / `chore:`.
+- No backlog IDs in commit messages, filenames, or code identifiers.
+- Quality bar in `AGENTS.md` §4.5 — tests passing is necessary but not sufficient.
+
+<!-- squad-managed:end -->
