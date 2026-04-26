@@ -454,12 +454,12 @@ squad version
 **Status:** Specified, implementation deferred until Claude Code's agent-teams API exits experimental. Reflects squad-managed items into an active agent-teams session as native tasks.
 
 ```text
-squad bridge agent-teams [--team <name>] [--items <filter>] [--once] [--read-only]
+squad bridge agent-teams [--team <name>] [--items <filter>] [--once]
 ```
 
 #### What it does
 
-Mirrors the current repo's pending-and-claimed squad items into `~/.claude/tasks/<team>/tasks.json` so an agent-teams lead and teammates can see them in their native task list. The mirror is one-way (squad → agent-teams) and session-scoped (torn down on `SIGINT`, `SessionEnd`, or `--once` exit).
+Mirrors the current repo's pending-and-claimed squad items into the active agent-teams team's task directory at `~/.claude/tasks/<team>/` so an agent-teams lead and teammates can see them in their native task list. The mirror is one-way (squad → agent-teams) and session-scoped (torn down on `SIGINT`, `SessionEnd`, or `--once` exit). Status changes from the agent-teams side update squad's claim `last_touch` only; they cannot transition an item to `done`. There is no flag to enable two-way sync — the bridge is read-mostly by design.
 
 #### Flags
 
@@ -468,7 +468,6 @@ Mirrors the current repo's pending-and-claimed squad items into `~/.claude/tasks
 | `--team <name>` | `default` | The agent-teams team directory under `~/.claude/tasks/`. Created if absent (with the team's own consent — the bridge will not create a directory in another team's namespace). |
 | `--items <filter>` | `pending,claimed` | Comma-separated squad statuses to mirror. `done` is intentionally not mirrorable. |
 | `--once` | off | Mirror once and exit instead of watching. Useful for scripting; default is to watch. |
-| `--read-only` | on | The bridge is always read-mostly: status changes from agent-teams update squad's claim `last_touch` only; they cannot transition an item to `done`. The flag exists so users can audit; setting it off is a no-op (the bridge will not implement two-way at any point). |
 
 #### Naming convention
 
@@ -501,7 +500,7 @@ agent-teams session start
 
 #### Why deferred
 
-The on-disk format at `~/.claude/tasks/<team>/tasks.json` is documented but flagged as subject to change while agent-teams is experimental. Squad will not ship a stable bridge against an unstable upstream. The implementation re-enters the queue when **either** of the following ships upstream:
+The on-disk format under `~/.claude/tasks/<team>/` is flagged as subject to change while agent-teams is experimental. Squad will not ship a stable bridge against an unstable upstream. The implementation re-enters the queue when **either** of the following ships upstream:
 
 1. Agent-teams exits experimental and the on-disk format is documented as stable, OR
 2. Anthropic publishes a `claude tasks` (or equivalent) command surface that gives a stable shell-level API for reading and writing the same data.
