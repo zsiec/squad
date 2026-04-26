@@ -73,6 +73,26 @@ type PostMessageReq struct {
 	Thread   string   `json:"thread"`
 	Body     string   `json:"body"`
 	Mentions []string `json:"mentions,omitempty"`
+	Kind     string   `json:"kind,omitempty"` // defaults server-side to "say"
+}
+
+// ClaimReq is the body for POST /api/items/{id}/claim.
+type ClaimReq struct {
+	Intent  string   `json:"intent,omitempty"`
+	Long    bool     `json:"long,omitempty"`
+	Touches []string `json:"touches,omitempty"`
+}
+
+// HandoffReq is the body for POST /api/items/{id}/handoff.
+type HandoffReq struct {
+	To      string `json:"to"`
+	Summary string `json:"summary,omitempty"`
+}
+
+// ForceReleaseResp captures the body of POST /api/items/{id}/force-release.
+type ForceReleaseResp struct {
+	OK          bool   `json:"ok"`
+	PriorHolder string `json:"prior_holder,omitempty"`
 }
 
 // --- Specs ---

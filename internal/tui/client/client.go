@@ -152,3 +152,51 @@ func (c *Client) WorkspaceStatus(ctx context.Context) (WorkspaceStatus, error) {
 	var out WorkspaceStatus
 	return out, c.GET(ctx, "/api/workspace/status", &out)
 }
+
+func (c *Client) Claim(ctx context.Context, itemID string, req *ClaimReq) error {
+	if req == nil {
+		req = &ClaimReq{}
+	}
+	var resp map[string]any
+	return c.POST(ctx, "/api/items/"+itemID+"/claim", req, &resp)
+}
+
+func (c *Client) Release(ctx context.Context, itemID, outcome string) error {
+	body := map[string]any{}
+	if outcome != "" {
+		body["outcome"] = outcome
+	}
+	var resp map[string]any
+	return c.POST(ctx, "/api/items/"+itemID+"/release", body, &resp)
+}
+
+func (c *Client) Done(ctx context.Context, itemID string, evidenceForce bool) error {
+	body := map[string]any{"evidence_force": evidenceForce}
+	var resp map[string]any
+	return c.POST(ctx, "/api/items/"+itemID+"/done", body, &resp)
+}
+
+func (c *Client) Blocked(ctx context.Context, itemID, reason string) error {
+	body := map[string]any{"reason": reason}
+	var resp map[string]any
+	return c.POST(ctx, "/api/items/"+itemID+"/blocked", body, &resp)
+}
+
+func (c *Client) Handoff(ctx context.Context, itemID string, req *HandoffReq) error {
+	var resp map[string]any
+	return c.POST(ctx, "/api/items/"+itemID+"/handoff", req, &resp)
+}
+
+func (c *Client) Touch(ctx context.Context, itemID string) error {
+	var resp map[string]any
+	return c.POST(ctx, "/api/items/"+itemID+"/touch", nil, &resp)
+}
+
+func (c *Client) ForceRelease(ctx context.Context, itemID, reason string) (*ForceReleaseResp, error) {
+	body := map[string]any{"reason": reason}
+	var resp ForceReleaseResp
+	if err := c.POST(ctx, "/api/items/"+itemID+"/force-release", body, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
