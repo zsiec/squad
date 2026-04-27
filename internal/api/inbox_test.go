@@ -13,13 +13,15 @@ import (
 // CHORE-006 was meant to prevent across the server/client split.
 func TestInboxEntry_RoundTrip(t *testing.T) {
 	want := InboxEntry{
-		ID:         "FEAT-100",
-		Title:      "ship the thing",
-		CapturedBy: "agent-x",
-		CapturedAt: 1700000000,
-		ParentSpec: "auth-rework",
-		DoRPass:    true,
-		Path:       "/repo/.squad/items/FEAT-100.md",
+		ID:            "FEAT-100",
+		Title:         "ship the thing",
+		CapturedBy:    "agent-x",
+		CapturedAt:    1700000000,
+		ParentSpec:    "auth-rework",
+		DoRPass:       true,
+		Path:          "/repo/.squad/items/FEAT-100.md",
+		AutoRefinedAt: 1700000050,
+		AutoRefinedBy: "claude",
 	}
 	raw, err := json.Marshal(want)
 	if err != nil {
@@ -43,6 +45,7 @@ func TestInboxEntry_FieldNamesPinned(t *testing.T) {
 		ID: "x", Title: "y", CapturedBy: "z",
 		CapturedAt: 1, ParentSpec: "p",
 		DoRPass: true, Path: "/p",
+		AutoRefinedAt: 2, AutoRefinedBy: "claude",
 	}
 	raw, err := json.Marshal(full)
 	if err != nil {
@@ -56,6 +59,7 @@ func TestInboxEntry_FieldNamesPinned(t *testing.T) {
 		"id": true, "title": true, "captured_by": true,
 		"captured_at": true, "parent_spec": true,
 		"dor_pass": true, "path": true,
+		"auto_refined_at": true, "auto_refined_by": true,
 	}
 	for k := range generic {
 		if !wantKeys[k] {

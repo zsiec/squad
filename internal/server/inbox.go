@@ -28,6 +28,8 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 		}
 		if it, perr := items.Parse(e.Path); perr == nil {
 			e.DoRPass = len(items.DoRCheck(it)) == 0
+			e.AutoRefinedAt = it.AutoRefinedAt
+			e.AutoRefinedBy = it.AutoRefinedBy
 		}
 		out = append(out, e)
 	}

@@ -134,6 +134,87 @@ func TestInbox_OrdersByCapturedAtAsc(t *testing.T) {
 	}
 }
 
+func seedAutoRefined(t *testing.T, dir, id, title string, refinedAt int64) string {
+	t.Helper()
+	itemsDir := filepath.Join(dir, "items")
+	body := fmt.Sprintf(`---
+id: %s
+title: %s
+type: bug
+priority: P2
+area: server
+status: captured
+estimate: 1h
+risk: low
+created: 2026-04-25
+updated: 2026-04-25
+captured_by: agent-x
+captured_at: 1700000300
+auto_refined_at: %d
+auto_refined_by: claude
+---
+
+## Acceptance criteria
+
+- [ ] %s
+`, id, title, refinedAt, title)
+	return writeItem(t, itemsDir, id+"-x.md", body)
+}
+
+func TestInbox_SurfacesAutoRefinedFields(t *testing.T) {
+	db := newTestDB(t)
+	tmp := t.TempDir()
+
+	plainPath := seedCaptured(t, tmp, "BUG-601",
+		"this title is intentionally longer than five words", "agent-a", 1700000100, true)
+	autoPath := seedAutoRefined(t, tmp, "BUG-602",
+		"this title is intentionally longer than five words", 1700000400)
+
+	for _, p := range []string{plainPath, autoPath} {
+		it, err := items.Parse(p)
+		if err != nil {
+			t.Fatalf("parse %s: %v", p, err)
+		}
+		if err := items.Persist(context.Background(), db, testRepoID, it, false); err != nil {
+			t.Fatalf("persist %s: %v", p, err)
+		}
+	}
+
+	s := New(db, testRepoID, Config{RepoID: testRepoID, SquadDir: tmp})
+	defer s.Close()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/inbox", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var out []map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	byID := map[string]map[string]any{}
+	for _, e := range out {
+		byID[e["id"].(string)] = e
+	}
+
+	plain := byID["BUG-601"]
+	if _, ok := plain["auto_refined_at"]; ok {
+		t.Errorf("untouched item must omit auto_refined_at; got %v", plain["auto_refined_at"])
+	}
+	if _, ok := plain["auto_refined_by"]; ok {
+		t.Errorf("untouched item must omit auto_refined_by; got %v", plain["auto_refined_by"])
+	}
+
+	auto := byID["BUG-602"]
+	if got := int64(auto["auto_refined_at"].(float64)); got != 1700000400 {
+		t.Errorf("auto_refined_at=%d want 1700000400", got)
+	}
+	if auto["auto_refined_by"] != "claude" {
+		t.Errorf("auto_refined_by=%v want claude", auto["auto_refined_by"])
+	}
+}
+
 func TestInbox_DoRPassReflectsCheck(t *testing.T) {
 	db := newTestDB(t)
 	tmp := t.TempDir()
