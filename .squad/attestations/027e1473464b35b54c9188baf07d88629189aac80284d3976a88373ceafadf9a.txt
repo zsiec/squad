@@ -1,0 +1,6 @@
+=== RUN   TestMCP_IntakeSmoke_GreenfieldProducesItemOnlyBundle
+--- PASS: TestMCP_IntakeSmoke_GreenfieldProducesItemOnlyBundle (0.05s)
+=== RUN   TestMCP_IntakeSmoke_RefineSupersedesStubItem
+--- PASS: TestMCP_IntakeSmoke_RefineSupersedesStubItem (0.04s)
+PASS
+ok  	github.com/zsiec/squad/cmd/squad	0.499s

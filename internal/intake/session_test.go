@@ -330,3 +330,20 @@ func TestSession_OpenRefineRejectsDoneItem(t *testing.T) {
 		t.Fatalf("expected ErrIntakeItemNotRefinable for done item; got %v", err)
 	}
 }
+
+func TestSession_OpenRefineAcceptsNeedsRefinement(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := writeItem(t, "items", "FEAT-200", "needs-refinement", "tighten ac", "## Problem\nfoo\n")
+
+	_, snap, _, err := Open(ctx, db, OpenParams{
+		RepoID: "repo-a", AgentID: "agent-1", Mode: ModeRefine,
+		RefineItemID: "FEAT-200", SquadDir: squadDir,
+	})
+	if err != nil {
+		t.Fatalf("open refine on needs-refinement item: %v", err)
+	}
+	if snap.Status != "needs-refinement" {
+		t.Errorf("snapshot.Status=%q want needs-refinement", snap.Status)
+	}
+}
