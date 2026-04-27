@@ -190,6 +190,16 @@ const schemaRefine = `{
   "additionalProperties": false
 }`
 
+const schemaStandup = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "since":         {"type": "integer", "minimum": 0, "description": "Unix timestamp lower bound. Defaults to now - 24h."},
+    "agent_id":      {"type": "string", "description": "Caller agent identifier; the report scopes to this agent."}
+  },
+  "additionalProperties": false
+}`
+
 const schemaAnalyze = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

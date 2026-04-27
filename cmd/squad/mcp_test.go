@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/zsiec/squad/internal/items"
 )
@@ -49,7 +51,8 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_touch", "squad_untouch", "squad_touches_list_others",
 		"squad_pr_link", "squad_pr_close",
 		"squad_doctor", "squad_stats",
-		"squad_ready", "squad_refine", "squad_analyze",
+		"squad_ready", "squad_refine", "squad_recapture", "squad_analyze",
+		"squad_standup",
 	}
 	have := map[string]bool{}
 	for _, tt := range toolsResp.Result.Tools {
@@ -1184,5 +1187,173 @@ x
 	}
 	if !strings.Contains(strings.ToLower(resp.Error.Message), "claim") {
 		t.Errorf("error message should mention claim, got: %q", resp.Error.Message)
+	}
+}
+
+func writeAnalyzeFixture(t *testing.T, env *testEnv, epicName string) {
+	t.Helper()
+	specPath := filepath.Join(env.Root, ".squad", "specs", "x.md")
+	if err := os.MkdirAll(filepath.Dir(specPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(specPath, []byte("---\ntitle: X\nmotivation: y\nacceptance: [y]\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	epicPath := filepath.Join(env.Root, ".squad", "epics", epicName+".md")
+	if err := os.MkdirAll(filepath.Dir(epicPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(epicPath, []byte("---\nspec: x\nstatus: open\n---\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkItem := func(id, glob string) {
+		body := "---\nid: " + id + "\ntitle: t\ntype: feature\npriority: P1\narea: core\n" +
+			"status: open\nestimate: 1h\nrisk: low\ncreated: 2026-04-25\n" +
+			"updated: 2026-04-25\nepic: " + epicName + "\nparallel: true\n" +
+			"conflicts_with:\n  - " + glob + "\n---\n\n## Problem\nx\n"
+		if err := os.WriteFile(filepath.Join(env.ItemsDir, id+".md"), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mkItem("FEAT-201", "internal/a.go")
+	mkItem("FEAT-202", "internal/a.go")
+	mkItem("FEAT-203", "internal/b.go")
+}
+
+func TestMCPSquadAnalyze_HappyPath(t *testing.T) {
+	env := newTestEnv(t)
+	writeAnalyzeFixture(t, env, "demo-epic")
+
+	resp := callMCPTool(t, env, "squad_analyze", `{"epic_name":"demo-epic"}`)
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %+v", resp.Result.StructuredContent)
+	}
+	got := resp.Result.StructuredContent
+	if got["epic"] != "demo-epic" {
+		t.Errorf("epic=%v want demo-epic", got["epic"])
+	}
+	if got["spec"] != "x" {
+		t.Errorf("spec=%v want x", got["spec"])
+	}
+	streams := mcpObjSlice(t, got["streams"], "streams")
+	if len(streams) < 2 {
+		t.Fatalf("want >=2 streams; got %d: %+v", len(streams), streams)
+	}
+	allItems := map[string]bool{}
+	for _, s := range streams {
+		ids := mcpStringSlice(t, s["item_ids"], "item_ids")
+		for _, id := range ids {
+			allItems[id] = true
+		}
+	}
+	for _, want := range []string{"FEAT-201", "FEAT-202", "FEAT-203"} {
+		if !allItems[want] {
+			t.Errorf("missing %s in streams; got %v", want, allItems)
+		}
+	}
+	if pf, ok := got["parallelism_factor"].(float64); !ok || pf <= 0 {
+		t.Errorf("parallelism_factor=%v want >0", got["parallelism_factor"])
+	}
+}
+
+func TestMCPSquadAnalyze_UnknownEpic(t *testing.T) {
+	env := newTestEnv(t)
+	resp := callMCPTool(t, env, "squad_analyze", `{"epic_name":"does-not-exist"}`)
+	if resp.Error == nil && !resp.Result.IsError {
+		t.Fatalf("expected error for unknown epic; got: %+v", resp.Result.StructuredContent)
+	}
+}
+
+func TestMCP_StandupRoundTrip(t *testing.T) {
+	env := newTestEnv(t)
+	// Plant a "done" event in claim_history attributable to the env agent.
+	if _, err := env.DB.Exec(`
+		INSERT INTO claim_history (repo_id, item_id, agent_id, claimed_at, released_at, outcome)
+		VALUES (?, ?, ?, ?, ?, 'done')`,
+		env.RepoID, "BUG-7001", env.AgentID, 1700000000, 1700000005); err != nil {
+		t.Fatalf("plant: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_standup","arguments":{"since":0}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				Agent  string           `json:"agent"`
+				Repo   string           `json:"repo"`
+				Closed []map[string]any `json:"closed"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code int `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error: %+v", resp.Error)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	if resp.Result.StructuredContent.Agent != env.AgentID {
+		t.Errorf("agent=%q want %q", resp.Result.StructuredContent.Agent, env.AgentID)
+	}
+	if resp.Result.StructuredContent.Repo != env.RepoID {
+		t.Errorf("repo=%q want %q", resp.Result.StructuredContent.Repo, env.RepoID)
+	}
+	if len(resp.Result.StructuredContent.Closed) != 1 {
+		t.Errorf("closed=%d want 1: %+v", len(resp.Result.StructuredContent.Closed), resp.Result.StructuredContent.Closed)
+	}
+}
+
+func TestMCP_StandupEmptyWindow(t *testing.T) {
+	env := newTestEnv(t)
+	// Plant a done event but request a tiny since-window after it.
+	if _, err := env.DB.Exec(`
+		INSERT INTO claim_history (repo_id, item_id, agent_id, claimed_at, released_at, outcome)
+		VALUES (?, ?, ?, ?, ?, 'done')`,
+		env.RepoID, "BUG-7002", env.AgentID, 1700000000, 1700000005); err != nil {
+		t.Fatalf("plant: %v", err)
+	}
+
+	// since = now → window collapses to ~0s; nothing in window.
+	now := time.Now().Unix()
+	body := fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_standup","arguments":{"since":%d}}}`, now)
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" + body + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				Closed []map[string]any `json:"closed"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	if len(resp.Result.StructuredContent.Closed) != 0 {
+		t.Errorf("expected empty closed in tiny window; got %+v", resp.Result.StructuredContent.Closed)
 	}
 }
