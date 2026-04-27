@@ -1,0 +1,1 @@
+smoke: agent_detail.js served (132 lines), app.js wires setClaimNavigateHandler (2 hits), style.css has agent-detail-drawer (3) and a.agent-detail-claim (2), /api/agents/{id}/events returns valid JSON. Browser click test deferred (no harness).

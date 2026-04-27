@@ -4,7 +4,7 @@ title: 'MCP parity: expose squad refine (accepted → captured for refinement)'
 type: task
 priority: P2
 area: mcp
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: [test]

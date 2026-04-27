@@ -4,7 +4,7 @@ title: squad handoff --propose-from-surprises — auto-draft learnings from chat
 type: feature
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 2.5h
 risk: medium
 evidence_required: [test]

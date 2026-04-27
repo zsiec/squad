@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/plugin/hooks	6.416s

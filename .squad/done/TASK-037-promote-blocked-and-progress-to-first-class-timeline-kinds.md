@@ -4,12 +4,12 @@ title: promote blocked and progress to first-class timeline kinds with dedicated
 type: task
 priority: P3
 area: server-spa
-status: open
+status: done
 estimate: 1.5h
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-401f
 captured_at: 1777256400
 accepted_by: agent-401f

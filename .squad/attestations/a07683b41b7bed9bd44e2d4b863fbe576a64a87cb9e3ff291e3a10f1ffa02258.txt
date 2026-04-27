@@ -1,0 +1,37 @@
+?   	github.com/zsiec/squad	[no test files]
+ok  	github.com/zsiec/squad/cmd/squad	13.292s
+ok  	github.com/zsiec/squad/internal/analyze	0.417s
+ok  	github.com/zsiec/squad/internal/attest	0.368s
+ok  	github.com/zsiec/squad/internal/chat	1.097s
+ok  	github.com/zsiec/squad/internal/claims	1.253s
+ok  	github.com/zsiec/squad/internal/commitlog	2.323s
+ok  	github.com/zsiec/squad/internal/config	1.384s
+ok  	github.com/zsiec/squad/internal/epics	1.557s
+ok  	github.com/zsiec/squad/internal/hygiene	3.619s
+ok  	github.com/zsiec/squad/internal/identity	1.753s
+ok  	github.com/zsiec/squad/internal/installer	2.097s
+ok  	github.com/zsiec/squad/internal/items	2.559s
+ok  	github.com/zsiec/squad/internal/learning	1.725s
+ok  	github.com/zsiec/squad/internal/listener	3.934s
+ok  	github.com/zsiec/squad/internal/mcp	1.862s
+ok  	github.com/zsiec/squad/internal/notify	1.965s
+ok  	github.com/zsiec/squad/internal/prmark	1.864s
+ok  	github.com/zsiec/squad/internal/repo	1.653s
+ok  	github.com/zsiec/squad/internal/scaffold	1.875s
+ok  	github.com/zsiec/squad/internal/server	12.433s
+ok  	github.com/zsiec/squad/internal/skills	1.602s
+ok  	github.com/zsiec/squad/internal/specs	1.577s
+ok  	github.com/zsiec/squad/internal/stats	1.634s
+ok  	github.com/zsiec/squad/internal/store	2.131s
+ok  	github.com/zsiec/squad/internal/subagent	1.848s
+ok  	github.com/zsiec/squad/internal/touch	1.703s
+ok  	github.com/zsiec/squad/internal/tui	2.234s
+ok  	github.com/zsiec/squad/internal/tui/client	2.509s
+ok  	github.com/zsiec/squad/internal/tui/components	1.576s
+ok  	github.com/zsiec/squad/internal/tui/daemon	1.438s
+?   	github.com/zsiec/squad/internal/tui/theme	[no test files]
+ok  	github.com/zsiec/squad/internal/tui/views	1.706s
+ok  	github.com/zsiec/squad/internal/workspace	1.663s
+ok  	github.com/zsiec/squad/internal/worktree	2.372s
+ok  	github.com/zsiec/squad/plugin/hooks	8.971s
+ok  	github.com/zsiec/squad/templates/github-actions	1.212s

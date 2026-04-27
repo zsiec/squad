@@ -4,12 +4,12 @@ title: wire SubagentStart + SubagentStop hooks to record events
 type: task
 priority: P2
 area: plugin
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777251705
 accepted_by: agent-bbf6

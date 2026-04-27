@@ -4,12 +4,12 @@ title: SPA timeline view rendering with kind filters + localStorage persistence
 type: task
 priority: P2
 area: spa
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777251709
 accepted_by: agent-bbf6

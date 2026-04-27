@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/cmd/squad	12.186s
+ok  	github.com/zsiec/squad/internal/analyze	0.319s

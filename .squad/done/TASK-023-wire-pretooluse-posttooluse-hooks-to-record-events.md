@@ -4,12 +4,12 @@ title: wire PreToolUse + PostToolUse hooks to record events
 type: task
 priority: P1
 area: plugin
-status: open
+status: done
 estimate: 1h
 risk: medium
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777251704
 accepted_by: agent-bbf6

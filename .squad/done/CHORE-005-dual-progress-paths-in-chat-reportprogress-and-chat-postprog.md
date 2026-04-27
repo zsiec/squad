@@ -4,7 +4,7 @@ title: dual progress paths in chat.ReportProgress and chat.PostProgress
 type: chore
 priority: P3
 area: chat
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: []

@@ -1,0 +1,11 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  9203  100  9203    0     0  11.8M      0 --:--:-- --:--:-- --:--:-- 8987k
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  8720  100  8720    0     0  12.9M      0 --:--:-- --:--:-- --:--:-- 8515k
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 79757  100 79757    0     0   187M      0 --:--:-- --:--:-- --:--:-- 76.0M
+        <span class="tl-badge tl-progress">progress</span>
+.tl-badge.tl-progress { color: var(--accent-2, #9cf); }

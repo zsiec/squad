@@ -4,7 +4,7 @@ title: agent_events.session_id and duration_ms written but unused downstream
 type: chore
 priority: P3
 area: server
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: []

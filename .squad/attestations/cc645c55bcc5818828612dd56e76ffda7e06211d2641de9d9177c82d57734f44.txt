@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/server	36.308s
