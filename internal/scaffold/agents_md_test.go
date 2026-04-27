@@ -73,6 +73,47 @@ func TestRenderAgentsMd_Idempotent(t *testing.T) {
 	}
 }
 
+// TestRenderAgentsMd_RecentlyDoneIncludesSummary pins the FEAT-049 AC
+// shape (id, title, summary) for the Recently-done section. The summary
+// is the close note from `squad done --summary "..."` (recorded as a
+// chat message body and looked up by the cobra wrapper).
+func TestRenderAgentsMd_RecentlyDoneIncludesSummary(t *testing.T) {
+	d := agentsMdFixture()
+	d.Summaries = map[string]string{
+		"BUG-099":   "mapped intake errors at the MCP layer",
+		"CHORE-014": "flipped default_worktree_per_claim to true",
+	}
+	out := RenderAgentsMd(d)
+	for _, want := range []string{
+		"BUG-099",
+		"intake errors surface as -32603",
+		"mapped intake errors at the MCP layer",
+		"CHORE-014",
+		"default_worktree_per_claim true in scaffold",
+		"flipped default_worktree_per_claim to true",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Recently-done render missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// TestRenderAgentsMd_RecentlyDoneFallbackForMissingSummary covers the
+// case where an item closed without a --summary: the line still renders
+// (drop-the-row would lose audit trail) with a clearly-marked
+// placeholder so a reader knows the field was empty, not forgotten.
+func TestRenderAgentsMd_RecentlyDoneFallbackForMissingSummary(t *testing.T) {
+	d := agentsMdFixture()
+	d.Summaries = map[string]string{} // empty — no summary recorded for either done item
+	out := RenderAgentsMd(d)
+	if !strings.Contains(out, "BUG-099") || !strings.Contains(out, "CHORE-014") {
+		t.Fatalf("done items must still render when summaries map is empty:\n%s", out)
+	}
+	if !strings.Contains(out, "_(no summary)_") {
+		t.Errorf("missing-summary fallback marker absent — readers cannot tell empty from absent\n---\n%s", out)
+	}
+}
+
 func TestRenderAgentsMd_EmptyLedgerStillRenders(t *testing.T) {
 	out := RenderAgentsMd(AgentsMdData{})
 	for _, want := range []string{

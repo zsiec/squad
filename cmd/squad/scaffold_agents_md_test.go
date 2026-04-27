@@ -154,6 +154,101 @@ func TestLoadInFlightRows_JoinsClaimsWithItemTitles(t *testing.T) {
 	}
 }
 
+// TestLoadDoneSummaries_ExtractsAndScopesByThread seeds the messages
+// table with a representative mix — done with summary, done without
+// summary, the duplicate global write, and an unrelated chat — and
+// asserts loadDoneSummaries pulls the per-item summary while skipping
+// the global duplicate and the unrelated row. This pins both the SQL
+// scope and the body-parse path that the cobra wrapper relies on to
+// satisfy FEAT-049's (id, title, summary) contract.
+func TestLoadDoneSummaries_ExtractsAndScopesByThread(t *testing.T) {
+	env := newTestEnv(t)
+	rows := []struct {
+		thread, kind, body string
+		ts                 int64
+	}{
+		{"BUG-700", "done", "done BUG-700: shipped the auto-refine endpoint", 100},
+		{"global", "done", "done BUG-700: shipped the auto-refine endpoint", 100},
+		{"FEAT-800", "done", "done FEAT-800", 200},
+		{"BUG-900", "say", "unrelated chatter, not a done event", 300},
+	}
+	for _, r := range rows {
+		if _, err := env.DB.Exec(
+			`INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body) VALUES (?, ?, 'agent-x', ?, ?, ?)`,
+			env.RepoID, r.ts, r.thread, r.kind, r.body,
+		); err != nil {
+			t.Fatalf("seed message: %v", err)
+		}
+	}
+	out, err := loadDoneSummaries(context.Background(), env.DB, env.RepoID)
+	if err != nil {
+		t.Fatalf("loadDoneSummaries: %v", err)
+	}
+	if got := out["BUG-700"]; got != "shipped the auto-refine endpoint" {
+		t.Errorf("BUG-700 summary = %q; want extracted text after the separator", got)
+	}
+	if _, has := out["FEAT-800"]; has {
+		t.Errorf("FEAT-800 closed without --summary should not appear in the map (renderer falls back); got %q", out["FEAT-800"])
+	}
+	if _, has := out["BUG-900"]; has {
+		t.Errorf("non-done message must not appear in summary map; got %q", out["BUG-900"])
+	}
+	if _, has := out["global"]; has {
+		t.Errorf("global thread is the duplicate write and must not appear as a summary key")
+	}
+}
+
+// TestLoadDoneSummaries_LatestWriteWinsOnDuplicateClose covers the
+// edge case where one item somehow has two `done` rows on its thread
+// (re-close after force-release, or schema-level dupe). The renderer
+// shows one line per item; the most-recently-stamped summary wins.
+func TestLoadDoneSummaries_LatestWriteWinsOnDuplicateClose(t *testing.T) {
+	env := newTestEnv(t)
+	for _, r := range []struct {
+		body string
+		ts   int64
+	}{
+		{"done BUG-101: first close summary", 100},
+		{"done BUG-101: corrected after force-release", 200},
+	} {
+		if _, err := env.DB.Exec(
+			`INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body) VALUES (?, ?, 'agent-x', 'BUG-101', 'done', ?)`,
+			env.RepoID, r.ts, r.body,
+		); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	out, err := loadDoneSummaries(context.Background(), env.DB, env.RepoID)
+	if err != nil {
+		t.Fatalf("loadDoneSummaries: %v", err)
+	}
+	if got := out["BUG-101"]; got != "corrected after force-release" {
+		t.Errorf("BUG-101 summary = %q; want the later (ts=200) close", got)
+	}
+}
+
+// TestExtractDoneSummary covers the body-parse rules in isolation so
+// future changes to the chat body shape get caught here rather than
+// silently dropping summaries from AGENTS.md.
+func TestExtractDoneSummary(t *testing.T) {
+	cases := []struct {
+		itemID, body, want string
+	}{
+		{"BUG-1", "done BUG-1: shipped the fix", "shipped the fix"},
+		{"BUG-2", "done BUG-2", ""},
+		{"BUG-3", "done BUG-3:", ""},
+		{"BUG-4", "done BUG-4: ", ""},
+		{"BUG-5", "done BUG-5:    spaced summary    ", "spaced summary"},
+		{"BUG-6", "done BUG-99: wrong id prefix", ""},
+		{"BUG-7", "release BUG-7: not a done message", ""},
+	}
+	for _, c := range cases {
+		if got := extractDoneSummary(c.itemID, c.body); got != c.want {
+			t.Errorf("extractDoneSummary(%q, %q) = %q; want %q", c.itemID, c.body, got, c.want)
+		}
+	}
+}
+
 // TestLoadInFlightRows_OrphanClaimGetsPlaceholderTitle pins that a claim
 // pointing at an item not on disk is rendered with a marker title
 // rather than dropped silently — operator visibility over data loss.

@@ -13,11 +13,12 @@ import (
 // wrapper queries the DB / walks the items dir and assembles this; the
 // render itself is pure so tests can assert on the string.
 type AgentsMdData struct {
-	Ready    []items.Item
-	InFlight []InFlightRow
-	Done     []items.Item
-	Specs    []specs.Spec
-	Epics    []epics.Epic
+	Ready     []items.Item
+	InFlight  []InFlightRow
+	Done      []items.Item
+	Summaries map[string]string
+	Specs     []specs.Spec
+	Epics     []epics.Epic
 }
 
 // InFlightRow joins a claim with the human-readable item title so the
@@ -69,7 +70,11 @@ func RenderAgentsMd(d AgentsMdData) string {
 		sb.WriteString("_No items closed._\n\n")
 	} else {
 		for _, it := range d.Done {
-			fmt.Fprintf(&sb, "- **%s** (%s) — %s\n", it.ID, it.Priority, it.Title)
+			summary := d.Summaries[it.ID]
+			if summary == "" {
+				summary = "_(no summary)_"
+			}
+			fmt.Fprintf(&sb, "- **%s** — %s — %s\n", it.ID, it.Title, summary)
 		}
 		sb.WriteString("\n")
 	}
