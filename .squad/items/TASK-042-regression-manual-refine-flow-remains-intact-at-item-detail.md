@@ -42,3 +42,18 @@ The existing integration test at `internal/server/integration_refine_test.go` ex
 ## Notes
 
 Tiny scope on purpose — most of the regression coverage already exists in the existing integration test. This item is the explicit contract that the epic is additive, not destructive, of the prior refine work.
+
+## Resolution
+
+Manual-refine flow now lives in the inbox modal's per-item detail panel (toggle Details, then "Send for refinement"). The button's `data-action="refine"` is wired through the same `onClick` dispatcher as the row buttons, which routes to `openRefineComposer(id)` (still defined at `internal/server/web/inbox.js`).
+
+Smoke-tested by passing the existing test suite — `TestIntegration_RefineRoundTrip` (the captured → /api/items/{id}/refine → /api/refine list → claim → recapture → back to inbox loop) still passes, and the per-handler `TestItemsRefine_*` / `TestItemsRecapture_*` / `TestSSE_InboxChanged_OnRefine` / `TestRefineCmd_*` / `TestRecaptureCmd_*` all pass unchanged. No JS harness exists in `internal/server/web/`, so the item's escape hatch applies: ship without an automated SPA spec and rely on the Go integration tests + the manual smoke below.
+
+Manual SPA smoke steps (one-time, run when changing the dispatcher or detail-panel render):
+
+1. `go run ./cmd/squad init --yes` in a fresh repo, then `go run ./cmd/squad new feat "needs refinement comments" --area dashboard`.
+2. `go run ./cmd/squad serve --bind 127.0.0.1 --port 18337` and open `http://127.0.0.1:18337/`.
+3. Click the inbox button, expand the item via Details.
+4. Click "Send for refinement" inside the detail panel; type a comment in the textarea; click Send.
+5. Confirm a `POST /api/items/{id}/refine` fires (Network panel) with the comment payload, the toast says "Sent {id} for refinement", and the inbox row disappears (item is now `needs-refinement`).
+6. `go run ./cmd/squad refine` — confirms the item appears on the CLI list.

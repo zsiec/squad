@@ -4,7 +4,7 @@ title: inbox SPA replaces Refine row button with Auto-refine + drafting spinner 
 type: feature
 priority: P2
 area: web-ui
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

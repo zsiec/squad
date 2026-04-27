@@ -1,0 +1,3 @@
+ok  	github.com/zsiec/squad/internal/server	44.791s
+ok  	github.com/zsiec/squad/internal/mcp	1.624s
+ok  	github.com/zsiec/squad/cmd/squad	87.204s

@@ -4,7 +4,7 @@ title: 'integration test: captured item -> auto-refine -> DoR-clean body'
 type: task
 priority: P2
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

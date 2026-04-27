@@ -4,7 +4,7 @@ title: POST /api/items/{id}/auto-refine endpoint with subprocess and narrow MCP 
 type: feature
 priority: P2
 area: server
-status: open
+status: done
 estimate: 3h
 risk: medium
 evidence_required: [test]
