@@ -16,6 +16,7 @@ import { openNewItemModal, setOnMutated as setOnActionMutated } from './actions.
 import { initSidebar } from './sidebar.js';
 import { initInbox, refreshCount as refreshInboxCount, refreshIfOpen as refreshInboxIfOpen } from './inbox.js';
 import { initLearnings } from './learnings.js';
+import { setClaimNavigateHandler } from './agent_detail.js';
 
 // clock
 clock(document.getElementById('clock'));
@@ -47,6 +48,11 @@ setItemClickHandler((id) => {
   setSelected(id);
 });
 setOnCloseHandler(() => setSelected(null));
+
+setClaimNavigateHandler((id) => {
+  openItem(id);
+  setSelected(id);
+});
 
 // toasts + shortcuts + palette + autolink + insights + depgraph + views
 initToasts();

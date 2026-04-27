@@ -4,6 +4,7 @@ import { fetchJSON, escapeHtml, fmtAgo, priClass } from './util.js';
 import { identicon } from './identicon.js';
 import { displayName } from './names.js';
 import { sparkline, bucketize } from './sparkline.js';
+import { openAgentDetail } from './agent_detail.js';
 
 const boardBody     = document.getElementById('board-body');
 const boardTabs     = document.querySelectorAll('.board-tab');
@@ -308,7 +309,7 @@ function renderAgents() {
     li.appendChild(body);
 
     li.addEventListener('click', () => {
-      if (claim?.item_id) onItemClick(claim.item_id);
+      openAgentDetail(a, claim);
     });
     agentsList.appendChild(li);
   }
