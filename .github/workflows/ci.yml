@@ -53,3 +53,29 @@ jobs:
       - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.11.4
+
+  release-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+      - run: goreleaser build --snapshot --single-target --clean
+      - name: assert version output is injected, not the dev fallback
+        run: |
+          set -euo pipefail
+          bin=$(ls dist/squad_linux_amd64_*/squad)
+          out=$("$bin" version)
+          echo "version output: $out"
+          if [ "$out" = "0.0.0-dev" ]; then
+            echo "FAIL: version is 0.0.0-dev — goreleaser ldflag did not land" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$out" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-snapshot$'; then
+            echo "FAIL: version $out does not match X.Y.Z-snapshot pattern" >&2
+            exit 1
+          fi
