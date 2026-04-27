@@ -236,7 +236,7 @@ func nextRoundNumber(body string) int {
 	max := 0
 	for _, m := range matches {
 		var n int
-		fmt.Sscanf(m[1], "%d", &n)
+		_, _ = fmt.Sscanf(m[1], "%d", &n)
 		if n > max {
 			max = n
 		}

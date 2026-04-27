@@ -126,4 +126,3 @@ func TestClaim_WorktreeFailureLeavesNoClaimRow(t *testing.T) {
 		}
 	}
 }
-

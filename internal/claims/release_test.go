@@ -145,7 +145,7 @@ func TestReleaseAllCount_NoErrorWhenPeerStealsClaimMidFlight(t *testing.T) {
 			t.Fatalf("trial %d: ReleaseAllCount returned error %v", trial, err)
 		}
 		// clean up any survivors via direct DB so the next trial starts clean
-		s.db.ExecContext(ctx, `DELETE FROM claims`)
+		_, _ = s.db.ExecContext(ctx, `DELETE FROM claims`)
 	}
 }
 

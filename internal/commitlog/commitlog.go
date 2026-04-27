@@ -80,7 +80,7 @@ func RecordSinceClaim(ctx context.Context, db *sql.DB, repoID, repoRoot, itemID,
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
+		defer func() { _ = stmt.Close() }()
 		for _, r := range rows {
 			res, err := stmt.ExecContext(ctx, repoID, itemID, r.sha, r.subject, r.ts, agentID)
 			if err != nil {
@@ -98,14 +98,16 @@ func RecordSinceClaim(ctx context.Context, db *sql.DB, repoID, repoRoot, itemID,
 	return inserted, nil
 }
 
-// ListForItem returns every recorded commit for an item, newest first.
+// Commit is one row from the commits table — the squad-recorded metadata
+// for a git commit attributed to an item's claim window.
 type Commit struct {
-	Sha      string
-	Subject  string
-	TS       int64
-	AgentID  string
+	Sha     string
+	Subject string
+	TS      int64
+	AgentID string
 }
 
+// ListForItem returns every recorded commit for an item, newest first.
 func ListForItem(ctx context.Context, db *sql.DB, repoID, itemID string) ([]Commit, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT sha, subject, ts, agent_id

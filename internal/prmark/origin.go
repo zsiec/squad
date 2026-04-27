@@ -13,17 +13,6 @@ import (
 // components (issues, pulls, ...) are rejected on purpose.
 var ownerRepoRE = regexp.MustCompile(`^([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+?)(?:\.git)?/?$`)
 
-// schemePrefixes are matched case-insensitively against the host portion
-// (RFC 3986 §3.2.2 — host is case-insensitive). Owner/repo case is
-// preserved from the original input since GitHub treats those segments
-// as case-sensitive on display.
-var schemePrefixes = []string{
-	"https://",
-	"http://",
-	"ssh://git@",
-	"git@",
-}
-
 // GitHubBaseURL maps a git remote-origin URL to its GitHub web base URL,
 // e.g. "https://github.com/owner/repo". Returns "" for any non-GitHub
 // origin or malformed input — callers can treat empty as "no links".
