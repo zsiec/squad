@@ -13,7 +13,12 @@ export function setTimelineRenderer(fn) {
   // Replay cached events when the renderer registers after the drawer is
   // already open and the fetch has resolved — first paint without race.
   if (modalEl && !modalEl.hidden && lastEventsCache) {
-    renderTimelineCb(lastEventsCache);
+    const body = modalEl.querySelector('#agent-detail-body');
+    if (body) {
+      body.innerHTML = '';
+      const id = currentAgentId;
+      renderTimelineCb(lastEventsCache, body, id, () => fetchAndCache(id));
+    }
   }
 }
 
@@ -112,21 +117,18 @@ async function fetchAndCache(agentId) {
   if (!body) return;
   body.innerHTML = '<div class="agent-detail-spinner" aria-busy="true">loading…</div>';
   try {
-    const res = await fetchJSON(`/api/agents/${encodeURIComponent(agentId)}/events?limit=50`);
+    const res = await fetchJSON(`/api/agents/${encodeURIComponent(agentId)}/timeline?limit=50`);
     if (currentAgentId !== agentId) return;
-    lastEventsCache = res?.events || [];
-    renderPlaceholder(body, lastEventsCache);
-    renderTimelineCb(lastEventsCache);
+    lastEventsCache = res?.timeline || [];
+    body.innerHTML = '';
+    renderTimelineCb(lastEventsCache, body, agentId, () => fetchAndCache(agentId));
   } catch (err) {
     if (currentAgentId !== agentId) return;
-    body.innerHTML = `<div class="agent-detail-error">${escapeHtml(err.message || String(err))}</div>`;
+    body.innerHTML = `
+      <div class="agent-detail-error">
+        couldn't load timeline: ${escapeHtml(err.message || String(err))}
+        <button class="action-btn" data-detail-retry>Retry</button>
+      </div>`;
+    body.querySelector('[data-detail-retry]')?.addEventListener('click', () => fetchAndCache(agentId));
   }
-}
-
-function renderPlaceholder(host, events) {
-  if (!events.length) {
-    host.innerHTML = '<div class="agent-detail-empty">no events yet</div>';
-    return;
-  }
-  host.innerHTML = `<div class="agent-detail-placeholder">events ready (${events.length}) — timeline renders next</div>`;
 }

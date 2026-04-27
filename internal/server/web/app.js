@@ -17,6 +17,7 @@ import { initSidebar } from './sidebar.js';
 import { initInbox, refreshCount as refreshInboxCount, refreshIfOpen as refreshInboxIfOpen } from './inbox.js';
 import { initLearnings } from './learnings.js';
 import { setClaimNavigateHandler } from './agent_detail.js';
+import './agent_timeline.js';
 
 // clock
 clock(document.getElementById('clock'));
