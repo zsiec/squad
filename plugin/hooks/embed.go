@@ -30,6 +30,7 @@ var All = []Hook{
 	{"session-end-cleanup", "session_end_cleanup.sh", true, "SessionEnd hook: drop this session's notify_endpoints rows so peer senders stop dialing a dead port.", "Necessary companion to stop-listen; harmless on its own.", "SessionEnd", "*"},
 	{"async-rewake", "async_rewake.sh", false, "asyncRewake background hook: wake an idle session from outside the IDE within seconds.", "Opt-in until asyncRewake's contract stabilizes; spawns one background process per session.", "asyncRewake", "*"},
 	{"pre-commit-pm-traces", "pre_commit_pm_traces.sh", false, "Block git commit if backlog IDs leak into staged diff or commit message.", "Catches PM noise pre-commit; harmless if you follow the no-PM-traces rule.", "PreToolUse", "Bash"},
+	{"pre-commit-agents-md", "pre_commit_agents_md.sh", false, "Block git commit when AGENTS.md drifts from `squad scaffold agents-md` output.", "Only fires when AGENTS.md is in the staged set and the squad binary is on PATH; CLAUDE.md is unaffected.", "PreToolUse", "Bash"},
 	{"pre-edit-touch-check", "pre_edit_touch_check.sh", false, "Warn (do not block) if another agent is touching the same file.", "Useful in multi-agent setups; pure noise solo.", "PreToolUse", "Edit|Write"},
 	{"stop-learning-prompt", "stop_learning_prompt.sh", false,
 		"At session end, prompt the agent to file a learning if non-trivial code changed.",
