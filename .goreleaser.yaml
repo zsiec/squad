@@ -39,4 +39,22 @@ changelog:
       - "^test:"
       - "^chore:"
 
-# Phase 14 will add: brews, release notes, signing
+brews:
+  - name: squad
+    repository:
+      owner: zsiec
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+    homepage: "https://github.com/zsiec/squad"
+    description: "Project-management framework for software work done with AI coding agents"
+    license: "MIT"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    install: |
+      bin.install "squad"
+    test: |
+      system "#{bin}/squad", "version"

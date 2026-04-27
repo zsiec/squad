@@ -11,7 +11,14 @@ Squad gives Claude Code the durable coordination layer it lacks on its own — a
 
 ## Quick start
 
-**Step 1.** Install the `squad` binary (Homebrew tap is planned but not shipped yet):
+**Step 1.** Install the `squad` binary:
+
+```bash
+brew tap zsiec/tap
+brew install squad
+```
+
+Or via `go install` if you'd rather build from source:
 
 ```bash
 go install github.com/zsiec/squad/cmd/squad@latest

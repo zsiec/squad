@@ -6,7 +6,7 @@ The default voice through this doc assumes you're driving squad through Claude C
 
 ## TL;DR
 
-1. Install the `squad` binary: `go install github.com/zsiec/squad/cmd/squad@latest` (Homebrew tap is planned but not shipped yet).
+1. Install the `squad` binary: `brew tap zsiec/tap && brew install squad` (or `go install github.com/zsiec/squad/cmd/squad@latest` if you'd rather build from source).
 2. From inside Claude Code, add the marketplace and install the plugin:
    - `/plugin marketplace add zsiec/squad`
    - `/plugin install squad@squad`
@@ -20,11 +20,18 @@ If you're not using Claude Code, the terminal equivalent is `squad init --yes &&
 
 Squad is two pieces: a Go binary you run from the shell (`squad ...`) and a Claude Code plugin that exposes the binary's verbs as MCP tools, slash commands, skills, and hooks. The plugin needs the binary, so install the binary first.
 
+The recommended path is Homebrew (macOS, Linux):
+
+```bash
+brew tap zsiec/tap
+brew install squad
+```
+
+If you'd rather build from source — useful for non-tagged commits, or environments without `brew`:
+
 ```bash
 go install github.com/zsiec/squad/cmd/squad@latest
 ```
-
-A Homebrew tap is on the roadmap but not yet released; once it ships you'll be able to `brew tap zsiec/tap && brew install squad`.
 
 Verify:
 
