@@ -20,6 +20,7 @@ func newScaffoldCmd() *cobra.Command {
 		Short: "Generate documentation surfaces from current ledger state",
 	}
 	cmd.AddCommand(newScaffoldDocIndexCmd())
+	cmd.AddCommand(newScaffoldAgentsMdCmd())
 	return cmd
 }
 
