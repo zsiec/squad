@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/touch	0.317s [no tests to run]
+ok  	github.com/zsiec/squad/cmd/squad	0.695s

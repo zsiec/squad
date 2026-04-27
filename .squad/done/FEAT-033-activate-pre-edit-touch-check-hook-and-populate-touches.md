@@ -4,7 +4,7 @@ title: activate pre_edit_touch_check hook and populate touches
 type: feature
 priority: P2
 area: plugin/hooks
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]
@@ -75,5 +75,26 @@ shape, keep the JSON-on-stdout contract for the existing call so the
 PreToolUse handshake doesn't regress.
 
 ## Resolution
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+- `internal/touch/touch.go`: new `Tracker.EnsureActive(ctx, agentID, itemID, path)`.
+  Same conflict-list shape as `Add`, but idempotent: only inserts when no active
+  row exists for (agent, path). Hot path (every Edit/Write hook fires) so
+  duplicating rows would balloon the table.
+- `cmd/squad/touches_policy.go`: `TouchesPolicyArgs` gains `ItemID string`;
+  `TouchesPolicy` calls `EnsureActive` instead of `Conflicts` so the verb
+  both records the touch and emits the same JSON. New `activeClaimItemID`
+  helper looks up the agent's most recent claim from the claims table; the
+  CLI command threads it through. ErrNoRows is treated as the no-claim
+  case; other DB errors surface to stderr but still return "" so the
+  PreToolUse hook never crashes the handshake.
+- `cmd/squad/touches_policy_test.go`: three new tests —
+  `TestTouchesPolicy_RecordsTouchOnFirstEdit` pins the insert + idempotency,
+  `TestTouchesPolicy_ReleaseClosesTouchRow` exercises the hook→touch→release
+  cycle end-to-end, `TestPluginHooksJSON_PreEditTouchCheckRegistered` asserts
+  the `Edit|Write` matcher and command path stay registered in
+  `plugin/hooks.json`.
+- Hook script (`pre_edit_touch_check.sh`) is unchanged — the Go-side verb
+  now does the row-write, so the script keeps its single-responsibility
+  shape.
+- Filed BUG-030: hook records absolute paths, `squad touch` records
+  repo-relative paths, conflicts table compares on exact string. Pre-existing
+  but FEAT-033 made it acute. Captured under area=internal/touch.
