@@ -2,8 +2,26 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/zsiec/squad/internal/tui/daemon"
+)
+
+// pollDeadline + pollInterval bound the wait Ensure does after install /
+// restart / reinstall: enough for a cold launchd bootstrap on a busy
+// laptop, short enough that a stuck daemon doesn't strand MCP boot. The
+// AC explicitly does not expose these as user options.
+var (
+	pollDeadline = 10 * time.Second
+	pollInterval = 200 * time.Millisecond
 )
 
 // Options bundles everything Ensure / Probe / Welcome need to act on the
@@ -15,15 +33,224 @@ type Options struct {
 	Port       int
 	HomeDir    string
 	Manager    daemon.Manager
+	Version    string
 	// Opener is invoked with the dashboard URL to launch a browser.
 	// nil → defaultOpener (platform open / xdg-open).
 	Opener func(url string) error
 }
 
-// Ensure brings the dashboard daemon to a known-good state for the current
-// MCP connection: probes the running version, installs if absent, restarts
-// if stale, reinstalls if the binary path drifted. Skeleton stub —
-// install / restart / reinstall branches land in follow-ups.
+// Ensure brings the dashboard daemon to a known-good state for the
+// current MCP connection: probes the running version, installs if
+// absent, restarts if stale, reinstalls if the binary path drifted.
+// SQUAD_NO_AUTO_DAEMON=1 short-circuits to nil. ErrUnsupported is a
+// graceful skip — Ensure logs, stages BannerUnsupported, and returns
+// nil so MCP keeps serving tools without the UI. Any other failure is
+// logged and returned wrapped.
 func Ensure(ctx context.Context, opts Options) error {
+	if os.Getenv("SQUAD_NO_AUTO_DAEMON") == "1" {
+		return nil
+	}
+	probe, err := Probe(ctx)
+	if err != nil {
+		return logAndWrap("probe daemon", err)
+	}
+	switch {
+	case !probe.Present:
+		return ensureInstall(ctx, opts)
+	case probe.Version != opts.Version:
+		return ensureRestart(ctx, opts)
+	case probe.BinaryPath != opts.BinaryPath:
+		return ensureReinstall(ctx, opts)
+	default:
+		return nil
+	}
+}
+
+func ensureInstall(ctx context.Context, opts Options) error {
+	lockPath := filepath.Join(opts.HomeDir, ".squad", "install.lock")
+	release, err := acquireInstallLock(lockPath)
+	if err != nil {
+		return logAndWrap("acquire install lock", err)
+	}
+	defer release()
+	// Re-probe under the lock: a parallel MCP session may have completed
+	// the install while we waited.
+	if probe, err := Probe(ctx); err == nil && probe.Present {
+		return nil
+	}
+	if err := writeBearerToken(opts.HomeDir); err != nil {
+		return logAndWrap("write daemon token", err)
+	}
+	if err := writeRestartTokenIfMissing(opts.HomeDir); err != nil {
+		return logAndWrap("write restart token", err)
+	}
+	tok, err := readBearerToken(opts.HomeDir)
+	if err != nil {
+		return logAndWrap("read daemon token", err)
+	}
+	installOpts := daemon.InstallOpts{
+		BinaryPath: opts.BinaryPath,
+		Bind:       opts.Bind,
+		Port:       opts.Port,
+		Token:      tok,
+		LogDir:     filepath.Join(opts.HomeDir, ".squad", "logs"),
+		HomeDir:    opts.HomeDir,
+	}
+	if err := opts.Manager.Install(installOpts); err != nil {
+		if handleUnsupported(err) {
+			return nil
+		}
+		return logAndWrap("install daemon", err)
+	}
+	if err := waitUntilPresent(ctx); err != nil {
+		return logAndWrap("wait for daemon", err)
+	}
+	SetBanner(BannerInstalled(opts.Port))
 	return nil
+}
+
+func ensureRestart(ctx context.Context, opts Options) error {
+	tokPath := filepath.Join(opts.HomeDir, ".squad", "restart.token")
+	tokBytes, err := os.ReadFile(tokPath)
+	if err != nil {
+		return logAndWrap("read restart token", err)
+	}
+	tok := strings.TrimSpace(string(tokBytes))
+	reqCtx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, probeBase+"/api/_internal/restart", nil)
+	if err != nil {
+		return logAndWrap("build restart request", err)
+	}
+	req.Header.Set("X-Squad-Restart-Token", tok)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return logAndWrap("post restart", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		return logAndWrap("post restart", fmt.Errorf("status %d", resp.StatusCode))
+	}
+	if err := waitUntilVersion(ctx, opts.Version); err != nil {
+		return logAndWrap("wait for upgraded daemon", err)
+	}
+	SetBanner(BannerUpgraded(opts.Version))
+	return nil
+}
+
+func ensureReinstall(ctx context.Context, opts Options) error {
+	installOpts := daemon.InstallOpts{
+		BinaryPath: opts.BinaryPath,
+		Bind:       opts.Bind,
+		Port:       opts.Port,
+		LogDir:     filepath.Join(opts.HomeDir, ".squad", "logs"),
+		HomeDir:    opts.HomeDir,
+	}
+	if tok, err := readBearerToken(opts.HomeDir); err == nil {
+		installOpts.Token = tok
+	}
+	if err := opts.Manager.Reinstall(installOpts); err != nil {
+		if handleUnsupported(err) {
+			return nil
+		}
+		return logAndWrap("reinstall daemon", err)
+	}
+	if err := waitUntilPresent(ctx); err != nil {
+		return logAndWrap("wait for reinstalled daemon", err)
+	}
+	SetBanner(BannerUpgraded(opts.Version))
+	return nil
+}
+
+// handleUnsupported returns true if err is the daemon's
+// "this platform is not supported" sentinel. Side-effects: log a one-line
+// hint to stderr and stage the unsupported banner. Callers treat the true
+// return as "stop, don't retry, surface the banner on the next tool call".
+func handleUnsupported(err error) bool {
+	if !errors.Is(err, daemon.ErrUnsupported) {
+		return false
+	}
+	fmt.Fprintln(os.Stderr, `squad: dashboard auto-install not supported on this platform; run "squad serve" manually for the UI`)
+	SetBanner(BannerUnsupported)
+	return true
+}
+
+func waitUntilPresent(ctx context.Context) error {
+	return pollUntil(ctx, func(ctx context.Context) (bool, error) {
+		p, err := Probe(ctx)
+		return p.Present, err
+	})
+}
+
+func waitUntilVersion(ctx context.Context, want string) error {
+	return pollUntil(ctx, func(ctx context.Context) (bool, error) {
+		p, err := Probe(ctx)
+		return p.Present && p.Version == want, err
+	})
+}
+
+func pollUntil(ctx context.Context, check func(context.Context) (bool, error)) error {
+	deadline := time.NewTimer(pollDeadline)
+	defer deadline.Stop()
+	for {
+		ok, err := check(ctx)
+		if err == nil && ok {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-deadline.C:
+			return errors.New("timed out")
+		case <-time.After(pollInterval):
+		}
+	}
+}
+
+func writeBearerToken(homeDir string) error {
+	p := filepath.Join(homeDir, ".squad", "token")
+	if _, err := os.Stat(p); err == nil {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(p, []byte(randomHex32()), 0o600)
+}
+
+func writeRestartTokenIfMissing(homeDir string) error {
+	p := filepath.Join(homeDir, ".squad", "restart.token")
+	if _, err := os.Stat(p); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(p, []byte(randomHex32()), 0o600)
+}
+
+func readBearerToken(homeDir string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(homeDir, ".squad", "token"))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
+}
+
+func randomHex32() string {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// crypto/rand failing means the host has no entropy source —
+		// shipping a zero token would silently pass empty-string gates.
+		panic(fmt.Sprintf("crypto/rand: %v", err))
+	}
+	return hex.EncodeToString(b[:])
+}
+
+func logAndWrap(stage string, err error) error {
+	wrapped := fmt.Errorf("%s: %w", stage, err)
+	fmt.Fprintf(os.Stderr, "squad: bootstrap %s\n", wrapped.Error())
+	return wrapped
 }

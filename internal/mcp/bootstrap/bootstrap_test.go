@@ -17,29 +17,31 @@ func (fakeManager) Status() (daemon.Status, error)     { return daemon.Status{},
 func (fakeManager) Reinstall(daemon.InstallOpts) error { return nil }
 
 func TestSeamsCallable(t *testing.T) {
+	t.Setenv("SQUAD_NO_AUTO_DAEMON", "1")
 	ctx := context.Background()
 	opts := Options{
 		BinaryPath: "/usr/local/bin/squad",
 		Bind:       "127.0.0.1",
 		Port:       7777,
-		HomeDir:    "/tmp/home",
+		HomeDir:    t.TempDir(),
 		Manager:    fakeManager{},
 	}
 
 	if err := Ensure(ctx, opts); err != nil {
-		t.Fatalf("Ensure stub returned %v, want nil", err)
+		t.Fatalf("Ensure returned %v, want nil under SQUAD_NO_AUTO_DAEMON=1", err)
 	}
 
 	if _, err := Probe(ctx); err != nil {
-		t.Fatalf("Probe stub returned %v, want nil", err)
+		t.Fatalf("Probe returned %v, want nil", err)
 	}
 
 	if err := Welcome(ctx, opts); err != nil {
-		t.Fatalf("Welcome stub returned %v, want nil", err)
+		t.Fatalf("Welcome returned %v, want nil", err)
 	}
 }
 
 func TestBannerSetConsume(t *testing.T) {
+	_ = ConsumeBanner()
 	if got := ConsumeBanner(); got != "" {
 		t.Fatalf("initial ConsumeBanner = %q, want empty", got)
 	}
