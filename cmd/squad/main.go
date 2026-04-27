@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -16,7 +17,20 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
-const versionString = "0.2.0"
+var versionString string
+
+func init() {
+	if versionString != "" {
+		return
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := strings.TrimPrefix(info.Main.Version, "v"); v != "" && v != "(devel)" {
+			versionString = v
+			return
+		}
+	}
+	versionString = "0.0.0-dev"
+}
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{

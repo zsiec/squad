@@ -21,7 +21,7 @@ func TestMergeSettings_FreshFile(t *testing.T) {
 	if !strings.Contains(string(body), "SessionStart") {
 		t.Fatalf("expected SessionStart, got %s", body)
 	}
-	if !strings.Contains(string(body), `"squad": "session-start@`+squadHookVersion+`"`) {
+	if !strings.Contains(string(body), `"squad": "session-start@`+versionString+`"`) {
 		t.Fatalf("expected squad marker, got %s", body)
 	}
 }
@@ -54,10 +54,10 @@ func TestMergeSettings_PreservesNonSquadHooks(t *testing.T) {
 	if !strings.Contains(string(body), "/usr/local/bin/notify") {
 		t.Fatalf("non-squad hook lost; got %s", body)
 	}
-	if !strings.Contains(string(body), "session-start@"+squadHookVersion) {
+	if !strings.Contains(string(body), "session-start@"+versionString) {
 		t.Fatalf("session-start missing; got %s", body)
 	}
-	if !strings.Contains(string(body), "pre-commit-pm-traces@"+squadHookVersion) {
+	if !strings.Contains(string(body), "pre-commit-pm-traces@"+versionString) {
 		t.Fatalf("pre-commit-pm-traces missing; got %s", body)
 	}
 }
@@ -71,7 +71,7 @@ func TestMergeSettings_Idempotent(t *testing.T) {
 		}
 	}
 	body, _ := os.ReadFile(p)
-	if got := strings.Count(string(body), "session-start@"+squadHookVersion); got != 1 {
+	if got := strings.Count(string(body), "session-start@"+versionString); got != 1 {
 		t.Fatalf("expected 1 entry, got %d:\n%s", got, body)
 	}
 }
@@ -114,10 +114,10 @@ func TestMergeSettings_DisableRemovesEnabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(p)
-	if strings.Contains(string(body), "pre-commit-pm-traces@"+squadHookVersion) {
+	if strings.Contains(string(body), "pre-commit-pm-traces@"+versionString) {
 		t.Fatalf("expected pre-commit-pm-traces removed; got %s", body)
 	}
-	if !strings.Contains(string(body), "session-start@"+squadHookVersion) {
+	if !strings.Contains(string(body), "session-start@"+versionString) {
 		t.Fatalf("session-start missing; got %s", body)
 	}
 }

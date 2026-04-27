@@ -11,8 +11,6 @@ import (
 	"github.com/zsiec/squad/plugin/hooks"
 )
 
-const squadHookVersion = versionString
-
 func mergeSquadHooks(settingsPath string, enabled map[string]bool) error {
 	settings, err := loadSettings(settingsPath)
 	if err != nil {
@@ -40,7 +38,7 @@ func mergeSquadHooks(settingsPath string, enabled map[string]bool) error {
 				"type":    "command",
 				"command": filepath.Join(hooksDir, h.Filename),
 			}},
-			"squad": h.Name + "@" + squadHookVersion,
+			"squad": h.Name + "@" + versionString,
 		}
 		list, _ := hooksRaw[h.EventType].([]any)
 		hooksRaw[h.EventType] = append(list, entry)

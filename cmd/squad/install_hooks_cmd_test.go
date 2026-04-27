@@ -33,10 +33,10 @@ func TestInstallHooksCmd_YesDefaultsSessionAndUserPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mustContain(t, body, "session-start@"+squadHookVersion)
-	mustContain(t, body, "user-prompt-tick@"+squadHookVersion)
-	mustContain(t, body, "pre-compact@"+squadHookVersion)
-	mustNotContain(t, body, "pre-commit-pm-traces@"+squadHookVersion)
+	mustContain(t, body, "session-start@"+versionString)
+	mustContain(t, body, "user-prompt-tick@"+versionString)
+	mustContain(t, body, "pre-compact@"+versionString)
+	mustNotContain(t, body, "pre-commit-pm-traces@"+versionString)
 }
 
 func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
@@ -52,10 +52,10 @@ func TestInstallHooksCmd_PerHookFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
-	mustContain(t, body, "session-start@"+squadHookVersion)
-	mustContain(t, body, "pre-commit-pm-traces@"+squadHookVersion)
-	mustContain(t, body, "pre-edit-touch-check@"+squadHookVersion)
-	mustNotContain(t, body, "async-rewake@"+squadHookVersion)
+	mustContain(t, body, "session-start@"+versionString)
+	mustContain(t, body, "pre-commit-pm-traces@"+versionString)
+	mustContain(t, body, "pre-edit-touch-check@"+versionString)
+	mustNotContain(t, body, "async-rewake@"+versionString)
 }
 
 func TestInstallHooksCmd_Status(t *testing.T) {
@@ -104,7 +104,7 @@ func TestInstallHooksCmd_Uninstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := os.ReadFile(filepath.Join(home, ".claude", "settings.json"))
-	mustNotContain(t, body, "session-start@"+squadHookVersion)
+	mustNotContain(t, body, "session-start@"+versionString)
 }
 
 func TestResolveEnabled_DowngradesStopListenOnBindFail(t *testing.T) {
