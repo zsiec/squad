@@ -11,6 +11,8 @@ import (
 
 	sqlite "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
+
+	"github.com/zsiec/squad/internal/items"
 )
 
 const (
@@ -23,10 +25,38 @@ const (
 )
 
 var (
-	ErrIntakeNotFound      = errors.New("intake: session not found")
-	ErrIntakeNotYours      = errors.New("intake: session owned by another agent")
-	ErrIntakeAlreadyClosed = errors.New("intake: session already closed")
+	ErrIntakeNotFound         = errors.New("intake: session not found")
+	ErrIntakeNotYours         = errors.New("intake: session owned by another agent")
+	ErrIntakeAlreadyClosed    = errors.New("intake: session already closed")
+	ErrIntakeItemNotRefinable = errors.New("intake: item is not in captured status")
 )
+
+// ItemSnapshot is a value-typed copy of an existing item, taken at the
+// moment the refine session opened. The interview reads from the snapshot
+// rather than the live row so concurrent edits to the file on disk don't
+// surface mid-conversation.
+type ItemSnapshot struct {
+	ID         string
+	Title      string
+	Type       string
+	Priority   string
+	Area       string
+	Status     string
+	ParentSpec string
+	ParentEpic string
+	Body       string
+}
+
+// OpenParams bundles the inputs to Open. RefineItemID + SquadDir are
+// only consulted when Mode == ModeRefine.
+type OpenParams struct {
+	RepoID       string
+	AgentID      string
+	Mode         string
+	IdeaSeed     string
+	RefineItemID string
+	SquadDir     string
+}
 
 type Session struct {
 	ID           string
@@ -46,44 +76,89 @@ type Session struct {
 // resumed=true, or a freshly created one with resumed=false. Concurrent
 // opens by the same agent collide on the partial unique index from
 // migration 009; the loser re-reads and returns the winner's row.
-func Open(ctx context.Context, db *sql.DB, repoID, agentID, mode, ideaSeed string) (Session, bool, error) {
-	if mode != ModeNew && mode != ModeRefine {
-		return Session{}, false, fmt.Errorf("intake: invalid mode %q (want %q or %q)", mode, ModeNew, ModeRefine)
+//
+// When Mode == ModeRefine, RefineItemID + SquadDir are required and the
+// item is loaded from disk into ItemSnapshot. The item must exist
+// (items.ErrItemNotFound on miss) and be in captured status
+// (ErrIntakeItemNotRefinable otherwise). For ModeNew the snapshot return
+// is the zero value.
+func Open(ctx context.Context, db *sql.DB, p OpenParams) (Session, ItemSnapshot, bool, error) {
+	if p.Mode != ModeNew && p.Mode != ModeRefine {
+		return Session{}, ItemSnapshot{}, false, fmt.Errorf("intake: invalid mode %q (want %q or %q)", p.Mode, ModeNew, ModeRefine)
+	}
+
+	var snapshot ItemSnapshot
+	if p.Mode == ModeRefine {
+		var err error
+		snapshot, err = loadItemSnapshot(p.SquadDir, p.RefineItemID)
+		if err != nil {
+			return Session{}, ItemSnapshot{}, false, err
+		}
 	}
 
 	for attempt := 0; attempt < 2; attempt++ {
-		if s, ok, err := findOpen(ctx, db, repoID, agentID); err != nil {
-			return Session{}, false, err
+		if s, ok, err := findOpen(ctx, db, p.RepoID, p.AgentID); err != nil {
+			return Session{}, ItemSnapshot{}, false, err
 		} else if ok {
-			return s, true, nil
+			return s, snapshot, true, nil
 		}
 
 		id, err := newSessionID(time.Now().UTC())
 		if err != nil {
-			return Session{}, false, err
+			return Session{}, ItemSnapshot{}, false, err
 		}
 		now := time.Now().Unix()
+		var refineCol any
+		if p.Mode == ModeRefine {
+			refineCol = p.RefineItemID
+		}
 		_, err = db.ExecContext(ctx, `
-			INSERT INTO intake_sessions (id, repo_id, agent_id, mode, idea_seed, status, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
-		`, id, repoID, agentID, mode, ideaSeed, now, now)
+			INSERT INTO intake_sessions (id, repo_id, agent_id, mode, refine_item_id, idea_seed, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
+		`, id, p.RepoID, p.AgentID, p.Mode, refineCol, p.IdeaSeed, now, now)
 		if err == nil {
 			return Session{
-				ID:        id,
-				RepoID:    repoID,
-				AgentID:   agentID,
-				Mode:      mode,
-				IdeaSeed:  ideaSeed,
-				Status:    StatusOpen,
-				CreatedAt: time.Unix(now, 0).UTC(),
-				UpdatedAt: time.Unix(now, 0).UTC(),
-			}, false, nil
+				ID:           id,
+				RepoID:       p.RepoID,
+				AgentID:      p.AgentID,
+				Mode:         p.Mode,
+				RefineItemID: p.RefineItemID,
+				IdeaSeed:     p.IdeaSeed,
+				Status:       StatusOpen,
+				CreatedAt:    time.Unix(now, 0).UTC(),
+				UpdatedAt:    time.Unix(now, 0).UTC(),
+			}, snapshot, false, nil
 		}
 		if !isUniqueViolation(err) {
-			return Session{}, false, err
+			return Session{}, ItemSnapshot{}, false, err
 		}
 	}
-	return Session{}, false, errors.New("intake: open contended after retry")
+	return Session{}, ItemSnapshot{}, false, errors.New("intake: open contended after retry")
+}
+
+func loadItemSnapshot(squadDir, itemID string) (ItemSnapshot, error) {
+	path, _, err := items.FindByID(squadDir, itemID)
+	if err != nil {
+		return ItemSnapshot{}, err
+	}
+	it, err := items.Parse(path)
+	if err != nil {
+		return ItemSnapshot{}, err
+	}
+	if it.Status != "captured" {
+		return ItemSnapshot{}, fmt.Errorf("%w: %s is %q", ErrIntakeItemNotRefinable, itemID, it.Status)
+	}
+	return ItemSnapshot{
+		ID:         it.ID,
+		Title:      it.Title,
+		Type:       it.Type,
+		Priority:   it.Priority,
+		Area:       it.Area,
+		Status:     it.Status,
+		ParentSpec: it.ParentSpec,
+		ParentEpic: it.ParentEpic,
+		Body:       it.Body,
+	}, nil
 }
 
 // Cancel marks a session cancelled. Errors:
@@ -116,12 +191,12 @@ func Cancel(ctx context.Context, db *sql.DB, sessionID, agentID string) error {
 
 func findOpen(ctx context.Context, db *sql.DB, repoID, agentID string) (Session, bool, error) {
 	var (
-		s             Session
-		refineItemID  sql.NullString
-		shape         sql.NullString
-		createdAt     int64
-		updatedAt     int64
-		committedAt   sql.NullInt64
+		s            Session
+		refineItemID sql.NullString
+		shape        sql.NullString
+		createdAt    int64
+		updatedAt    int64
+		committedAt  sql.NullInt64
 	)
 	err := db.QueryRowContext(ctx, `
 		SELECT id, repo_id, agent_id, mode, refine_item_id, idea_seed, status, shape,

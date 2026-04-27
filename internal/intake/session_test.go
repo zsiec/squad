@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/store"
 )
 
@@ -28,7 +30,7 @@ func TestSession_OpenNewIsFresh(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	s, resumed, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "make logging searchable")
+	s, _, resumed, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "make logging searchable"})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -53,11 +55,11 @@ func TestSession_OpenTwiceFromSameAgentResumes(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	first, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "first idea")
+	first, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "first idea"})
 	if err != nil {
 		t.Fatalf("open 1: %v", err)
 	}
-	second, resumed, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "second idea ignored")
+	second, _, resumed, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "second idea ignored"})
 	if err != nil {
 		t.Fatalf("open 2: %v", err)
 	}
@@ -76,11 +78,11 @@ func TestSession_OpenFromDifferentAgentInSameRepoCreatesNew(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	first, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "idea-a")
+	first, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "idea-a"})
 	if err != nil {
 		t.Fatalf("open 1: %v", err)
 	}
-	second, resumed, err := Open(ctx, db, "repo-a", "agent-2", ModeNew, "idea-b")
+	second, _, resumed, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-2", Mode: ModeNew, IdeaSeed: "idea-b"})
 	if err != nil {
 		t.Fatalf("open 2: %v", err)
 	}
@@ -96,11 +98,11 @@ func TestSession_OpenFromSameAgentDifferentRepoCreatesNew(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	first, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "idea-a")
+	first, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "idea-a"})
 	if err != nil {
 		t.Fatalf("open 1: %v", err)
 	}
-	second, resumed, err := Open(ctx, db, "repo-b", "agent-1", ModeNew, "idea-b")
+	second, _, resumed, err := Open(ctx, db, OpenParams{RepoID: "repo-b", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "idea-b"})
 	if err != nil {
 		t.Fatalf("open 2: %v", err)
 	}
@@ -116,7 +118,7 @@ func TestSession_CancelMarksClosed(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	s, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "x")
+	s, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "x"})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -132,7 +134,7 @@ func TestSession_CancelMarksClosed(t *testing.T) {
 		t.Errorf("post-cancel status=%q want %q", status, StatusCancelled)
 	}
 
-	resumed, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "fresh")
+	resumed, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "fresh"})
 	if err != nil {
 		t.Fatalf("open after cancel: %v", err)
 	}
@@ -145,7 +147,7 @@ func TestSession_CancelByOtherAgentRejected(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	s, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "x")
+	s, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "x"})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -165,7 +167,7 @@ func TestSession_CancelAlreadyCancelledRejected(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
 
-	s, _, err := Open(ctx, db, "repo-a", "agent-1", ModeNew, "x")
+	s, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: ModeNew, IdeaSeed: "x"})
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -190,11 +192,141 @@ func TestSession_CancelUnknownIDReturnsNotFound(t *testing.T) {
 func TestSession_RejectsUnknownMode(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
-	_, _, err := Open(ctx, db, "repo-a", "agent-1", "bogus", "x")
+	_, _, _, err := Open(ctx, db, OpenParams{RepoID: "repo-a", AgentID: "agent-1", Mode: "bogus", IdeaSeed: "x"})
 	if err == nil {
 		t.Errorf("open with mode=bogus should error")
 	}
 	if !strings.Contains(err.Error(), "mode") {
 		t.Errorf("error should mention mode; got %v", err)
+	}
+}
+
+// writeItem writes a captured-shaped (or other-status) item into
+// <squadDir>/<sub>/<id>.md, mirroring how `squad new` lays them out.
+// Returns the squadDir.
+func writeItem(t *testing.T, sub, id, status, title, body string) string {
+	t.Helper()
+	squadDir := t.TempDir()
+	dir := filepath.Join(squadDir, sub)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	frontmatter := "---\n" +
+		"id: " + id + "\n" +
+		"title: " + title + "\n" +
+		"type: feature\n" +
+		"priority: P2\n" +
+		"area: auth\n" +
+		"status: " + status + "\n" +
+		"estimate: 1h\n" +
+		"risk: low\n" +
+		"created: 2026-04-26\n" +
+		"updated: 2026-04-26\n" +
+		"captured_by: agent-9f3a\n" +
+		"captured_at: 1714150000\n" +
+		"parent_spec: auth-rotation\n" +
+		"parent_epic: rotation-rollout\n" +
+		"---\n\n"
+	if err := os.WriteFile(filepath.Join(dir, id+".md"), []byte(frontmatter+body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return squadDir
+}
+
+func TestSession_OpenRefineHydratesSnapshot(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	body := "## Problem\nrotate keys without downtime\n"
+	squadDir := writeItem(t, "items", "FEAT-100", "captured", "rotate keys", body)
+
+	s, snap, resumed, err := Open(ctx, db, OpenParams{
+		RepoID: "repo-a", AgentID: "agent-1", Mode: ModeRefine,
+		IdeaSeed: "follow-up", RefineItemID: "FEAT-100", SquadDir: squadDir,
+	})
+	if err != nil {
+		t.Fatalf("open refine: %v", err)
+	}
+	if resumed {
+		t.Errorf("first refine open should not be resumed")
+	}
+	if s.Mode != ModeRefine {
+		t.Errorf("session.Mode=%q want %q", s.Mode, ModeRefine)
+	}
+	if s.RefineItemID != "FEAT-100" {
+		t.Errorf("session.RefineItemID=%q want FEAT-100", s.RefineItemID)
+	}
+	if snap.ID != "FEAT-100" || snap.Title != "rotate keys" {
+		t.Errorf("snapshot id=%q title=%q want FEAT-100/rotate keys", snap.ID, snap.Title)
+	}
+	if snap.Area != "auth" {
+		t.Errorf("snapshot.Area=%q want auth", snap.Area)
+	}
+	if snap.Status != "captured" {
+		t.Errorf("snapshot.Status=%q want captured", snap.Status)
+	}
+	if snap.ParentSpec != "auth-rotation" || snap.ParentEpic != "rotation-rollout" {
+		t.Errorf("snapshot.ParentSpec=%q ParentEpic=%q", snap.ParentSpec, snap.ParentEpic)
+	}
+	if !strings.Contains(snap.Body, "rotate keys without downtime") {
+		t.Errorf("snapshot.Body did not pick up the markdown body: %q", snap.Body)
+	}
+
+	// Verify the row persisted refine_item_id.
+	var got sql.NullString
+	if err := db.QueryRow(`SELECT refine_item_id FROM intake_sessions WHERE id=?`, s.ID).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if !got.Valid || got.String != "FEAT-100" {
+		t.Errorf("persisted refine_item_id=%v, want FEAT-100", got)
+	}
+}
+
+func TestSession_OpenRefineRejectsMissingItem(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := t.TempDir()
+
+	_, _, _, err := Open(ctx, db, OpenParams{
+		RepoID: "repo-a", AgentID: "agent-1", Mode: ModeRefine,
+		RefineItemID: "FEAT-404", SquadDir: squadDir,
+	})
+	if !errors.Is(err, items.ErrItemNotFound) {
+		t.Fatalf("expected items.ErrItemNotFound; got %v", err)
+	}
+	// Ensure no row was inserted on the rejection.
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM intake_sessions`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("inserted %d session rows on rejected refine; want 0", n)
+	}
+}
+
+func TestSession_OpenRefineRejectsClaimedItem(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := writeItem(t, "items", "FEAT-101", "claimed", "claimed item", "## Problem\n")
+
+	_, _, _, err := Open(ctx, db, OpenParams{
+		RepoID: "repo-a", AgentID: "agent-1", Mode: ModeRefine,
+		RefineItemID: "FEAT-101", SquadDir: squadDir,
+	})
+	if !errors.Is(err, ErrIntakeItemNotRefinable) {
+		t.Fatalf("expected ErrIntakeItemNotRefinable for claimed item; got %v", err)
+	}
+}
+
+func TestSession_OpenRefineRejectsDoneItem(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := writeItem(t, "done", "FEAT-102", "done", "done item", "## Problem\n")
+
+	_, _, _, err := Open(ctx, db, OpenParams{
+		RepoID: "repo-a", AgentID: "agent-1", Mode: ModeRefine,
+		RefineItemID: "FEAT-102", SquadDir: squadDir,
+	})
+	if !errors.Is(err, ErrIntakeItemNotRefinable) {
+		t.Fatalf("expected ErrIntakeItemNotRefinable for done item; got %v", err)
 	}
 }
