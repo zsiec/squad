@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -99,6 +100,180 @@ func TestStaleChatSilenceFor_LatestCadencePostBeatsClaimAge(t *testing.T) {
 	}
 	if got < 4*time.Minute || got > 6*time.Minute {
 		t.Errorf("silenceFor = %s; want ~5m (latest thinking post)", got)
+	}
+}
+
+func TestTimeBoxNudgeText_Below90mEmpty(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	for _, age := range []time.Duration{0, 30 * time.Minute, 89*time.Minute + 59*time.Second} {
+		if got := timeBoxNudgeText(age, 0); got != "" {
+			t.Errorf("timeBoxNudgeText(%s, 0) = %q; want empty (below 90m)", age, got)
+		}
+	}
+}
+
+func TestTimeBoxNudgeText_At90mWithoutRecentMilestoneFires(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	got := timeBoxNudgeText(90*time.Minute, 31*time.Minute)
+	if got == "" {
+		t.Fatalf("timeBoxNudgeText at 90m, last milestone 31m ago, returned empty; want nudge")
+	}
+	if !strings.Contains(got, "thinking") {
+		t.Errorf("90m nudge should mention thinking, got %q", got)
+	}
+}
+
+func TestTimeBoxNudgeText_At90mWithRecentMilestoneSilent(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	if got := timeBoxNudgeText(90*time.Minute, 5*time.Minute); got != "" {
+		t.Errorf("90m nudge should be silent when milestone posted 5m ago; got %q", got)
+	}
+	if got := timeBoxNudgeText(90*time.Minute, 29*time.Minute); got != "" {
+		t.Errorf("90m nudge should be silent when milestone posted 29m ago; got %q", got)
+	}
+}
+
+func TestTimeBoxNudgeText_At120mFiresHandoff(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	got := timeBoxNudgeText(120*time.Minute, 5*time.Minute)
+	if got == "" {
+		t.Fatalf("timeBoxNudgeText at 120m returned empty; want handoff/split nudge")
+	}
+	if !strings.Contains(strings.ToLower(got), "handoff") &&
+		!strings.Contains(strings.ToLower(got), "split") {
+		t.Errorf("120m nudge should mention handoff or split-and-park, got %q", got)
+	}
+}
+
+func TestTimeBoxNudgeText_SuppressedByEnv(t *testing.T) {
+	for _, val := range []string{"1", "true", "TRUE"} {
+		t.Run("env="+val, func(t *testing.T) {
+			t.Setenv("SQUAD_NO_CADENCE_NUDGES", val)
+			if got := timeBoxNudgeText(120*time.Minute, time.Hour); got != "" {
+				t.Errorf("env=%q should suppress 120m nudge, got %q", val, got)
+			}
+			if got := timeBoxNudgeText(91*time.Minute, time.Hour); got != "" {
+				t.Errorf("env=%q should suppress 90m nudge, got %q", val, got)
+			}
+		})
+	}
+}
+
+func TestMaybePrintTimeBoxNudge_FiresOnceAt90m(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-91 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-700", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	var buf bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now, &buf)
+	if !strings.Contains(buf.String(), "thinking") {
+		t.Errorf("first tick at 91m should print 90m nudge; got %q", buf.String())
+	}
+	// Second tick: marker already stored, no print.
+	var buf2 bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now.Add(time.Minute), &buf2)
+	if buf2.String() != "" {
+		t.Errorf("second tick should be a no-op; got %q", buf2.String())
+	}
+}
+
+func TestMaybePrintTimeBoxNudge_FiresOnceAt120m(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-121 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-701", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	var buf bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now, &buf)
+	body := strings.ToLower(buf.String())
+	if !strings.Contains(body, "handoff") && !strings.Contains(body, "split") {
+		t.Errorf("tick at 121m should print 120m nudge; got %q", buf.String())
+	}
+}
+
+func TestMaybePrintTimeBoxNudge_RecentMilestoneDelaysFire(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-91 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-702", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	// Milestone 5m ago — within the 30m window, should silence the 90m nudge
+	// without stamping the marker.
+	recentMilestone := now.Add(-5 * time.Minute).Unix()
+	if _, err := env.DB.Exec(
+		`INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority) VALUES (?, ?, ?, 'BUG-702', 'milestone', 'AC1 green', '', 'normal')`,
+		env.RepoID, recentMilestone, env.AgentID,
+	); err != nil {
+		t.Fatalf("seed milestone: %v", err)
+	}
+	var buf bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now, &buf)
+	if buf.String() != "" {
+		t.Errorf("recent milestone should silence 90m nudge; got %q", buf.String())
+	}
+	var marker sql.NullInt64
+	_ = env.DB.QueryRow(`SELECT nudged_90m_at FROM claims WHERE item_id=?`, "BUG-702").Scan(&marker)
+	if marker.Valid {
+		t.Errorf("marker should NOT be stamped when silenced; got %v", marker)
+	}
+	// Move forward 26m: claim age = 117m (still under the 120m hard cap),
+	// milestone is now 31m old (past the silence window). 90m nudge fires.
+	later := now.Add(26 * time.Minute)
+	var buf2 bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, later, &buf2)
+	if !strings.Contains(buf2.String(), "thinking") {
+		t.Errorf("after milestone window expires, 90m nudge should fire; got %q", buf2.String())
+	}
+}
+
+func TestMaybePrintTimeBoxNudge_120mSkipsUnfired90m(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-121 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-703", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	var buf bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now, &buf)
+	body := strings.ToLower(buf.String())
+	if !strings.Contains(body, "handoff") {
+		t.Errorf("tick at 121m should print 120m nudge; got %q", buf.String())
+	}
+	// Skipping past 90m without ticking leaves nudged_90m_at NULL — the 120m
+	// branch takes priority and doesn't retroactively stamp the 90m marker.
+	var nudged90m sql.NullInt64
+	_ = env.DB.QueryRow(`SELECT nudged_90m_at FROM claims WHERE item_id=?`, "BUG-703").Scan(&nudged90m)
+	if nudged90m.Valid {
+		t.Errorf("nudged_90m_at should remain NULL when 120m takes priority; got %v", nudged90m)
+	}
+}
+
+func TestMaybePrintTimeBoxNudge_NoClaimNoOp(t *testing.T) {
+	env := newTestEnv(t)
+	var buf bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, time.Now(), &buf)
+	if buf.String() != "" {
+		t.Errorf("with no claim, expected silent; got %q", buf.String())
 	}
 }
 

@@ -92,6 +92,108 @@ func staleChatSilenceFor(ctx context.Context, db *sql.DB, repoID, agentID, itemI
 	return now.Sub(anchor), nil
 }
 
+const (
+	// timeBoxThreshold90m is the soft cap on exploratory work — at 90m
+	// without a recent milestone the agent gets a thinking-prompt to
+	// share intent before the cap. squad-time-boxing skill anchors the
+	// 2h ceiling.
+	timeBoxThreshold90m = 90 * time.Minute
+	// timeBoxThreshold120m is the hard cap. At 2h the agent is prompted
+	// to hand off or split-and-park; long unsuccessful sessions are a
+	// signal, not a setback.
+	timeBoxThreshold120m = 120 * time.Minute
+	// timeBoxRecentMilestone is the silence window the 90m nudge respects
+	// — if a milestone landed in the last 30m the agent is already
+	// posting, no need to nag.
+	timeBoxRecentMilestone = 30 * time.Minute
+)
+
+// timeBoxNudgeText returns the per-threshold reminder, or "" when the
+// claim hasn't crossed a threshold or when silenced. The 90m branch is
+// silenced when a milestone was posted in the last 30m — the goal is to
+// catch silent agents, not to spam noisy ones.
+func timeBoxNudgeText(claimAge, sinceLastMilestone time.Duration) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	if claimAge >= timeBoxThreshold120m {
+		return "  tip: 2h time-box hit — `squad handoff` or follow `squad-time-boxing` skill to file what's known and claim a smaller follow-up · silence with SQUAD_NO_CADENCE_NUDGES=1"
+	}
+	if claimAge >= timeBoxThreshold90m && sinceLastMilestone >= timeBoxRecentMilestone {
+		return "  tip: 90m on this claim and 30m+ without a milestone — `squad thinking <msg>` to share where you are before the 2h cap · silence with SQUAD_NO_CADENCE_NUDGES=1"
+	}
+	return ""
+}
+
+// maybePrintTimeBoxNudge prints the time-box nudge to w when the calling
+// agent's held claim has crossed a threshold and the per-threshold marker
+// hasn't fired yet. Markers live on the claims row (nudged_90m_at,
+// nudged_120m_at) so they vanish naturally when the claim closes — no
+// separate cancellation path needed.
+func maybePrintTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID string, now time.Time, w io.Writer) {
+	if cadenceNudgesSilenced() {
+		return
+	}
+	var (
+		itemID     string
+		claimedAt  int64
+		nudged90m  sql.NullInt64
+		nudged120m sql.NullInt64
+	)
+	err := db.QueryRowContext(ctx, `
+		SELECT item_id, claimed_at, nudged_90m_at, nudged_120m_at
+		FROM claims WHERE repo_id=? AND agent_id=? LIMIT 1
+	`, repoID, agentID).Scan(&itemID, &claimedAt, &nudged90m, &nudged120m)
+	if errors.Is(err, sql.ErrNoRows) {
+		return
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warn: time-box nudge claim lookup: %v\n", err)
+		return
+	}
+	claimAge := now.Sub(time.Unix(claimedAt, 0))
+
+	// 120m takes priority: at the hard cap we don't also re-emit the 90m
+	// nudge. Markers are stamped only after a successful print so a 90m
+	// claim silenced by a recent milestone gets a second chance once the
+	// milestone window expires — "fire when silent at 90m," not "fire
+	// exactly once at the 90m mark."
+	if claimAge >= timeBoxThreshold120m && !nudged120m.Valid {
+		text := timeBoxNudgeText(claimAge, lastMilestoneSilence(ctx, db, repoID, agentID, claimedAt, now))
+		if text != "" {
+			fmt.Fprintln(w, text)
+			_, _ = db.ExecContext(ctx,
+				`UPDATE claims SET nudged_120m_at=? WHERE repo_id=? AND agent_id=? AND item_id=?`,
+				now.Unix(), repoID, agentID, itemID)
+		}
+		return
+	}
+	if claimAge >= timeBoxThreshold90m && !nudged90m.Valid {
+		silence := lastMilestoneSilence(ctx, db, repoID, agentID, claimedAt, now)
+		text := timeBoxNudgeText(claimAge, silence)
+		if text != "" {
+			fmt.Fprintln(w, text)
+			_, _ = db.ExecContext(ctx,
+				`UPDATE claims SET nudged_90m_at=? WHERE repo_id=? AND agent_id=? AND item_id=?`,
+				now.Unix(), repoID, agentID, itemID)
+		}
+	}
+}
+
+// lastMilestoneSilence returns how long ago the agent's most recent
+// milestone post landed, or a very large duration when none exists since
+// claim time (so the threshold check fires).
+func lastMilestoneSilence(ctx context.Context, db *sql.DB, repoID, agentID string, claimedAt int64, now time.Time) time.Duration {
+	var latest sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		`SELECT MAX(ts) FROM messages WHERE repo_id=? AND agent_id=? AND kind=? AND ts >= ?`,
+		repoID, agentID, chat.KindMilestone, claimedAt,
+	).Scan(&latest); err != nil || !latest.Valid {
+		return 24 * time.Hour
+	}
+	return now.Sub(time.Unix(latest.Int64, 0))
+}
+
 // cadenceNudgeText returns the one-line claim/done reminder pointing the
 // agent at the right chat verb for the moment, or "" when silenced or when
 // no copy applies. The string never carries a trailing newline — the print

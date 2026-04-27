@@ -47,6 +47,7 @@ func newTickCmd() *cobra.Command {
 				os.Exit(code)
 			}
 			maybePrintStaleChatNudge(ctx, bc.db, bc.repoID, bc.agentID, time.Now(), cmd.OutOrStdout())
+			maybePrintTimeBoxNudge(ctx, bc.db, bc.repoID, bc.agentID, time.Now(), cmd.OutOrStdout())
 			return nil
 		},
 	}

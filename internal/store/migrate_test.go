@@ -283,8 +283,8 @@ func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
 		t.Fatalf("max: %v", err)
 	}
-	if maxV != 11 {
-		t.Fatalf("want version 11 after bootstrap; got %d", maxV)
+	if maxV != 12 {
+		t.Fatalf("want version 12 after bootstrap; got %d", maxV)
 	}
 }
 
@@ -326,8 +326,8 @@ func TestMigrate_BootstrapPreservesWorktreeAndSeedsAllVersions(t *testing.T) {
 	if err := db.QueryRow(`SELECT count(*) FROM migration_versions`).Scan(&rows); err != nil {
 		t.Fatalf("count migration_versions: %v", err)
 	}
-	if rows != 11 {
-		t.Errorf("migration_versions row count = %d, want 11 (bootstrap missed markers)", rows)
+	if rows != 12 {
+		t.Errorf("migration_versions row count = %d, want 12 (bootstrap missed markers)", rows)
 	}
 }
 
@@ -450,6 +450,48 @@ func TestMigrate_BootstrapStampsAgentsCapabilitiesV11(t *testing.T) {
 	}
 	if has != 1 {
 		t.Errorf("v11 marker not stamped after bootstrap; got %d rows", has)
+	}
+}
+
+func TestMigrate_AppliesClaimTimeboxNudges(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	cols := pragmaCols(t, db, "claims")
+	for _, name := range []string{"nudged_90m_at", "nudged_120m_at"} {
+		if got, ok := cols[name]; !ok {
+			t.Errorf("claims.%s missing", name)
+		} else if !strings.EqualFold(got, "INTEGER") {
+			t.Errorf("claims.%s type=%q want INTEGER", name, got)
+		}
+	}
+	var maxV int
+	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
+		t.Fatalf("max: %v", err)
+	}
+	if maxV < 12 {
+		t.Errorf("want at least version 12; got %d", maxV)
+	}
+}
+
+func TestMigrate_BootstrapStampsClaimTimeboxV12(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("initial migrate: %v", err)
+	}
+	if _, err := db.Exec(`DROP TABLE migration_versions`); err != nil {
+		t.Fatalf("drop migration_versions: %v", err)
+	}
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("bootstrap re-migrate: %v", err)
+	}
+	var has int
+	if err := db.QueryRow(`SELECT count(*) FROM migration_versions WHERE version=12`).Scan(&has); err != nil {
+		t.Fatalf("count v12: %v", err)
+	}
+	if has != 1 {
+		t.Errorf("v12 marker not stamped after bootstrap; got %d rows", has)
 	}
 }
 
@@ -591,8 +633,8 @@ func TestMigrate_IntakeInterviewIdempotent_From008(t *testing.T) {
 	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
 		t.Fatalf("max: %v", err)
 	}
-	if maxV != 11 {
-		t.Fatalf("want max version 11 after 008→011 upgrade; got %d", maxV)
+	if maxV != 12 {
+		t.Fatalf("want max version 12 after 008→012 upgrade; got %d", maxV)
 	}
 }
 

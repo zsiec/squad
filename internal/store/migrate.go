@@ -216,6 +216,12 @@ func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
 	if hasAgentsCapabilities > 0 {
 		legacy = append(legacy, legacyRow{11, "agents_capabilities"})
 	}
+	var hasNudged90m int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pragma_table_info('claims') WHERE name='nudged_90m_at'`).Scan(&hasNudged90m)
+	if hasNudged90m > 0 {
+		legacy = append(legacy, legacyRow{12, "claim_timebox_nudges"})
+	}
 	nowTS := time.Now().Unix()
 	for _, l := range legacy {
 		if _, err := db.ExecContext(ctx,

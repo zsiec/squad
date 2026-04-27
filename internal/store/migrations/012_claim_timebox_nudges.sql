@@ -1,0 +1,2 @@
+ALTER TABLE claims ADD COLUMN nudged_90m_at INTEGER;
+ALTER TABLE claims ADD COLUMN nudged_120m_at INTEGER;
