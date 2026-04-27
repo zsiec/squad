@@ -147,7 +147,7 @@ func TestIntake_E2E_FullFlow(t *testing.T) {
 	}
 
 	var nextOut bytes.Buffer
-	if code := runNext(nil, &nextOut, false, 0, false); code != 0 {
+	if code := runNext(nil, &nextOut, false, 0, false, false); code != 0 {
 		t.Fatalf("next: exit=%d stdout=%q", code, nextOut.String())
 	}
 	if !strings.Contains(nextOut.String(), "FEAT-001") {
@@ -209,7 +209,7 @@ func TestIntake_E2E_ReadyFlagBypassesInbox(t *testing.T) {
 	}
 
 	var nextOut bytes.Buffer
-	if code := runNext(nil, &nextOut, false, 0, false); code != 0 {
+	if code := runNext(nil, &nextOut, false, 0, false, false); code != 0 {
 		t.Fatalf("next: exit=%d stdout=%q", code, nextOut.String())
 	}
 	if !strings.Contains(nextOut.String(), "FEAT-001") {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
@@ -32,6 +33,11 @@ type NextArgs struct {
 	AgentID        string  `json:"agent_id"`
 	Limit          int     `json:"limit,omitempty"`
 	IncludeClaimed bool    `json:"include_claimed,omitempty"`
+	// All bypasses the capability-intersection filter so operators can
+	// inspect the unfiltered ready stack. Does not change claim
+	// eligibility on its own — claim-layer capability enforcement is
+	// tracked separately.
+	All bool `json:"all,omitempty"`
 }
 
 type NextRow struct {
@@ -82,6 +88,9 @@ func NextItem(ctx context.Context, args NextArgs) (NextResult, error) {
 		}
 		ready = filtered
 	}
+	if !args.All && args.DB != nil && args.AgentID != "" {
+		ready = filterByCapability(ctx, args.DB, args.AgentID, ready)
+	}
 	if len(ready) == 0 {
 		return NextResult{}, ErrNoReadyItems
 	}
@@ -103,17 +112,56 @@ func NextItem(ctx context.Context, args NextArgs) (NextResult, error) {
 	return NextResult{Items: out, Total: total}, nil
 }
 
+// filterByCapability drops ready items whose `requires_capability` is
+// not a subset of the agent's declared capability set. Empty
+// `requires_capability` always passes — untagged items remain
+// universally claimable. When the agent row or its capabilities column
+// can't be read, the filter is a no-op (visibility is the safer
+// default than hiding work behind a missing-DB panic).
+func filterByCapability(ctx context.Context, db *sql.DB, agentID string, ready []items.Item) []items.Item {
+	var capsRaw sql.NullString
+	if err := db.QueryRowContext(ctx,
+		`SELECT capabilities FROM agents WHERE id = ?`, agentID).Scan(&capsRaw); err != nil {
+		return ready
+	}
+	var caps []string
+	if capsRaw.Valid && capsRaw.String != "" {
+		_ = json.Unmarshal([]byte(capsRaw.String), &caps)
+	}
+	have := make(map[string]struct{}, len(caps))
+	for _, c := range caps {
+		have[c] = struct{}{}
+	}
+	out := ready[:0]
+	for _, it := range ready {
+		if isSubset(it.RequiresCapability, have) {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+func isSubset(required []string, have map[string]struct{}) bool {
+	for _, r := range required {
+		if _, ok := have[r]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func newNextCmd() *cobra.Command {
 	var (
 		asJSON         bool
 		limit          int
 		includeClaimed bool
+		all            bool
 	)
 	cmd := &cobra.Command{
 		Use:   "next",
 		Short: "List ready items in priority order (excludes items already claimed)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if code := runNext(args, cmd.OutOrStdout(), asJSON, limit, includeClaimed); code != 0 {
+			if code := runNext(args, cmd.OutOrStdout(), asJSON, limit, includeClaimed, all); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -122,10 +170,11 @@ func newNextCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit ready items as a JSON array")
 	cmd.Flags().IntVar(&limit, "limit", 0, "cap rows printed (0 = print all)")
 	cmd.Flags().BoolVar(&includeClaimed, "include-claimed", false, "include items currently held by some agent")
+	cmd.Flags().BoolVar(&all, "all", false, "skip the capability filter — show every ready item regardless of fit")
 	return cmd
 }
 
-func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaimed bool) int {
+func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaimed, all bool) int {
 	wd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "getwd: %v\n", err)
@@ -142,6 +191,10 @@ func runNext(_ []string, stdout io.Writer, asJSON bool, limit int, includeClaime
 		DoneDir:        filepath.Join(root, ".squad", "done"),
 		Limit:          limit,
 		IncludeClaimed: includeClaimed,
+		All:            all,
+	}
+	if id, ierr := identity.AgentID(); ierr == nil {
+		args.AgentID = id
 	}
 	if db, derr := store.OpenDefault(); derr == nil {
 		defer db.Close()

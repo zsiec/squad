@@ -31,7 +31,7 @@ func TestR3_LegacyItemsStillWork(t *testing.T) {
 	t.Chdir(dir)
 
 	var out bytes.Buffer
-	if code := runNext(nil, &out, false, 0, false); code != 0 {
+	if code := runNext(nil, &out, false, 0, false, false); code != 0 {
 		t.Fatalf("next exit=%d, out=%s", code, out.String())
 	}
 	if !strings.Contains(out.String(), "FEAT-001") {

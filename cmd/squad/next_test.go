@@ -31,7 +31,7 @@ func TestRunNext_PrintsHighestPriorityReady(t *testing.T) {
 	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
 	t.Chdir(dir)
 	var stdout bytes.Buffer
-	code := runNext(nil, &stdout, false, 0, false)
+	code := runNext(nil, &stdout, false, 0, false, false)
 	if code != 0 {
 		t.Fatalf("exit=%d stdout=%q", code, stdout.String())
 	}
@@ -54,7 +54,7 @@ func TestRunNext_EmptyQueueReturnsError(t *testing.T) {
 	t.Setenv("SQUAD_HOME", filepath.Join(dir, "home"))
 	t.Chdir(dir)
 	var stdout bytes.Buffer
-	code := runNext(nil, &stdout, false, 0, false)
+	code := runNext(nil, &stdout, false, 0, false, false)
 	if code == 0 {
 		t.Fatal("expected non-zero exit on empty queue")
 	}
@@ -85,7 +85,7 @@ func TestNext_OmitsItemsWithUnmetDependsOn(t *testing.T) {
 	t.Chdir(dir)
 
 	var out bytes.Buffer
-	if code := runNext(nil, &out, false, 0, false); code != 0 {
+	if code := runNext(nil, &out, false, 0, false, false); code != 0 {
 		t.Fatalf("exit=%d, out=%s", code, out.String())
 	}
 	body := out.String()

@@ -113,8 +113,10 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 		InputSchema: json.RawMessage(schemaNext),
 		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var args struct {
-				Limit          int  `json:"limit"`
-				IncludeClaimed bool `json:"include_claimed"`
+				Limit          int    `json:"limit"`
+				IncludeClaimed bool   `json:"include_claimed"`
+				All            bool   `json:"all"`
+				AgentID        string `json:"agent_id"`
 			}
 			if len(raw) > 0 {
 				if err := json.Unmarshal(raw, &args); err != nil {
@@ -124,13 +126,19 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 			if err := requireRepo(repoRoot, repoID); err != nil {
 				return nil, err
 			}
+			agent, err := resolveAgentID(args.AgentID)
+			if err != nil {
+				return nil, err
+			}
 			res, err := NextItem(ctx, NextArgs{
 				ItemsDir:       itemsDirOf(repoRoot),
 				DoneDir:        doneDirOf(repoRoot),
 				DB:             db,
 				RepoID:         repoID,
+				AgentID:        agent,
 				Limit:          args.Limit,
 				IncludeClaimed: args.IncludeClaimed,
+				All:            args.All,
 			})
 			if errors.Is(err, ErrNoReadyItems) {
 				return NextResult{Items: []NextRow{}, Total: 0}, nil
