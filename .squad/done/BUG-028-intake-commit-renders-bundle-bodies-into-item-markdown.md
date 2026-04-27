@@ -4,7 +4,7 @@ title: intake commit renders bundle bodies into item markdown
 type: bug
 priority: P1
 area: internal/intake
-status: open
+status: done
 estimate: 3h
 risk: low
 evidence_required: [test]
@@ -92,5 +92,24 @@ parsed body during `supersedeOriginal` and thread it back to the writer
 call site, or read the original file before the commit transaction begins.
 
 ## Resolution
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+- `internal/items/new.go`: split the single `stubTemplate` into a frontmatter
+  template + a `renderBody(opts)` builder. Added `Intent`, `Acceptance`,
+  `Notes`, and `RefinementHistory` to `Options`; empty fields fall back to the
+  prior placeholder text so `squad new` with no flags is byte-identical.
+- `internal/intake/commit_run.go`: `commitImpl` now builds a per-item
+  `Options` from each `ItemDraft` (Intent, Acceptance, Area, Estimate). Added
+  `captureRefineHistory` which reads the original item body before the tx and
+  hands it to the writer wrapped as `### Round 1 — YYYY-MM-DD`, with `##`/`###`
+  headings demoted by one level so the document hierarchy stays clean.
+- `internal/intake/commit_spec_epic.go`: same wiring on the spec/epic path.
+- Regression tests in `commit_run_test.go`: `TestCommit_ItemOnlyRendersBundleIntoBody`
+  (asserts Intent/Acceptance text appears and the literal placeholder is gone)
+  and `TestCommit_RefinePreservesOriginalBodyInRefinementHistory` (asserts
+  the prior body, attribution, and demoted heading are present).
+
+Note: `ItemDraft` has no `Notes` field today, so the `Options.Notes` plumbing
+is dormant on the intake side. The field is wired through to the renderer so
+the moment the interview starts capturing per-item notes the data lands in
+the file with no further changes here. Intent fills both `## Problem` and
+`## Context` per literal AC; the next agent claiming the item can split or
+trim as they investigate.
