@@ -25,10 +25,11 @@ const (
 )
 
 var (
-	ErrIntakeNotFound         = errors.New("intake: session not found")
-	ErrIntakeNotYours         = errors.New("intake: session owned by another agent")
-	ErrIntakeAlreadyClosed    = errors.New("intake: session already closed")
-	ErrIntakeItemNotRefinable = errors.New("intake: item is not in captured status")
+	ErrIntakeNotFound           = errors.New("intake: session not found")
+	ErrIntakeNotYours           = errors.New("intake: session owned by another agent")
+	ErrIntakeAlreadyClosed      = errors.New("intake: session already closed")
+	ErrIntakeItemNotRefinable   = errors.New("intake: item is not in captured status")
+	ErrIntakeRefineItemMismatch = errors.New("intake: open call's refine_item_id does not match the resumed session")
 )
 
 // ItemSnapshot is a value-typed copy of an existing item, taken at the
@@ -82,6 +83,11 @@ type Session struct {
 // (items.ErrItemNotFound on miss) and be in captured status
 // (ErrIntakeItemNotRefinable otherwise). For ModeNew the snapshot return
 // is the zero value.
+//
+// On resume, the call's RefineItemID must match the session's pinned
+// refine_item_id; mismatches return ErrIntakeRefineItemMismatch. That
+// sentinel also fires when the existing session's Mode disagrees with
+// the call's Mode (since ModeNew sessions persist refine_item_id="").
 func Open(ctx context.Context, db *sql.DB, p OpenParams) (Session, ItemSnapshot, bool, error) {
 	if p.Mode != ModeNew && p.Mode != ModeRefine {
 		return Session{}, ItemSnapshot{}, false, fmt.Errorf("intake: invalid mode %q (want %q or %q)", p.Mode, ModeNew, ModeRefine)
@@ -100,6 +106,9 @@ func Open(ctx context.Context, db *sql.DB, p OpenParams) (Session, ItemSnapshot,
 		if s, ok, err := findOpen(ctx, db, p.RepoID, p.AgentID); err != nil {
 			return Session{}, ItemSnapshot{}, false, err
 		} else if ok {
+			if s.RefineItemID != p.RefineItemID {
+				return Session{}, ItemSnapshot{}, false, ErrIntakeRefineItemMismatch
+			}
 			return s, snapshot, true, nil
 		}
 
