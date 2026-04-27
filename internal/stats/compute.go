@@ -40,6 +40,7 @@ func Compute(ctx context.Context, db *sql.DB, opts ComputeOpts) (Snapshot, error
 		{"tokens", computeTokens},
 		{"by_agent", computeByAgent},
 		{"by_epic", computeByEpic},
+		{"by_capability", computeByCapability},
 		{"series", computeSeries},
 	}
 	for _, st := range steps {

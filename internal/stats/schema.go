@@ -20,9 +20,10 @@ type Snapshot struct {
 	Verification  Verification `json:"verification"`
 	Learnings     Learnings    `json:"learnings"`
 	Tokens        Tokens       `json:"tokens"`
-	ByAgent       []AgentRow   `json:"by_agent"`
-	ByEpic        []EpicRow    `json:"by_epic"`
-	Series        Series       `json:"series"`
+	ByAgent       []AgentRow      `json:"by_agent"`
+	ByEpic        []EpicRow       `json:"by_epic"`
+	ByCapability  []CapabilityRow `json:"by_capability"`
+	Series        Series          `json:"series"`
 }
 
 type Window struct {
@@ -105,6 +106,17 @@ type AgentRow struct {
 	ClaimP99Seconds        *float64 `json:"claim_p99_seconds"`
 	VerificationRate       *float64 `json:"verification_rate"`
 	WIPViolationsAttempted int64    `json:"wip_violations_attempted"`
+}
+
+// CapabilityRow is one entry in the by-capability breakdown. Each
+// done item with N tags increments N rows once each, so totals across
+// rows can exceed snap.Items.Done — the help text calls this out so
+// operators know per-row counts answer "how many done items needed
+// this capability?" not "what fraction of done work was tagged this?"
+// Untagged items are reported under the literal "(untagged)" key.
+type CapabilityRow struct {
+	Capability string `json:"capability"`
+	DoneCount  int64  `json:"done_count"`
 }
 
 type EpicRow struct {

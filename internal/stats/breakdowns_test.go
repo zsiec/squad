@@ -2,9 +2,77 @@ package stats
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 )
+
+// seedItemWithCapability inserts an item with a literal JSON-array
+// requires_capability value. Mirrors how items.persistUpsert writes
+// the column — `[]` for untagged, otherwise a JSON list.
+func seedItemWithCapability(t *testing.T, db *sql.DB, id, status, capability string) {
+	t.Helper()
+	if _, err := db.Exec(`
+		INSERT INTO items (repo_id, item_id, title, type, priority, area,
+			status, estimate, risk, ac_total, ac_checked, archived, path, updated_at, requires_capability)
+		VALUES ('repo-1', ?, 't', 'feat', 'P2', 'general', ?, '', '', 0, 0, 0, '', ?, ?)`,
+		id, status, time.Now().Unix(), capability,
+	); err != nil {
+		t.Fatalf("seed item %s: %v", id, err)
+	}
+}
+
+func TestByCapability_SingleMultiUntaggedAndWindow(t *testing.T) {
+	db := openTestDB(t)
+	now := time.Unix(2_000_000_000, 0)
+	inWindow := now.Add(-3 * time.Hour).Unix()
+	outOfWindow := now.Add(-48 * time.Hour).Unix()
+
+	// Single-tag, in window.
+	seedItemWithCapability(t, db, "BUG-1", "done", `["go"]`)
+	seedClaimHistory(t, db, "BUG-1", "agent-a", inWindow-100, inWindow, "done")
+
+	// Multi-tag, in window — increments both buckets once each.
+	seedItemWithCapability(t, db, "BUG-2", "done", `["go","sql"]`)
+	seedClaimHistory(t, db, "BUG-2", "agent-a", inWindow-100, inWindow, "done")
+
+	// Untagged ([]), in window — counted under (untagged).
+	seedItemWithCapability(t, db, "BUG-3", "done", `[]`)
+	seedClaimHistory(t, db, "BUG-3", "agent-a", inWindow-100, inWindow, "done")
+
+	// Out-of-window — must NOT count.
+	seedItemWithCapability(t, db, "BUG-4", "done", `["frontend"]`)
+	seedClaimHistory(t, db, "BUG-4", "agent-a", outOfWindow-100, outOfWindow, "done")
+
+	// In-progress (released, not done) — must NOT count.
+	seedItemWithCapability(t, db, "BUG-5", "open", `["go"]`)
+	seedClaimHistory(t, db, "BUG-5", "agent-a", inWindow-100, inWindow, "released")
+
+	snap, err := Compute(context.Background(), db, ComputeOpts{
+		RepoID: "repo-1", Now: now, Window: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("Compute: %v", err)
+	}
+
+	got := map[string]int64{}
+	for _, r := range snap.ByCapability {
+		got[r.Capability] = r.DoneCount
+	}
+	want := map[string]int64{
+		"go":         2, // BUG-1 + BUG-2
+		"sql":        1, // BUG-2
+		"(untagged)": 1, // BUG-3
+	}
+	for k, w := range want {
+		if got[k] != w {
+			t.Errorf("ByCapability[%q] = %d; want %d (got=%v)", k, got[k], w, got)
+		}
+	}
+	if _, has := got["frontend"]; has {
+		t.Errorf("frontend should be excluded by window; got %d", got["frontend"])
+	}
+}
 
 func TestByAgentSortAndCap(t *testing.T) {
 	db := openTestDB(t)

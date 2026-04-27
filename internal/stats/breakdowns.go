@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"sort"
 )
 
@@ -141,6 +142,63 @@ func perEpicVerificationRate(ctx context.Context, db *sql.DB, repoID, epic strin
 		repoID, epic).Scan(&full)
 	r := float64(full) / float64(done)
 	return &r
+}
+
+// computeByCapability counts done items in window per requires_capability
+// tag. Multi-tag items increment each tag once. Empty tag-set items land
+// under "(untagged)". Done-ness is sourced from claim_history (so the
+// since/until window applies); the items.requires_capability column is
+// joined for the tag set. No-op when the column is absent.
+func computeByCapability(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
+	snap.ByCapability = []CapabilityRow{}
+	if !columnExists(ctx, db, "items", "requires_capability") {
+		return nil
+	}
+	rows, err := db.QueryContext(ctx, `
+		SELECT DISTINCT i.item_id, COALESCE(i.requires_capability, '[]')
+		FROM items i
+		INNER JOIN claim_history ch ON ch.item_id = i.item_id AND ch.repo_id = i.repo_id
+		WHERE i.repo_id = ? AND ch.outcome = 'done'
+		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)`,
+		repoID, since, until, until,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	counts := map[string]int64{}
+	for rows.Next() {
+		var itemID, raw string
+		if err := rows.Scan(&itemID, &raw); err != nil {
+			return err
+		}
+		var tags []string
+		if raw != "" {
+			_ = json.Unmarshal([]byte(raw), &tags)
+		}
+		if len(tags) == 0 {
+			counts["(untagged)"]++
+			continue
+		}
+		for _, tg := range tags {
+			counts[tg]++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	out := make([]CapabilityRow, 0, len(counts))
+	for k, v := range counts {
+		out = append(out, CapabilityRow{Capability: k, DoneCount: v})
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].DoneCount != out[j].DoneCount {
+			return out[i].DoneCount > out[j].DoneCount
+		}
+		return out[i].Capability < out[j].Capability
+	})
+	snap.ByCapability = out
+	return nil
 }
 
 func columnExists(ctx context.Context, db *sql.DB, table, col string) bool {

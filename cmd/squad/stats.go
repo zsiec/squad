@@ -46,8 +46,8 @@ func newStatsCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			if by != "" && by != "agent" {
-				return fmt.Errorf("--by: unknown group %q (valid: agent)", by)
+			if by != "" && by != "agent" && by != "capability" {
+				return fmt.Errorf("--by: unknown group %q (valid: agent, capability)", by)
 			}
 			bc, err := bootClaimContext(ctx)
 			if err != nil {
@@ -64,6 +64,10 @@ func newStatsCmd() *cobra.Command {
 				}
 				if by == "agent" {
 					renderAgentRatioTable(cmd.OutOrStdout(), snap.ByAgent)
+					return nil
+				}
+				if by == "capability" {
+					renderCapabilityTable(cmd.OutOrStdout(), snap.ByCapability)
 					return nil
 				}
 				renderHumanStats(cmd.OutOrStdout(), *snap)
@@ -92,7 +96,7 @@ func newStatsCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&tail, "tail", false, "stream NDJSON until interrupted")
 	cmd.Flags().DurationVar(&window, "window", 24*time.Hour, "metric window (0 = unbounded)")
 	cmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "tail emit interval")
-	cmd.Flags().StringVar(&by, "by", "", "group breakdown: agent")
+	cmd.Flags().StringVar(&by, "by", "", "group breakdown: agent, capability")
 	return cmd
 }
 
@@ -122,6 +126,18 @@ func renderAgentRatioTable(w io.Writer, rows []stats.AgentRow) {
 	for _, r := range sorted {
 		fmt.Fprintf(w, "%-20s %10d %14d %8s\n",
 			r.AgentID, r.ClaimsCompleted, r.ReleaseCount, fmtRatio(r.Ratio))
+	}
+}
+
+// renderCapabilityTable prints a per-tag count of done items in window.
+// Multi-tag items increment each row once, so totals across rows can
+// exceed the snapshot's total done count — the header note calls that
+// out so operators don't read the table as a partition.
+func renderCapabilityTable(w io.Writer, rows []stats.CapabilityRow) {
+	fmt.Fprintln(w, "# multi-tag items count once per row; totals across rows may exceed snap.items.done")
+	fmt.Fprintf(w, "%-20s %10s\n", "capability", "done_count")
+	for _, r := range rows {
+		fmt.Fprintf(w, "%-20s %10d\n", r.Capability, r.DoneCount)
 	}
 }
 
