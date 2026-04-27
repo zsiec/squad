@@ -130,15 +130,16 @@ func TestIntegration_AutoRefine(t *testing.T) {
 			t.Errorf("mcp config temp file %q should be cleaned up by the time runner returns; stat err=%v", seenConfigPath, err)
 		}
 
-		var resp items.Item
+		var resp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("decode response: %v", err)
 		}
-		if resp.AutoRefinedAt == 0 {
-			t.Errorf("response auto_refined_at should be > 0")
+		if at, _ := resp["auto_refined_at"].(float64); at == 0 {
+			t.Errorf("response auto_refined_at should be > 0; got %v", resp["auto_refined_at"])
 		}
-		if !strings.Contains(resp.Body, "the rule replaces the placeholder body verbatim") {
-			t.Errorf("response body did not pick up new AC: %q", resp.Body)
+		body, _ := resp["body_markdown"].(string)
+		if !strings.Contains(body, "the rule replaces the placeholder body verbatim") {
+			t.Errorf("response body did not pick up new AC: %q", body)
 		}
 
 		on, err := items.Parse(path)

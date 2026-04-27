@@ -76,18 +76,24 @@ func TestAutoRefine_HappyPath(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
 	}
-	var got items.Item
+	var got map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if got.AutoRefinedAt == 0 {
-		t.Errorf("response item missing auto_refined_at")
+	if got["id"] != "BUG-700" {
+		t.Errorf("response id=%v want BUG-700", got["id"])
 	}
-	if got.AutoRefinedBy != "claude" {
-		t.Errorf("auto_refined_by=%q want claude", got.AutoRefinedBy)
+	if got["dor_pass"] != true {
+		t.Errorf("response dor_pass=%v want true", got["dor_pass"])
 	}
-	if !strings.Contains(got.Body, "the rule replaces the placeholder body verbatim") {
-		t.Errorf("response body did not pick up new AC: %q", got.Body)
+	if at, _ := got["auto_refined_at"].(float64); at == 0 {
+		t.Errorf("response missing auto_refined_at: %v", got["auto_refined_at"])
+	}
+	if got["auto_refined_by"] != "claude" {
+		t.Errorf("auto_refined_by=%v want claude", got["auto_refined_by"])
+	}
+	if body, _ := got["body_markdown"].(string); !strings.Contains(body, "the rule replaces the placeholder body verbatim") {
+		t.Errorf("response body did not pick up new AC: %q", body)
 	}
 
 	on, err := items.Parse(path)

@@ -100,6 +100,7 @@ async function renderList() {
 function row(it) {
   const ago = it.captured_at ? fmtAgo(it.captured_at) + ' ago' : '';
   const dorPass = it.dor_pass ? '<span class="inbox-dor ok">DoR ✓</span>' : '<span class="inbox-dor bad">DoR ✗</span>';
+  const autoBadge = it.auto_refined_at ? '<span class="inbox-auto-refined" title="body drafted by claude — review before accepting">auto-refined</span>' : '';
   return `
     <div class="inbox-row" data-id="${escapeHtml(it.id)}">
       <div class="inbox-meta">
@@ -107,11 +108,12 @@ function row(it) {
         <span class="inbox-by">${escapeHtml(it.captured_by || '?')}</span>
         <span class="inbox-when">${escapeHtml(ago)}</span>
         ${dorPass}
+        ${autoBadge}
       </div>
       <div class="inbox-title">${escapeHtml(it.title)}</div>
       <div class="inbox-actions">
         <button type="button" class="action-btn" data-action="details" data-id="${escapeHtml(it.id)}" aria-expanded="false">Details</button>
-        <button type="button" class="action-btn warn" data-action="refine" data-id="${escapeHtml(it.id)}">Refine</button>
+        <button type="button" class="action-btn warn" data-action="auto-refine" data-id="${escapeHtml(it.id)}">Auto-refine</button>
         <button type="button" class="action-btn ok" data-action="accept" data-id="${escapeHtml(it.id)}">Accept</button>
         <button type="button" class="action-btn danger" data-action="reject" data-id="${escapeHtml(it.id)}">Reject</button>
       </div>
@@ -122,6 +124,10 @@ function row(it) {
 async function onClick(action, id) {
   if (action === 'details') {
     await toggleDetails(id);
+    return;
+  }
+  if (action === 'auto-refine') {
+    await runAutoRefine(id);
     return;
   }
   if (action === 'refine') {
@@ -172,6 +178,9 @@ async function toggleDetails(id) {
     try {
       const it = await fetchJSON('/api/items/' + encodeURIComponent(id));
       host.innerHTML = renderDetails(it);
+      host.querySelectorAll('button[data-action]').forEach((b) => {
+        b.addEventListener('click', () => onClick(b.dataset.action, b.dataset.id));
+      });
       host.dataset.loaded = '1';
     } catch (err) {
       host.innerHTML = `<div class="nav-error">${escapeHtml(err.message)}</div>`;
@@ -224,7 +233,87 @@ function renderDetails(it) {
       ${meta.map(([k, v]) => `<span class="inbox-detail-meta-cell"><span class="inbox-detail-meta-k">${escapeHtml(k)}</span> ${escapeHtml(v)}</span>`).join('')}
     </div>
     ${acHtml}
-    ${bodyHtml}`;
+    ${bodyHtml}
+    <div class="inbox-detail-actions">
+      <button type="button" class="action-btn warn" data-action="refine" data-id="${escapeHtml(it.id)}">Send for refinement</button>
+    </div>`;
+}
+
+async function runAutoRefine(id) {
+  if (!modalEl) return;
+  const btn = modalEl.querySelector(`button[data-action="auto-refine"][data-id="${cssEscape(id)}"]`);
+  if (!btn || btn.disabled) return;
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.classList.add('drafting');
+  btn.textContent = 'drafting…';
+  try {
+    const res = await fetch(`/api/items/${encodeURIComponent(id)}/auto-refine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const text = await res.text();
+    let payload = null;
+    try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
+    if (res.ok && payload) {
+      replaceRow(id, payload);
+      onMutated();
+      return;
+    }
+    autoRefineToastForStatus(res.status, payload);
+  } catch (err) {
+    toast({ kind: 'error', title: 'Auto-refine failed', body: err.message || String(err) });
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('drafting');
+    btn.textContent = originalLabel;
+  }
+}
+
+function autoRefineToastForStatus(status, payload) {
+  const errMsg = (payload && payload.error) || 'unknown error';
+  const stderr = (payload && payload.stderr) || '';
+  switch (status) {
+    case 503:
+      toast({ kind: 'error', title: 'Claude CLI not found', body: errMsg });
+      return;
+    case 504:
+      toast({ kind: 'error', title: 'Auto-refine timed out', body: errMsg });
+      return;
+    case 502:
+      toast({ kind: 'error', title: 'Claude failed', body: stderr ? stderr.slice(0, 240) : errMsg });
+      return;
+    case 500:
+      toast({ kind: 'error', title: 'Claude exited without drafting', body: errMsg });
+      return;
+    case 409:
+      if (errMsg.includes('already in flight')) {
+        toast({ kind: 'warn', title: 'Already drafting', body: errMsg });
+      } else {
+        toast({ kind: 'warn', title: 'Status is no longer captured', body: errMsg });
+      }
+      return;
+    case 404:
+      toast({ kind: 'error', title: 'Item not found', body: errMsg });
+      return;
+    default:
+      toast({ kind: 'error', title: `Auto-refine failed (${status})`, body: errMsg });
+  }
+}
+
+function replaceRow(id, payload) {
+  if (!modalEl) return;
+  const rowEl = modalEl.querySelector(`.inbox-row[data-id="${cssEscape(id)}"]`);
+  if (!rowEl) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = row(payload);
+  const replacement = tmp.firstElementChild;
+  if (!replacement) return;
+  rowEl.replaceWith(replacement);
+  replacement.querySelectorAll('button[data-action]').forEach((b) => {
+    b.addEventListener('click', () => onClick(b.dataset.action, b.dataset.id));
+  });
 }
 
 async function openRefineComposer(id) {

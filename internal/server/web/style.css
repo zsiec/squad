@@ -2507,6 +2507,18 @@ a.item-chip:hover {
 .inbox-when { color: var(--fg-dim); }
 .inbox-dor.ok  { color: #6dbf6d; }
 .inbox-dor.bad { color: var(--danger); }
+.inbox-auto-refined {
+  color: #d9a650;
+  border: 1px solid #8a6f33;
+  padding: 0 6px;
+  font: 10px var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 2px;
+}
+.action-btn.drafting,
+.action-btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+.inbox-detail-actions { display: flex; gap: 8px; }
 .inbox-title { color: var(--fg); font: 13px var(--font-sans); }
 .inbox-actions { display: flex; gap: 8px; }
 .inbox-details {

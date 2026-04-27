@@ -146,8 +146,30 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.publishInboxChanged(id, "auto-refine")
-	writeJSON(w, http.StatusOK, after)
+	writeJSON(w, http.StatusOK, autoRefineEntry(after))
 }
+
+// autoRefineEntry shapes the response so the SPA inbox can re-render the
+// row directly from the payload (no extra fetch). DoRPass is true by
+// construction — items.AutoRefineApply already validated the new body.
+// `body_markdown` is included so the row composer can show the new body
+// without an item-detail round-trip; the field is non-standard for the
+// usual InboxEntry shape but is harmless additional context.
+func autoRefineEntry(it items.Item) map[string]any {
+	return map[string]any{
+		"id":              it.ID,
+		"title":           it.Title,
+		"captured_by":     it.CapturedBy,
+		"captured_at":     it.CapturedAt,
+		"parent_spec":     it.ParentSpec,
+		"dor_pass":        true,
+		"path":            it.Path,
+		"auto_refined_at": it.AutoRefinedAt,
+		"auto_refined_by": it.AutoRefinedBy,
+		"body_markdown":   it.Body,
+	}
+}
+
 
 func (s *Server) autoRefineRunnerOrDefault() autoRefineRunner {
 	s.autoRefineMu.Lock()
