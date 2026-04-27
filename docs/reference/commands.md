@@ -90,6 +90,42 @@ squad reject FEAT-009 TASK-022 --reason "merged into FEAT-014"
 
 There is no un-reject. To re-file rejected content, use `squad new`.
 
+### `squad refine`
+
+Send a captured item back for a sharper pass. Flips the item to `status: needs-refinement` and writes the comments under `## Reviewer feedback` in the body. Required `--comments` carries the reviewer's note — there is no anonymous refine.
+
+```bash
+squad refine FEAT-014 --comments "tighten AC: which endpoints, which error codes?"
+squad refine                                      # list items currently in needs-refinement
+```
+
+The item disappears from the regular inbox until an editor runs `squad recapture` to push it back. See [recipes/refining-captured-items.md](../recipes/refining-captured-items.md).
+
+### `squad recapture`
+
+Reverse `squad refine`: flip an item from `needs-refinement` back to `captured`. Rotates `## Reviewer feedback` into `## Refinement history` as a numbered round, preserving the audit trail across multiple passes. Releases the editor's claim.
+
+```bash
+squad recapture FEAT-014
+```
+
+Run from the same agent that holds the claim. The item reappears in the regular inbox, ready for accept / reject / refine again.
+
+### `squad intake`
+
+Substrate for the structured-interview flow that the `/squad:squad-intake` slash command drives. Most users won't invoke these directly — they're documented for scripting and debugging.
+
+```bash
+squad intake new <idea...>                        # open a new-mode session
+squad intake refine <item-id>                     # open a refine-mode session against an existing item
+squad intake list                                  # list open sessions
+squad intake status <session-id>                   # show transcript and remaining required fields
+squad intake commit <session-id>                   # commit a drafted bundle (file the items)
+squad intake cancel <session-id>                   # abandon a session
+```
+
+Sessions are durable across restarts; running `intake new` or `intake refine` with an existing pending session resumes it. The bundle written by `intake commit` is structurally validated — incomplete bundles are rejected loudly with the missing fields named.
+
 ### `squad ready`
 
 Inspect Definition of Ready status without changing state. Useful in edit loops while you flesh out a captured item.
@@ -170,7 +206,7 @@ squad decompose auth-rework
 squad decompose auth-rework --print-prompt    # echo the prompt for debugging
 ```
 
-Drafts are captured, not open — each one runs through the [Definition of Ready](../concepts/intake.md#definition-of-ready) on `squad accept`. The slash-command equivalent is `/squad-decompose <spec>`.
+Drafts are captured, not open — each one runs through the [Definition of Ready](../concepts/intake.md#definition-of-ready) on `squad accept`. The slash-command equivalent is `/squad:squad-decompose <spec>`.
 
 See [recipes/decomposition.md](../recipes/decomposition.md) for the full workflow.
 

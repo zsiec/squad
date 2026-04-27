@@ -34,6 +34,13 @@ The `--comments` flag is required when an id is given. Be specific — the refin
 
 ## Refining-agent flow
 
+Two paths converge on the same outcome — an item that's back in the inbox sharper than it left:
+
+- **Manual edit (this recipe):** claim, $EDITOR the markdown, run `squad recapture`. Best for touch-ups — sharpening AC, adding a file:line, filling in the problem statement.
+- **Structured interview:** from a Claude Code session, run `/squad:squad-intake FEAT-014`. The intake skill opens a refine-mode interview, walks the changes question-by-question, drafts a superseding item, and commits — the original is archived (status: superseded) and a fresh id replaces it. Best when the item needs more than a touch-up: rewriting AC, restructuring scope, or splitting into multiple items.
+
+The rest of this recipe walks the manual path.
+
 ### 1. List what's waiting
 
 ```bash

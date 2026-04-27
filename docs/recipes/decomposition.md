@@ -47,7 +47,7 @@ The command reads the spec, asks the model to suggest a parallel decomposition, 
 
 Add `--print-prompt` to see the prompt the decomposer is sending, useful for debugging when the output isn't what you expected.
 
-From a Claude Code session, the same operation runs through `/squad-decompose auth-rework`.
+From a Claude Code session, the same operation runs through `/squad:squad-decompose auth-rework`.
 
 ### 3. Triage the resulting drafts
 

@@ -134,7 +134,7 @@ Claude calls `squad_accept`. If it fails DoR, Claude reports the violations and 
 
 Claude calls `squad_reject` with the reason.
 
-The slash-command shortcut `/squad-capture <kind> "..."` files a captured item from anywhere in the conversation without breaking flow.
+The slash-command shortcut `/squad:squad-capture <description>` files a captured item from anywhere in the conversation without breaking flow. For an idea that needs more shape than a one-liner, `/squad:squad-intake <starting idea>` runs a structured interview before committing; pass an existing item id to refine an undercooked stub instead.
 
 ## See also
 

@@ -55,7 +55,7 @@ Squad ships as a Claude Code marketplace at `github.com/zsiec/squad`. From insid
 After `/reload-plugins` (or a Claude Code restart), the plugin's pieces are live:
 
 - **MCP tools** — `squad_claim`, `squad_next`, `squad_done`, `squad_say`, etc. visible in the tool list.
-- **Slash commands** — `/squad:work`, `/squad:done`, `/squad:pick`, `/squad:file`, etc. show up under `/help` (Claude Code namespaces all plugin slash commands as `/<plugin>:<command>`).
+- **Slash commands** — `/squad:work`, `/squad:done`, `/squad:pick`, `/squad:file`, plus the capture-side trio `/squad:squad-capture`, `/squad:squad-intake`, and `/squad:squad-decompose`, all show up under `/help`. Claude Code namespaces plugin commands as `/<plugin>:<command>`; the capture commands kept the `squad-` prefix in their filenames so the doubled `squad:squad-` is intentional.
 - **Skills** — squad-loop, squad-handoff, squad-quality-bar, etc. auto-load when their `paths:` match the file you're editing.
 - **Hooks** — session-start, user-prompt-submit, stop, pre-compact, etc. fire automatically.
 - **Dashboard daemon** — on the first MCP boot, squad installs http://localhost:7777 as a per-user system service (launchd on macOS, systemd-user on Linux) and opens the URL in your default browser. Once. The next tool response carries a banner with the URL so it's discoverable in chat. After that, the daemon supervises itself across reboots and binary upgrades. Set `SQUAD_NO_AUTO_DAEMON=1` to skip the auto-install (use `squad serve` manually) or `SQUAD_NO_BROWSER=1` to skip just the auto-open.
@@ -124,7 +124,17 @@ That's the whole cycle. Everything else is repetition.
 
 ## Day 1 — your first real item
 
-New items land in `captured` state — filed but not yet claimable — so you can capture fast and shape later. Ask Claude *"capture a feat for [the smallest real thing you can think of in this repo]"* (or `squad new feat "..."` in a terminal, or the `/squad-capture` slash command from anywhere in the conversation). The item shows up in `squad inbox`, not in `squad next`. When you're ready, edit the file to set an `area:` and add `## Acceptance criteria` checkboxes, then run `squad accept FEAT-001` — the Definition of Ready check decides whether it's ready to claim. Reject the ones that don't make the cut with `squad reject FEAT-001 --reason "..."`.
+New items land in `captured` state — filed but not yet claimable — so you can capture fast and shape later. Three paths in:
+
+- **Quick capture.** *"Capture a bug for the retry-on-503 panic"* (or `/squad:squad-capture <description>`, or `squad new feat "..."` in a terminal). Claude infers the type and files a frontmatter-only stub.
+- **Structured intake.** *"Run intake on my idea about a CSV export"* (or `/squad:squad-intake <starting idea>`). Claude opens an interview, asks one focused question per turn — area, AC, scope, non-goals — drafts a bundle (item, or spec + epics + items if the idea is large), and confirms before committing. Pass an existing item id (`/squad:squad-intake FEAT-007`) to refine an undercooked stub instead of starting fresh; refine-mode commits a superseding item and archives the original.
+- **Spec decomposition.** *"Decompose the auth-rework spec into items"* (or `/squad:squad-decompose auth-rework`). Claude reads the spec and drafts 3–7 captured items linked to the parent.
+
+All three land in `squad inbox`, not in `squad next`. Triage from there:
+
+- `squad accept FEAT-001` — runs the Definition of Ready check (area set, ≥1 AC checkbox, real title or problem). Passing items flip to `status: open` and become claimable.
+- `squad refine FEAT-001 --comments "tighten the AC: which endpoints?"` — sends the item to `needs-refinement` for a sharper pass. Another session (or you, later) claims it, edits the markdown, runs `squad recapture FEAT-001`, and the item is back in the inbox sharper than it left. Reviewer feedback is preserved across rounds under `## Refinement history`. Full walkthrough: [recipes/refining-captured-items.md](recipes/refining-captured-items.md).
+- `squad reject FEAT-001 --reason "duplicate of FEAT-003"` — deletes the file; the reason is logged to `.squad/inbox/rejected.log`.
 
 For the full triage loop, see [recipes/triage.md](recipes/triage.md). For larger work that decomposes into many items, see [recipes/decomposition.md](recipes/decomposition.md).
 

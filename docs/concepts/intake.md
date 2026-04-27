@@ -29,10 +29,10 @@ These are intentionally minimal. They catch the common failure modes — empty A
 
 The intake model is exposed through four parallel surfaces. Pick whichever matches how you're working:
 
-- **CLI verbs** — `squad new`, `squad inbox`, `squad accept`, `squad reject`, `squad ready --check`, `squad decompose`. The canonical surface; everything else is built on top.
-- **MCP tools** — `squad_new`, `squad_inbox`, `squad_accept`, `squad_reject`, `squad_decompose`. What Claude Code calls when you describe the action in natural language.
+- **CLI verbs** — `squad new`, `squad inbox`, `squad accept`, `squad reject`, `squad refine`, `squad recapture`, `squad ready --check`, `squad decompose`, plus `squad intake new|refine|list|status|cancel|commit` for the interview substrate. The canonical surface; everything else is built on top.
+- **MCP tools** — `squad_new`, `squad_inbox`, `squad_accept`, `squad_reject`, `squad_refine`, `squad_recapture`, `squad_decompose`, plus `squad_intake_open`, `squad_intake_turn`, `squad_intake_status`, `squad_intake_commit` for the structured-interview flow. What Claude Code calls when you describe the action in natural language.
 - **TUI inbox view** — the 12th view in `squad tui`. Lists captured items, supports accept and reject inline, surfaces DoR violations as you arrow through.
-- **Slash commands** — `/squad-capture` files a captured item from anywhere in a Claude Code session; `/squad-decompose <spec>` drafts items from a spec.
+- **Slash commands** — `/squad:squad-capture <description>` files a stub from a one-liner; `/squad:squad-intake <idea or item id>` runs a structured interview (and refines an existing stub when given an id); `/squad:squad-decompose <spec>` drafts items from a spec.
 
 All four converge on the same store. Filing through the slash command and accepting from the TUI is fine; filing through `squad new` and accepting through MCP is fine.
 
@@ -53,6 +53,30 @@ Reject is permanent on the file but durable in the log. `squad reject FEAT-007 -
 Rejected items don't clutter `squad inbox` by default. `squad inbox --rejected` reads the log when you need to review what got dropped (most useful for "did I really mean to reject this?" second-guessing or for spotting reject-loops where the same idea keeps getting filed and dropped).
 
 There is no un-reject. If you reject by mistake, file a fresh `squad new` with the same content; the captured/accepted timestamps reset.
+
+## Refinement: send-back-with-notes
+
+Reject is permanent; accept commits to the work being shaped. Refinement is the third option — for items that are *almost* right but need a sharper AC, a missing piece of context, or a clearer problem statement. The reviewer files comments; the item enters `needs-refinement` and disappears from the regular inbox. An editor (you later, or a peer agent) picks it up, addresses the feedback, and pushes it back.
+
+Two flows converge on the same state:
+
+- **Manual edit.** `squad refine FEAT-007 --comments "tighten AC: which endpoints, which error codes?"` flips the item to `needs-refinement` and writes the comments under `## Reviewer feedback`. An agent claims it, edits the markdown, then runs `squad recapture FEAT-007` to flip back to `captured` (and rotate the feedback into `## Refinement history`). The original item id is preserved.
+- **Structured interview.** `/squad:squad-intake FEAT-007` opens the intake skill in refine-mode against an existing item. Claude walks a focused interview, drafts a superseding item, confirms with the user, and commits — the original is archived to `.squad/done/` (status: superseded) and a fresh id replaces it. Use this when the item needs more than a touch-up.
+
+Reviewer feedback accumulates under `## Refinement history` across rounds, so the back-and-forth survives without anyone digging through chat:
+
+```markdown
+## Refinement history
+### Round 1 — 2026-04-20
+tighten AC: which endpoints, which error codes?
+
+### Round 2 — 2026-04-24
+non-goals are still ambiguous; mark the bulk-export path explicitly out of scope.
+```
+
+`squad refine` with no arguments lists items currently in `needs-refinement`. The `--comments` flag is required when an id is given; there is no anonymous refine.
+
+The full walkthrough is at [recipes/refining-captured-items.md](../recipes/refining-captured-items.md).
 
 ## Backward compatibility
 
