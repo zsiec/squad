@@ -247,7 +247,7 @@ func autoRefinePromptFor(itemID string) string {
 
 Read the item with squad_get_item(item_id="%s"). Inspect related items via squad_inbox or squad_history if useful for context.
 
-Replace the item's body with a fresh Problem / Context / Acceptance criteria block that satisfies squad's Definition of Ready (no template-not-placeholder violations, no vague-acceptance-bullet violations: each AC bullet is at least six words and contains a verb).
+Replace the item's body with a fresh Problem / Context / Acceptance criteria block that satisfies squad's Definition of Ready (no template-not-placeholder violations; AC bullets must be concrete, falsifiable propositions, not the squad-new placeholders).
 
 Call squad_auto_refine_apply(item_id="%s", new_body=...) exactly once with the drafted body and then stop. Do not call any other write tools.`, itemID, itemID)
 }
