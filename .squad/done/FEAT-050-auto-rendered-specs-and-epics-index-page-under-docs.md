@@ -4,7 +4,7 @@ title: auto-rendered specs and epics index page under docs
 type: feature
 priority: P2
 area: internal/scaffold
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]
