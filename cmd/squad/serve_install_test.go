@@ -77,6 +77,53 @@ func TestInstallServiceFlow_WritesTokenAndCallsManager(t *testing.T) {
 	}
 }
 
+func TestInstallServiceFlow_WritesRestartToken(t *testing.T) {
+	tmp := t.TempDir()
+	mgr := &recordingMgr{}
+	if err := installServiceFlow(tmp, "/p/squad", mgr); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(tmp, ".squad", "restart.token")
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatalf("restart token not written: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("restart token mode=%o want 0o600", info.Mode().Perm())
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 32 bytes of crypto/rand encoded as hex => 64 ASCII chars.
+	if len(b) != 64 {
+		t.Errorf("restart token len=%d want 64 hex chars", len(b))
+	}
+}
+
+func TestInstallServiceFlow_RestartTokenIsStableAcrossReinstall(t *testing.T) {
+	tmp := t.TempDir()
+	mgr := &recordingMgr{}
+	if err := installServiceFlow(tmp, "/p/squad", mgr); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(tmp, ".squad", "restart.token")
+	first, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := installServiceFlow(tmp, "/p/squad", mgr); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Errorf("restart token rotated on second install: %q -> %q", first, second)
+	}
+}
+
 func TestInstallServiceFlow_GeneratesUniqueTokens(t *testing.T) {
 	tmp1 := t.TempDir()
 	tmp2 := t.TempDir()

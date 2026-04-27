@@ -23,22 +23,25 @@ type Config struct {
 	LearningsRoot    string
 	Version          string
 	BinaryPath       string
+	RestartTokenPath string
 	pingInterval     time.Duration
 	lagFlushInterval time.Duration
 }
 
 type Server struct {
-	db           *sql.DB
-	chat         *chat.Chat
-	cfg          Config
-	callerAgent  string
-	startedAt    time.Time
-	rlMu         sync.Mutex
-	rl           map[string][]time.Time
-	pump         *messagesPump
-	claimsPump   *claimsPump
-	agentsPump   *agentsPump
-	activityPump *activityPump
+	db               *sql.DB
+	chat             *chat.Chat
+	cfg              Config
+	callerAgent      string
+	startedAt        time.Time
+	exitFunc         func()
+	restartExitDelay time.Duration
+	rlMu             sync.Mutex
+	rl               map[string][]time.Time
+	pump             *messagesPump
+	claimsPump       *claimsPump
+	agentsPump       *agentsPump
+	activityPump     *activityPump
 }
 
 func New(db *sql.DB, repoID string, cfg Config) *Server {
@@ -101,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.handleHealth)
 	mux.HandleFunc("GET /api/version", s.handleVersion)
+	mux.HandleFunc("POST /api/_internal/restart", s.handleInternalRestart)
 	mux.HandleFunc("GET /api/items", s.handleItemsList)
 	mux.HandleFunc("POST /api/items", s.handleItemsCreate)
 	mux.HandleFunc("GET /api/inbox", s.handleInbox)
@@ -156,7 +160,7 @@ func (s *Server) actingAgent(r *http.Request) string {
 
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.Token == "" {
+		if s.cfg.Token == "" || r.URL.Path == "/api/_internal/restart" {
 			next.ServeHTTP(w, r)
 			return
 		}

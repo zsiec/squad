@@ -24,6 +24,9 @@ func installServiceFlow(homeDir, binary string, mgr daemon.Manager) error {
 	if err := os.WriteFile(tokenPath, []byte(token), 0o600); err != nil {
 		return fmt.Errorf("write token: %w", err)
 	}
+	if err := ensureRestartToken(homeDir); err != nil {
+		return err
+	}
 	return mgr.Install(daemon.InstallOpts{
 		BinaryPath: binary,
 		Bind:       "127.0.0.1",
@@ -32,6 +35,25 @@ func installServiceFlow(homeDir, binary string, mgr daemon.Manager) error {
 		LogDir:     filepath.Join(homeDir, ".squad", "logs"),
 		HomeDir:    homeDir,
 	})
+}
+
+// ensureRestartToken writes ~/.squad/restart.token only when missing — the
+// token must survive reinstalls so the MCP bootstrap's cached copy stays
+// valid across upgrades; rotation only happens by deleting the file.
+func ensureRestartToken(homeDir string) error {
+	p := filepath.Join(homeDir, ".squad", "restart.token")
+	if _, err := os.Stat(p); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("stat restart token: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return fmt.Errorf("mkdir squad home: %w", err)
+	}
+	if err := os.WriteFile(p, []byte(generateToken()), 0o600); err != nil {
+		return fmt.Errorf("write restart token: %w", err)
+	}
+	return nil
 }
 
 func generateToken() string {
