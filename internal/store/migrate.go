@@ -174,6 +174,30 @@ func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
 	if hasCapturedBy > 0 {
 		legacy = append(legacy, legacyRow{4, "intake_provenance"})
 	}
+	var claimsPKCols int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pragma_table_info('claims') WHERE pk > 0`).Scan(&claimsPKCols)
+	if claimsPKCols > 1 {
+		legacy = append(legacy, legacyRow{5, "claims_repo_scope"})
+	}
+	var hasCommits int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM sqlite_master WHERE type='table' AND name='commits'`).Scan(&hasCommits)
+	if hasCommits > 0 {
+		legacy = append(legacy, legacyRow{6, "commits"})
+	}
+	var hasWorktree int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pragma_table_info('claims') WHERE name='worktree'`).Scan(&hasWorktree)
+	if hasWorktree > 0 {
+		legacy = append(legacy, legacyRow{7, "claim_worktree"})
+	}
+	var hasAgentEvents int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM sqlite_master WHERE type='table' AND name='agent_events'`).Scan(&hasAgentEvents)
+	if hasAgentEvents > 0 {
+		legacy = append(legacy, legacyRow{8, "agent_events"})
+	}
 	var hasIntakeSessionID int
 	_ = db.QueryRowContext(ctx,
 		`SELECT count(*) FROM pragma_table_info('items') WHERE name='intake_session_id'`).Scan(&hasIntakeSessionID)

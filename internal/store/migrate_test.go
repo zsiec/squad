@@ -288,6 +288,49 @@ func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 	}
 }
 
+// TestMigrate_BootstrapPreservesWorktreeAndSeedsAllVersions covers the
+// failure mode where bootstrapLegacyVersions seeds only v1-v4 and v9 on
+// a fully-migrated DB whose migration_versions row got dropped. The
+// missing v5/v7 markers cause migration 5 (claims RENAME-and-recreate)
+// to re-run, dropping live worktree values, and migration 7 to re-add
+// the column with default ''. Asserts the column survives and that
+// bootstrap leaves migration_versions with all 9 rows.
+func TestMigrate_BootstrapPreservesWorktreeAndSeedsAllVersions(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("initial migrate: %v", err)
+	}
+	const wantWT = "/tmp/wt-bootstrap-probe"
+	if _, err := db.Exec(
+		`INSERT INTO claims (item_id, repo_id, agent_id, claimed_at, last_touch, intent, long, worktree)
+		 VALUES ('TEST-001', 'repo-1', 'agent-x', 1, 1, '', 0, ?)`, wantWT,
+	); err != nil {
+		t.Fatalf("seed claim with worktree: %v", err)
+	}
+	if _, err := db.Exec(`DROP TABLE migration_versions`); err != nil {
+		t.Fatalf("drop migration_versions: %v", err)
+	}
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("bootstrap re-migrate: %v", err)
+	}
+	var got string
+	if err := db.QueryRow(
+		`SELECT worktree FROM claims WHERE repo_id='repo-1' AND item_id='TEST-001'`,
+	).Scan(&got); err != nil {
+		t.Fatalf("select worktree: %v", err)
+	}
+	if got != wantWT {
+		t.Errorf("worktree = %q, want %q (migration 5 re-ran and clobbered the column)", got, wantWT)
+	}
+	var rows int
+	if err := db.QueryRow(`SELECT count(*) FROM migration_versions`).Scan(&rows); err != nil {
+		t.Fatalf("count migration_versions: %v", err)
+	}
+	if rows != 9 {
+		t.Errorf("migration_versions row count = %d, want 9 (bootstrap missed markers)", rows)
+	}
+}
+
 func TestMigrate_AppliesIntakeInterview(t *testing.T) {
 	db := openEmptyDBNoMigrate(t)
 	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
