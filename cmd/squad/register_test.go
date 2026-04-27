@@ -15,6 +15,10 @@ func TestRegister_NoRepoCheck_WritesAgentRow(t *testing.T) {
 	t.Setenv("SQUAD_HOME", dir)
 	t.Setenv("SQUAD_SESSION_ID", "test-session-1")
 	t.Setenv("SQUAD_AGENT", "")
+	// Disable the post-run hygiene hook so its bootClaimContext call
+	// doesn't upgrade the row out of _unscoped — this test asserts that
+	// register itself (with --no-repo-check) writes the unscoped value.
+	t.Setenv("SQUAD_NO_HYGIENE", "1")
 
 	root := newRootCmd()
 	var out bytes.Buffer

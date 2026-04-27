@@ -52,6 +52,8 @@ func bootClaimContext(_ context.Context) (*claimContext, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	upgradeUnscopedAgent(db, agentID, repoID)
+
 	chatSvc := chat.New(db, repoID)
 	registry := notify.NewRegistry(db)
 	chatSvc.SetNotifier(func(ctx context.Context, repoID string) {
@@ -66,6 +68,21 @@ func bootClaimContext(_ context.Context) (*claimContext, error) {
 		doneDir:  filepath.Join(root, ".squad", "done"),
 		agentID:  agentID,
 	}, nil
+}
+
+// upgradeUnscopedAgent flips the agent's row from "_unscoped" to repoID when
+// the row exists and is unscoped. Best-effort: any DB error is swallowed
+// because this runs in the prelude of every CLI command and must not block
+// the actual operation. The dashboard / `squad who` filter by repo_id, so
+// without this upgrade the agent is invisible despite holding live claims.
+func upgradeUnscopedAgent(db *sql.DB, agentID, repoID string) {
+	if agentID == "" || repoID == "" || repoID == unscopedRepoID {
+		return
+	}
+	_, _ = db.ExecContext(context.Background(),
+		`UPDATE agents SET repo_id = ? WHERE id = ? AND repo_id = ?`,
+		repoID, agentID, unscopedRepoID,
+	)
 }
 
 func findItemPath(itemsDir, itemID string) string {

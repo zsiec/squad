@@ -160,6 +160,10 @@ func TestGoCmd_UpgradesUnscopedAgentFromHookRegistration(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-go-upgrade-1")
 	t.Setenv("SQUAD_AGENT", "")
+	// Disable the post-run hygiene hook so register's epilogue doesn't
+	// drive the upgrade ahead of squad go — we want to assert that
+	// `squad go` itself performs the upgrade.
+	t.Setenv("SQUAD_NO_HYGIENE", "1")
 	gitInitDir(t, repoDir)
 
 	initCmd := newInitCmd()

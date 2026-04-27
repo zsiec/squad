@@ -65,4 +65,40 @@ The chat and claim paths both correctly resolve the repo_id at the call site, wh
 
 ## Resolution
 
-(Filled in when status → done.)
+### Fix
+
+`cmd/squad/boot.go` — `bootClaimContext` now calls a new `upgradeUnscopedAgent(db, agentID, repoID)` helper after resolving repoID. The helper does `UPDATE agents SET repo_id = ? WHERE id = ? AND repo_id = '_unscoped'` — best-effort, swallows errors (boundary path; never blocks the actual operation).
+
+`bootClaimContext` is the universal CLI prelude — every claim/done/release/say/etc. goes through it, AND `postRunHygiene` calls it as part of its sweep. So the upgrade fires opportunistically on the first repo-scoped operation an agent runs after the hook registered them, with no need to thread the call through 30+ subcommands. The implicit migration for pre-existing `_unscoped` rows is the same hygiene post-run hitting bootClaimContext on the next squad command in the repo — no explicit migration script.
+
+### Why bootClaimContext (per AC #2)
+
+Considered Claim() specifically (the AC's first suggestion) and the MCP request prelude (the AC's second). bootClaimContext wins because:
+- Single insertion point that covers ALL repo-scoped commands, not just claim.
+- Fires from the post-run hygiene hook too, so any agent that ran *any* squad command at any point gets upgraded automatically.
+- An MCP-only injection would miss the CLI-only paths (and vice versa).
+
+### Tests
+
+`cmd/squad/boot_unscoped_upgrade_test.go` (new) — `TestBootClaimContext_UpgradesUnscopedAgent`: register --no-repo-check leaves the row at `_unscoped`; calling `bootClaimContext` upgrades it. Sets `SQUAD_NO_HYGIENE=1` so the cobra post-run hygiene hook doesn't drive the upgrade ahead of the assertion (the test would otherwise pass vacuously).
+
+`cmd/squad/go_test.go` and `cmd/squad/register_test.go` — existing tests `TestGoCmd_UpgradesUnscopedAgentFromHookRegistration` and `TestRegister_NoRepoCheck_WritesAgentRow` got `SQUAD_NO_HYGIENE=1`. Both assert intermediate state ("row is still `_unscoped` after register") which would otherwise be defeated by the hygiene post-run upgrading via bootClaimContext.
+
+### Surfacing of test contamination across parallel agents
+
+While iterating, agent-1f3f independently surfaced that the BUG-017 WIP in this worktree was making `TestRegister_NoRepoCheck_WritesAgentRow` fail in their parallel session. Two confirmations from different sessions = real systemic finding. The SQUAD_NO_HYGIENE setenv on the existing tests resolves it; longer-term the `~/.squad/global.db` shared-state pattern across goroutines is worth a dedicated follow-up.
+
+### Evidence
+
+```
+$ go test ./... -count=1 -race
+... (0 FAIL lines)
+```
+
+### AC verification
+
+- [x] RED test: `TestBootClaimContext_UpgradesUnscopedAgent` exercises the no-repo-check → repo-scoped-action upgrade chain.
+- [x] Upgrade trigger: bootClaimContext (universal CLI prelude). Documented above.
+- [x] After fix, an agent registered via the hook becomes visible to `squad who` after any squad command runs in the repo.
+- [x] Pre-existing `_unscoped` rows: implicit migration via the same hygiene post-run path.
+- [x] `go test ./...` passes (race-enabled).
