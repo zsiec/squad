@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,10 +42,22 @@ Need a dashboard widget.
 	registerAgent(t, s.db, "agent-zzzz", "Zoe")
 
 	// 1. refine — captured → needs-refinement
+	const refineComment = "tighten the AC; the widget contract is undefined"
 	if rec := postJSON(t, s, "/api/items/FEAT-950/refine", map[string]any{
-		"comments": "tighten the AC; the widget contract is undefined",
+		"comments": refineComment,
 	}); rec.Code != http.StatusNoContent {
 		t.Fatalf("refine code=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	post1, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read item after refine: %v", err)
+	}
+	if !strings.Contains(string(post1), "## Reviewer feedback") {
+		t.Fatalf("item missing `## Reviewer feedback` section after refine:\n%s", post1)
+	}
+	if !strings.Contains(string(post1), refineComment) {
+		t.Fatalf("item missing reviewer comment text after refine:\n%s", post1)
 	}
 
 	// 2. /api/refine lists it
@@ -73,6 +87,20 @@ Need a dashboard widget.
 	// 4. recapture — needs-refinement → captured, claim released, history appended
 	if rec := postWithAgent(t, s, "/api/items/FEAT-950/recapture", "agent-zzzz"); rec.Code != http.StatusNoContent {
 		t.Fatalf("recapture code=%d body=%s", rec.Code, rec.Body.String())
+	}
+
+	post4, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read item after recapture: %v", err)
+	}
+	if !strings.Contains(string(post4), "## Refinement history") {
+		t.Fatalf("item missing `## Refinement history` after recapture:\n%s", post4)
+	}
+	if !strings.Contains(string(post4), "### Round 1") {
+		t.Fatalf("item missing `### Round 1` after recapture:\n%s", post4)
+	}
+	if strings.Contains(string(post4), "## Reviewer feedback") {
+		t.Fatalf("item still has `## Reviewer feedback` after recapture (should be moved to history):\n%s", post4)
 	}
 
 	// 5. /api/inbox lists it again
