@@ -103,6 +103,17 @@ const schemaRelease = `{
   "additionalProperties": false
 }`
 
+const schemaRecapture = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["item_id"],
+  "properties": {
+    "item_id":  {"type": "string", "description": "Item identifier of a needs-refinement claim held by the caller."},
+    "agent_id": {"type": "string"}
+  },
+  "additionalProperties": false
+}`
+
 const schemaBlocked = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
@@ -144,6 +155,26 @@ const schemaDoctor = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {},
+  "additionalProperties": false
+}`
+
+const schemaReady = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ids":     {"type": "array", "items": {"type": "string"}, "description": "Item IDs to lint. Empty means all captured items."},
+    "promote": {"type": "boolean", "description": "Promote items that pass DoR to status=open. Only items in status=captured are eligible; non-captured items are reported with a skip_reason. Default: true.", "default": true},
+    "agent_id": {"type": "string", "description": "Caller agent identifier; recorded as accepted_by on promoted items."}
+  },
+  "additionalProperties": false
+}`
+
+const schemaStats = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "window_seconds": {"type": "integer", "minimum": 0, "description": "Metric window in seconds. 0 = unbounded; default 86400 (24h)."}
+  },
   "additionalProperties": false
 }`
 

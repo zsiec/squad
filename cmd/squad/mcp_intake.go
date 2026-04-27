@@ -125,6 +125,42 @@ func registerIntakeTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	})
 
 	srv.Register(mcp.Tool{
+		Name:        "squad_ready",
+		Description: "Lint Definition of Ready for captured items; auto-promote those that pass when promote=true (default).",
+		InputSchema: json.RawMessage(schemaReady),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			args := struct {
+				IDs     []string `json:"ids"`
+				Promote *bool    `json:"promote"`
+				AgentID string   `json:"agent_id"`
+			}{}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			promote := true
+			if args.Promote != nil {
+				promote = *args.Promote
+			}
+			acceptedBy := args.AgentID
+			if acceptedBy == "" {
+				acceptedBy, _ = identity.AgentID()
+			}
+			return Ready(ctx, ReadyArgs{
+				DB:         db,
+				RepoID:     repoID,
+				AcceptedBy: acceptedBy,
+				IDs:        args.IDs,
+				Promote:    promote,
+			})
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_inbox",
 		Description: "List captured (inbox) items, optionally filtered by mine/ready_only/parent_spec.",
 		InputSchema: json.RawMessage(schemaInbox),
