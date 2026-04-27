@@ -6,7 +6,7 @@ priority: P2
 area: plugin/squad
 parent_spec: intake-interview
 parent_epic: intake-interview-plugin
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

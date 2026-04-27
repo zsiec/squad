@@ -6,7 +6,7 @@ priority: P2
 area: cmd/squad/mcp
 parent_spec: intake-interview
 parent_epic: intake-interview-mcp
-status: open
+status: done
 estimate: 1h30m
 risk: low
 evidence_required: [test]
