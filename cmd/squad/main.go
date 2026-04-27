@@ -87,6 +87,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newLearningCmd())
 	root.AddCommand(newMCPCmd())
 	root.AddCommand(newSubagentEventCmd())
+	root.AddCommand(newEventCmd())
 	addPRDRedirect := func(name string) {
 		root.AddCommand(&cobra.Command{
 			Use:    name,
