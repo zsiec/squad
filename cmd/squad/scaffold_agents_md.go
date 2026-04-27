@@ -25,7 +25,8 @@ const (
 )
 
 func newScaffoldAgentsMdCmd() *cobra.Command {
-	return &cobra.Command{
+	var check bool
+	cmd := &cobra.Command{
 		Use:   "agents-md",
 		Short: "Write AGENTS.md from the ledger; CLAUDE.md remains hand-edited",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -77,6 +78,13 @@ func newScaffoldAgentsMdCmd() *cobra.Command {
 			})
 
 			path := filepath.Join(repoRoot, "AGENTS.md")
+			if check {
+				existing, _ := os.ReadFile(path)
+				if string(existing) == body {
+					return nil
+				}
+				return fmt.Errorf("AGENTS.md drift: file does not match `squad scaffold agents-md` output. Regenerate before commit")
+			}
 			if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 				return err
 			}
@@ -84,6 +92,9 @@ func newScaffoldAgentsMdCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&check, "check", false,
+		"compare existing AGENTS.md to current generator output and exit non-zero on drift; do not write")
+	return cmd
 }
 
 // capItems returns the first n items, or all of them if there are

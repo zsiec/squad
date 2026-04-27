@@ -1,11 +1,98 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/items"
 )
+
+// runScaffoldAgentsMd executes the agents-md cobra subcommand against
+// the current working directory with the supplied flags. Returns the
+// command-side error so tests can pin success/drift exits.
+func runScaffoldAgentsMd(t *testing.T, args ...string) error {
+	t.Helper()
+	root := newRootCmd()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	full := append([]string{"scaffold", "agents-md"}, args...)
+	root.SetArgs(full)
+	root.SilenceErrors = true
+	root.SilenceUsage = true
+	for _, c := range root.Commands() {
+		silenceErrUsage(c)
+	}
+	return root.Execute()
+}
+
+func silenceErrUsage(c *cobra.Command) {
+	c.SilenceErrors = true
+	c.SilenceUsage = true
+	for _, sub := range c.Commands() {
+		silenceErrUsage(sub)
+	}
+}
+
+// TestScaffoldAgentsMd_CheckPassesWhenInSync writes a fresh AGENTS.md,
+// then re-runs with --check; the file matches the generator output and
+// the check exits 0.
+func TestScaffoldAgentsMd_CheckPassesWhenInSync(t *testing.T) {
+	repo := setupSquadRepo(t)
+	t.Chdir(repo)
+	if err := runScaffoldAgentsMd(t); err != nil {
+		t.Fatalf("first generate: %v", err)
+	}
+	if err := runScaffoldAgentsMd(t, "--check"); err != nil {
+		t.Fatalf("--check on freshly-generated file should pass; got %v", err)
+	}
+}
+
+// TestScaffoldAgentsMd_CheckFailsOnDrift hand-edits AGENTS.md after
+// generation; --check must surface the drift via a non-zero exit so
+// the pre-commit hook can refuse the commit.
+func TestScaffoldAgentsMd_CheckFailsOnDrift(t *testing.T) {
+	repo := setupSquadRepo(t)
+	t.Chdir(repo)
+	if err := runScaffoldAgentsMd(t); err != nil {
+		t.Fatalf("first generate: %v", err)
+	}
+	path := filepath.Join(repo, "AGENTS.md")
+	body, _ := os.ReadFile(path)
+	if err := os.WriteFile(path, append(body, []byte("\nhand edit\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runScaffoldAgentsMd(t, "--check"); err == nil {
+		t.Fatalf("--check on hand-edited AGENTS.md should fail; got nil")
+	}
+}
+
+// TestScaffoldAgentsMd_CheckDoesNotWrite verifies --check is a pure
+// observation — the file is left in its drifted state for the
+// operator to fix, not silently rewritten.
+func TestScaffoldAgentsMd_CheckDoesNotWrite(t *testing.T) {
+	repo := setupSquadRepo(t)
+	t.Chdir(repo)
+	if err := runScaffoldAgentsMd(t); err != nil {
+		t.Fatalf("first generate: %v", err)
+	}
+	path := filepath.Join(repo, "AGENTS.md")
+	const drifted = "<!-- handcrafted -->\n# notes\n"
+	if err := os.WriteFile(path, []byte(drifted), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runScaffoldAgentsMd(t, "--check"); err == nil {
+		t.Fatalf("--check should fail on drift")
+	}
+	body, _ := os.ReadFile(path)
+	if string(body) != drifted {
+		t.Errorf("--check wrote to AGENTS.md; expected file untouched")
+	}
+}
 
 // TestPickDone_SortsByUpdatedDESC pins the recency contract — items.Walk
 // returns done in os.ReadDir (alphabetic) order, so without explicit

@@ -93,6 +93,11 @@
           },
           {
             "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre_commit_agents_md.sh",
+            "squad": "pre-commit-agents-md@0.2.0"
+          },
+          {
+            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/loop_pre_bash_tick.sh",
             "squad": "loop-pre-bash-tick@0.2.0"
           }
