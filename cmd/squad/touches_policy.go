@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -22,6 +24,10 @@ type TouchesPolicyArgs struct {
 	AgentID string
 	Path    string
 	Cfg     config.TouchConfig
+	// ItemID, when non-empty, is recorded as the touch row's item linkage
+	// on first edit. Empty leaves item_id NULL — same behavior as
+	// `squad touch` without a claim.
+	ItemID string
 }
 
 // hookOutput mirrors the JSON shape Claude Code's PreToolUse hook protocol
@@ -41,9 +47,15 @@ type hookSpecificOutput struct {
 // always returns a stringified JSON object; the hook never has to decide
 // what to emit. When there is no conflict the blob is `{"conflict":false}`
 // (Claude Code ignores unknown top-level keys, so this is a safe no-op).
+//
+// Side effect: idempotently records (agent, item, path) in the touches
+// table — first Edit/Write on a path inserts a row; subsequent calls are
+// no-ops. The release path on `squad release`/`squad done` flips
+// released_at on every active touch the agent holds, so cleanup happens
+// for free.
 func TouchesPolicy(ctx context.Context, args TouchesPolicyArgs) (string, error) {
 	tr := touch.New(args.DB, args.RepoID)
-	conflicts, err := tr.Conflicts(ctx, args.AgentID, args.Path)
+	conflicts, err := tr.EnsureActive(ctx, args.AgentID, args.ItemID, args.Path)
 	if err != nil {
 		return "", err
 	}
@@ -78,6 +90,22 @@ func TouchesPolicy(ctx context.Context, args TouchesPolicyArgs) (string, error) 
 	return string(b), nil
 }
 
+// activeClaimItemID returns the agent's most recent claim's item id, or
+// "" when none. ErrNoRows is the no-claim case; other DB errors are
+// surfaced to stderr but still return "" so the PreToolUse hook never
+// crashes Claude Code's handshake.
+func activeClaimItemID(ctx context.Context, db *sql.DB, repoID, agentID string) string {
+	var id string
+	err := db.QueryRowContext(ctx,
+		`SELECT item_id FROM claims WHERE repo_id = ? AND agent_id = ?
+		 ORDER BY claimed_at DESC LIMIT 1`,
+		repoID, agentID).Scan(&id)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		fmt.Fprintf(os.Stderr, "squad: touches policy: lookup claim: %v\n", err)
+	}
+	return id
+}
+
 func newTouchesPolicyCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "policy <path>",
@@ -105,12 +133,14 @@ func newTouchesPolicyCmd() *cobra.Command {
 			for _, w := range config.ValidateTouch(cfg.Touch) {
 				fmt.Fprintln(cmd.ErrOrStderr(), "squad: warning: "+w)
 			}
+			itemID := activeClaimItemID(ctx, bc.db, bc.repoID, bc.agentID)
 			out, err := TouchesPolicy(ctx, TouchesPolicyArgs{
 				DB:      bc.db,
 				RepoID:  bc.repoID,
 				AgentID: bc.agentID,
 				Path:    path,
 				Cfg:     cfg.Touch,
+				ItemID:  itemID,
 			})
 			if err != nil {
 				return err

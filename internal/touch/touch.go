@@ -83,6 +83,67 @@ func (t *Tracker) Add(ctx context.Context, agentID, itemID, path string) (confli
 	return conflicts, nil
 }
 
+// EnsureActive is the idempotent variant of Add for high-frequency callers
+// (the PreToolUse Edit/Write hook fires on every Edit, not just the first).
+// It inserts a touch row only when the agent has no active touch on path
+// already; either way it returns the conflict list a fresh Add would have
+// surfaced. Repeated Edits to the same file by the same agent therefore
+// produce a single row, while still keeping the conflict signal accurate.
+func (t *Tracker) EnsureActive(ctx context.Context, agentID, itemID, path string) (conflicts []string, err error) {
+	if path == "" {
+		return nil, ErrEmptyPath
+	}
+	if len(path) > MaxPathLen {
+		return nil, ErrPathTooLong
+	}
+	err = store.WithTxRetry(ctx, t.db, func(tx *sql.Tx) error {
+		conflicts = conflicts[:0]
+		rows, err := tx.QueryContext(ctx, `
+			SELECT DISTINCT agent_id FROM touches
+			WHERE path = ? AND repo_id = ? AND released_at IS NULL AND agent_id != ?
+		`, path, t.repoID, agentID)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var a string
+			if err := rows.Scan(&a); err != nil {
+				rows.Close()
+				return err
+			}
+			conflicts = append(conflicts, a)
+		}
+		rows.Close()
+
+		var has int
+		err = tx.QueryRowContext(ctx, `
+			SELECT 1 FROM touches
+			WHERE repo_id = ? AND agent_id = ? AND path = ? AND released_at IS NULL
+			LIMIT 1
+		`, t.repoID, agentID, path).Scan(&has)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
+		var item sql.NullString
+		if itemID != "" {
+			item = sql.NullString{String: itemID, Valid: true}
+		}
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO touches (repo_id, agent_id, item_id, path, started_at)
+			VALUES (?, ?, ?, ?, ?)
+		`, t.repoID, agentID, item, path, t.nowUnix())
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return conflicts, nil
+}
+
 func (t *Tracker) Release(ctx context.Context, agentID, path string) error {
 	if path == "" {
 		return ErrEmptyPath

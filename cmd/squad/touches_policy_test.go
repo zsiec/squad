@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -133,6 +134,115 @@ func TestTouchesPolicy_DenyModeNestedGlobMatch(t *testing.T) {
 	hso := decodeHookOutput(t, out)
 	if hso.PermissionDecision != "deny" {
 		t.Fatalf("permissionDecision=%q want deny (matched **/*.lock)", hso.PermissionDecision)
+	}
+}
+
+func TestTouchesPolicy_RecordsTouchOnFirstEdit(t *testing.T) {
+	env := newTestEnv(t)
+
+	out, err := TouchesPolicy(context.Background(), TouchesPolicyArgs{
+		DB:      env.DB,
+		RepoID:  env.RepoID,
+		AgentID: env.AgentID,
+		ItemID:  "FEAT-001",
+		Path:    "internal/foo/bar.go",
+	})
+	if err != nil {
+		t.Fatalf("TouchesPolicy: %v", err)
+	}
+	if !strings.Contains(out, `"conflict":false`) {
+		t.Fatalf("expected clean JSON, got: %s", out)
+	}
+	var n int
+	if err := env.DB.QueryRow(`
+		SELECT count(*) FROM touches
+		WHERE repo_id=? AND agent_id=? AND path=? AND released_at IS NULL
+	`, env.RepoID, env.AgentID, "internal/foo/bar.go").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("touches rows after first edit=%d, want 1", n)
+	}
+
+	if _, err := TouchesPolicy(context.Background(), TouchesPolicyArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "FEAT-001", Path: "internal/foo/bar.go",
+	}); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+	if err := env.DB.QueryRow(`
+		SELECT count(*) FROM touches
+		WHERE repo_id=? AND agent_id=? AND path=? AND released_at IS NULL
+	`, env.RepoID, env.AgentID, "internal/foo/bar.go").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("touches rows after second edit=%d, want 1 (idempotent)", n)
+	}
+}
+
+func TestTouchesPolicy_ReleaseClosesTouchRow(t *testing.T) {
+	env := newTestEnv(t)
+
+	if _, err := TouchesPolicy(context.Background(), TouchesPolicyArgs{
+		DB: env.DB, RepoID: env.RepoID, AgentID: env.AgentID,
+		ItemID: "FEAT-002", Path: "internal/foo/bar.go",
+	}); err != nil {
+		t.Fatalf("policy: %v", err)
+	}
+
+	if _, err := env.DB.Exec(`
+		UPDATE touches SET released_at = strftime('%s','now')
+		WHERE repo_id=? AND agent_id=? AND released_at IS NULL
+	`, env.RepoID, env.AgentID); err != nil {
+		t.Fatal(err)
+	}
+
+	var releasedAt sql.NullInt64
+	if err := env.DB.QueryRow(`
+		SELECT released_at FROM touches
+		WHERE repo_id=? AND agent_id=? AND path=?
+		ORDER BY started_at DESC LIMIT 1
+	`, env.RepoID, env.AgentID, "internal/foo/bar.go").Scan(&releasedAt); err != nil {
+		t.Fatal(err)
+	}
+	if !releasedAt.Valid {
+		t.Fatalf("released_at not set after release")
+	}
+}
+
+func TestPluginHooksJSON_PreEditTouchCheckRegistered(t *testing.T) {
+	repoRoot, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(repoRoot, "plugin", "hooks.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("hooks.json invalid: %v", err)
+	}
+	hooks, _ := doc["hooks"].(map[string]any)
+	pre, _ := hooks["PreToolUse"].([]any)
+	var found bool
+	for _, group := range pre {
+		g, _ := group.(map[string]any)
+		if matcher, _ := g["matcher"].(string); matcher != "Edit|Write" {
+			continue
+		}
+		entries, _ := g["hooks"].([]any)
+		for _, entry := range entries {
+			e, _ := entry.(map[string]any)
+			cmd, _ := e["command"].(string)
+			if strings.HasSuffix(cmd, "/pre_edit_touch_check.sh") {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Errorf("plugin/hooks.json: PreToolUse matcher Edit|Write missing pre_edit_touch_check.sh entry")
 	}
 }
 
