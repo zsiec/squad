@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +15,25 @@ import (
 
 	"github.com/zsiec/squad/internal/stats"
 )
+
+type StatsArgs struct {
+	DB     *sql.DB       `json:"-"`
+	RepoID string        `json:"repo_id"`
+	Window time.Duration `json:"window,omitempty"`
+}
+
+// StatsResult is the structured operational snapshot. Aliasing
+// stats.Snapshot keeps the wire shape identical to the Compute output —
+// MCP callers see the same JSON the CLI's --json flag emits.
+type StatsResult = stats.Snapshot
+
+func Stats(ctx context.Context, args StatsArgs) (*StatsResult, error) {
+	snap, err := stats.Compute(ctx, args.DB, stats.ComputeOpts{RepoID: args.RepoID, Window: args.Window})
+	if err != nil {
+		return nil, err
+	}
+	return &snap, nil
+}
 
 func newStatsCmd() *cobra.Command {
 	var jsonOut, tail bool
@@ -28,24 +49,22 @@ func newStatsCmd() *cobra.Command {
 				return err
 			}
 			defer bc.Close()
-			opts := stats.ComputeOpts{RepoID: bc.repoID, Window: window}
-
 			if !tail {
-				snap, err := stats.Compute(ctx, bc.db, opts)
+				snap, err := Stats(ctx, StatsArgs{DB: bc.db, RepoID: bc.repoID, Window: window})
 				if err != nil {
 					return err
 				}
 				if jsonOut {
 					return writeIndented(cmd.OutOrStdout(), snap)
 				}
-				renderHumanStats(cmd.OutOrStdout(), snap)
+				renderHumanStats(cmd.OutOrStdout(), *snap)
 				return nil
 			}
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			for {
-				snap, err := stats.Compute(ctx, bc.db, opts)
+				snap, err := Stats(ctx, StatsArgs{DB: bc.db, RepoID: bc.repoID, Window: window})
 				if err != nil {
 					return err
 				}

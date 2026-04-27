@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/identity"
@@ -458,6 +459,30 @@ func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot strin
 				return nil, err
 			}
 			return Doctor(ctx, DoctorArgs{DB: db, RepoID: repoID, RepoRoot: repoRoot})
+		},
+	})
+
+	srv.Register(mcp.Tool{
+		Name:        "squad_stats",
+		Description: "Operational statistics: items, claims, verification rate, claim p50/p99, WIP violations, learning-derived metrics.",
+		InputSchema: json.RawMessage(schemaStats),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				WindowSeconds *int64 `json:"window_seconds"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			window := 24 * time.Hour
+			if args.WindowSeconds != nil {
+				window = time.Duration(*args.WindowSeconds) * time.Second
+			}
+			return Stats(ctx, StatsArgs{DB: db, RepoID: repoID, Window: window})
 		},
 	})
 
