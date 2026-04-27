@@ -4,12 +4,12 @@ title: intake refine gate rejects needs-refinement items (inconsistent with item
 type: bug
 priority: P2
 area: intake
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-401f
 captured_at: 1777296762
 accepted_by: agent-401f
