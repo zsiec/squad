@@ -13,7 +13,7 @@ motivation: |
 acceptance:
   - The inbox per-item action row exposes an "Auto-refine" button on every captured item; clicking it triggers a server-side subprocess that drafts a fresh body and atomically rewrites the item file.
   - The drafted body satisfies items.DoRCheck (including template-not-placeholder); the human Accept click remains the only path from captured → open.
-  - Auto-refined items carry frontmatter audit fields (`auto_refined_at` unix, `auto_refined_by: claude`); the inbox renders an "auto-refined" badge so reviewers know they are approving a draft.
+  - "Auto-refined items carry frontmatter audit fields (`auto_refined_at` unix, `auto_refined_by: claude`); the inbox renders an \"auto-refined\" badge so reviewers know they are approving a draft."
   - A reviewer who dislikes the draft can re-click Auto-refine to redraft (overwrites the previous body, no confirmation modal); the existing Reject flow also still works.
   - The existing manual-comments Refine flow (`POST /api/items/{id}/refine`, `openRefineComposer`) keeps working from the item-detail panel; auto-refine is additive on the inbox row, not a replacement of the entire refine epic.
   - Subprocess failure (CLI not on PATH, auth not set, timeout, model error) leaves the item body unchanged and surfaces a toast.

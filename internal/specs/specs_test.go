@@ -1,7 +1,10 @@
 package specs
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -23,6 +26,38 @@ func TestParse_FullFrontmatter(t *testing.T) {
 func TestParse_RejectsPRDFraming(t *testing.T) {
 	if _, err := Parse("testdata/specs/with-prd-key.md"); err == nil {
 		t.Fatal("expected error when frontmatter contains 'prd:' key")
+	}
+}
+
+// Walk silently skips malformed specs (by design — doctor surfaces them),
+// which means a YAML typo in any spec under .squad/specs/ disappears from
+// the generated AGENTS.md / docs/specs.md without warning. This test runs
+// against the real repo specs and fails the suite if any spec fails to
+// parse — so a future colon-space or unquoted scalar gets caught at CI
+// time rather than at the next operator scan.
+func TestParse_AllProjectSpecsParseCleanly(t *testing.T) {
+	repoRoot, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	specsDir := filepath.Join(repoRoot, ".squad", "specs")
+	entries, err := os.ReadDir(specsDir)
+	if err != nil {
+		t.Fatalf("read specs dir: %v", err)
+	}
+	var checked int
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		path := filepath.Join(specsDir, e.Name())
+		if _, err := Parse(path); err != nil {
+			t.Errorf("Parse(%s) failed: %v", e.Name(), err)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Fatalf("no .md specs found under %s", specsDir)
 	}
 }
 
