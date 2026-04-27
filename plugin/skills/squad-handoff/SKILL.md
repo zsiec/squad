@@ -45,6 +45,17 @@ If you are pausing on an in-progress item, also:
 
 If you are truly handing off (not pausing yourself): `squad release <ID> --outcome released` and name the next concrete step in the chat message. The releasing agent owes the next agent a clean starting point, not just a frozen state.
 
+## Capture surprises as learnings
+
+If your "surprised by" bullet is a real gotcha — not a status note — pass `--propose-from-surprises` to the handoff. The command auto-drafts one proposed gotcha-kind learning per surprise (or per `stuck` / surprise-keyword `fyi` post mined from chat history when no explicit `--surprised-by` flags are given). Each stub lands under `.squad/learnings/gotchas/proposed/` with the surprise body pre-filled in `## Looks like`; flesh out `## Is` and `## So` later, or `squad learning reject` ones that don't merit a write-up. Use `--dry-run` to preview, `--max N` to cap volume.
+
+```bash
+squad handoff --note "EOD" --propose-from-surprises --dry-run
+squad handoff --surprised-by "X" --surprised-by "Y" --propose-from-surprises
+```
+
+Don't reach for this on every handoff — only when the surprises bullet has content worth writing up.
+
 ## Why this matters
 
 Sessions are not continuous; agents come and go; coworkers pick up where others left off. The handoff is the seam. A bad handoff costs the next session 30+ minutes of reconstruction; a good handoff costs them 30 seconds. The 3-bullet brief is the minimum content that produces a good handoff — less, and the next session re-discovers; more, and the bullets get skimmed.

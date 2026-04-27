@@ -250,6 +250,24 @@ squad handoff \
 
 Or pipe the note from stdin: `git log --oneline | squad handoff --stdin --shipped FEAT-001`.
 
+#### `--propose-from-surprises`
+
+Auto-draft one gotcha-kind learning proposal per surprise so end-of-claim findings don't die in chat. Two modes:
+
+- With explicit `--surprised-by` flags: one proposal per supplied string.
+- Without `--surprised-by`: mines this agent's held-claim chat history for every `stuck` post and every `fyi` post whose body contains a surprise keyword (`surprise`/`surprised`/`didn't expect`/`turns out`/`wait`). Near-duplicates are deduped by lowercase substring containment.
+
+Each proposal lands under `.squad/learnings/gotchas/proposed/`. Title is the first 80 chars of the surprise body; slug is derived via the same kebab-case helper as `squad learning quick`; area is inferred from the held claim's frontmatter `area`. The `## Looks like` section is pre-filled with the raw surprise body verbatim.
+
+```bash
+squad handoff --note "EOD wrap" --propose-from-surprises
+squad handoff --surprised-by "modernc returns nil for empty BLOBs" --propose-from-surprises
+squad handoff --propose-from-surprises --dry-run    # preview, write nothing
+squad handoff --propose-from-surprises --max 3      # cap at 3, warn if more
+```
+
+The handoff itself proceeds even when zero candidates are found — `no surprises to propose from` prints to stderr and the command exits 0.
+
 ## Chat
 
 ### `squad tick`

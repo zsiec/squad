@@ -294,12 +294,15 @@ const schemaHandoff = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "shipped":      {"type": "array", "items": {"type": "string"}},
-    "in_flight":    {"type": "array", "items": {"type": "string"}},
-    "surprised_by": {"type": "array", "items": {"type": "string"}},
-    "unblocks":     {"type": "array", "items": {"type": "string"}},
-    "note":         {"type": "string"},
-    "agent_id":     {"type": "string"}
+    "shipped":                {"type": "array", "items": {"type": "string"}},
+    "in_flight":              {"type": "array", "items": {"type": "string"}},
+    "surprised_by":           {"type": "array", "items": {"type": "string"}},
+    "unblocks":               {"type": "array", "items": {"type": "string"}},
+    "note":                   {"type": "string"},
+    "agent_id":               {"type": "string"},
+    "propose_from_surprises": {"type": "boolean", "description": "Auto-draft a learning proposal per surprise (explicit list, else mined from chat history)."},
+    "dry_run":                {"type": "boolean"},
+    "max_proposals":          {"type": "integer", "minimum": 1, "maximum": 50}
   },
   "additionalProperties": false
 }`

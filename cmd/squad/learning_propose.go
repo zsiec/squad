@@ -47,6 +47,12 @@ type LearningProposeArgs struct {
 	// still need their template sections filled in.
 	Via string `json:"via,omitempty"`
 
+	// Looks, when non-empty for KindGotcha, replaces the placeholder
+	// "## Looks like" body with the supplied text verbatim. Used by the
+	// surprise-mining handoff path so the agent isn't staring at a blank
+	// template after auto-drafting.
+	Looks string `json:"looks,omitempty"`
+
 	Now func() time.Time `json:"-"`
 }
 
@@ -85,7 +91,7 @@ func LearningPropose(_ context.Context, args LearningProposeArgs) (*LearningProp
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, args.Via, clock())
+	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, args.Via, args.Looks, clock())
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return nil, err
 	}
@@ -149,7 +155,7 @@ func validSlug(s string) bool {
 	return true
 }
 
-func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, via string, now time.Time) string {
+func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, via, looks string, now time.Time) string {
 	if len(paths) == 0 {
 		paths = []string{"internal/" + area + "/**"}
 	}
@@ -168,7 +174,11 @@ func stubBody(k learning.Kind, slug, title, area, agent, session string, paths [
 	}
 	switch k {
 	case learning.KindGotcha:
-		sb.WriteString("## Looks like\n\n_What it appears to be on first read._\n\n")
+		looksBody := "_What it appears to be on first read._"
+		if looks != "" {
+			looksBody = looks
+		}
+		fmt.Fprintf(&sb, "## Looks like\n\n%s\n\n", looksBody)
 		sb.WriteString("## Is\n\n_What it actually is, with the evidence that proves it._\n\n")
 		sb.WriteString("## So\n\n_The corrective action future agents should take._\n")
 	case learning.KindPattern:

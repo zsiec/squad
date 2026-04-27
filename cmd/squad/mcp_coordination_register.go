@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 
 	"github.com/zsiec/squad/internal/claims"
 	"github.com/zsiec/squad/internal/mcp"
@@ -24,12 +26,15 @@ func registerCoordinationTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot str
 		InputSchema: json.RawMessage(schemaHandoff),
 		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var args struct {
-				Shipped     []string `json:"shipped"`
-				InFlight    []string `json:"in_flight"`
-				SurprisedBy []string `json:"surprised_by"`
-				Unblocks    []string `json:"unblocks"`
-				Note        string   `json:"note"`
-				AgentID     string   `json:"agent_id"`
+				Shipped              []string `json:"shipped"`
+				InFlight             []string `json:"in_flight"`
+				SurprisedBy          []string `json:"surprised_by"`
+				Unblocks             []string `json:"unblocks"`
+				Note                 string   `json:"note"`
+				AgentID              string   `json:"agent_id"`
+				ProposeFromSurprises bool     `json:"propose_from_surprises"`
+				DryRun               bool     `json:"dry_run"`
+				MaxProposals         int      `json:"max_proposals"`
 			}
 			if len(raw) > 0 {
 				if err := json.Unmarshal(raw, &args); err != nil {
@@ -44,14 +49,22 @@ func registerCoordinationTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot str
 				return nil, err
 			}
 			return Handoff(ctx, HandoffArgs{
-				Chat:        newChatService(db, repoID),
-				ClaimStore:  claims.New(db, repoID, nil),
-				AgentID:     agent,
-				Shipped:     args.Shipped,
-				InFlight:    args.InFlight,
-				SurprisedBy: args.SurprisedBy,
-				Unblocks:    args.Unblocks,
-				Note:        args.Note,
+				Chat:                 newChatService(db, repoID),
+				ClaimStore:           claims.New(db, repoID, nil),
+				DB:                   db,
+				RepoID:               repoID,
+				RepoRoot:             repoRoot,
+				ItemsDir:             filepath.Join(repoRoot, ".squad", "items"),
+				AgentID:              agent,
+				SessionID:            os.Getenv("SQUAD_SESSION_ID"),
+				Shipped:              args.Shipped,
+				InFlight:             args.InFlight,
+				SurprisedBy:          args.SurprisedBy,
+				Unblocks:             args.Unblocks,
+				Note:                 args.Note,
+				ProposeFromSurprises: args.ProposeFromSurprises,
+				DryRun:               args.DryRun,
+				MaxProposals:         args.MaxProposals,
 			})
 		},
 	})
