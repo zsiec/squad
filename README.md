@@ -41,11 +41,29 @@ That's the whole loop. You never run a squad command yourself.
 
 > If you prefer typing, `/squad:work` is the slash-command equivalent of "claim and walk".
 
+## Your first real item
+
+The example walks the loop on a no-stakes item. To file actual work, three slash commands cover the capture surface:
+
+- **`/squad:squad-capture <one-line description>`** — fast capture. Claude infers the type (`bug` / `feat` / `task` / `chore` / `debt` / `bet`), drops the item in your inbox, and you triage later. Use this when you're mid-task and don't want to context-switch.
+- **`/squad:squad-intake <starting idea or item id>`** — structured interview. Claude asks one focused question per turn — area, acceptance criteria, scope, non-goals — drafts a bundle (item, or spec + epics + items if the idea is large), and confirms before committing. Pass an existing item id to refine an undercooked stub instead of starting fresh.
+- **`/squad:squad-decompose <spec>`** — explode an existing spec into 3–7 captured items linked to the parent. Use this after writing a spec for a multi-week initiative.
+
+Captured items land in `status: captured` — visible in `squad inbox`, **not** in the ready stack. Capture fast, shape later. To triage, ask Claude:
+
+> *"Accept FEAT-007."* — runs the Definition of Ready check (area set, ≥1 acceptance-criterion checkbox, real title or problem). Passing items flip to `open` and become claimable.
+>
+> *"Refine FEAT-007 with feedback 'tighten the AC: which endpoints, which error codes?'"* — sends the item to `needs-refinement`. Another session claims it, edits the markdown, and runs `squad recapture` to put it back in the inbox. Reviewer feedback is preserved across rounds under `## Refinement history`.
+>
+> *"Reject FEAT-007 — duplicate of FEAT-003."* — deletes the file; the reason is appended to `.squad/inbox/rejected.log`. Re-file from scratch if you change your mind.
+
+Full walkthrough: [docs/recipes/triage.md](docs/recipes/triage.md). The reasoning behind the two-state model: [docs/concepts/intake.md](docs/concepts/intake.md). Refining stubs: [docs/recipes/refining-captured-items.md](docs/recipes/refining-captured-items.md).
+
 ## Beyond the quick start
 
 A claim → work → done loop is the whole shape of squad. The next layer of the surface is what makes it durable past one session.
 
-**Items live in your repo, not in a tracker.** Every item is a markdown file under `.squad/items/<TYPE>-<NN>-<slug>.md` with YAML frontmatter (priority, type, evidence-required, blockers). They're git-tracked, so the queue travels with the repo. Ask Claude to file one — *"file a bug for the retry-on-503 panic"* — and `squad_new` scaffolds it. See [docs/concepts/the-loop.md](docs/concepts/the-loop.md).
+**Items live in your repo, not in a tracker.** Every item is a markdown file under `.squad/items/<TYPE>-<NN>-<slug>.md` with YAML frontmatter (priority, type, evidence-required, blockers). They're git-tracked, so the queue travels with the repo and code review covers the queue too. See [docs/concepts/the-loop.md](docs/concepts/the-loop.md).
 
 **Chat is durable and typed.** Squad's chat verbs (`ask`, `say`, `fyi`, `milestone`, `stuck`) write to a SQLite-backed bus that outlives any session. A teammate's question yesterday is still in your inbox today. The plugin's hooks deliver pending chat at session-start, between tool calls, and before context compaction — no polling. Concepts: [docs/concepts/chat-cadence.md](docs/concepts/chat-cadence.md).
 
