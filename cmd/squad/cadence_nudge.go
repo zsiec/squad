@@ -168,7 +168,14 @@ func maybePrintTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID str
 		}
 		return
 	}
-	if claimAge >= timeBoxThreshold90m && !nudged90m.Valid {
+	// Gate on claimAge < 120m: once the hard cap has been served, the 90m
+	// slot is moot. Without this guard, a claim that crosses 90m → 120m
+	// without ticking through (silenced by a recent milestone, or no Bash
+	// boundary in the window) would re-emit 120m copy on every later tick
+	// because timeBoxNudgeText returns 120m text whenever claimAge >= 120m,
+	// and would stamp nudged_90m_at under that print, permanently
+	// swallowing the 90m thinking-prompt.
+	if claimAge >= timeBoxThreshold90m && claimAge < timeBoxThreshold120m && !nudged90m.Valid {
 		silence := lastMilestoneSilence(ctx, db, repoID, agentID, claimedAt, now)
 		text := timeBoxNudgeText(claimAge, silence)
 		if text != "" {

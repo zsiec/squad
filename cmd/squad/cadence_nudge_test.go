@@ -268,6 +268,45 @@ func TestMaybePrintTimeBoxNudge_120mSkipsUnfired90m(t *testing.T) {
 	}
 }
 
+// On a claim that crossed 120m without an intervening 90m tick (or whose
+// 90m nudge was silenced by a recent milestone), the FIRST tick fires
+// the 120m nudge and stamps nudged_120m_at. The SECOND tick must not
+// fall through to the 90m branch and re-emit 120m text under an
+// nudged_90m_at stamp — that would double-print the hard-cap nudge and
+// permanently swallow the 90m thinking-prompt.
+func TestMaybePrintTimeBoxNudge_SecondTickAfter120mDoesNotDoubleFire(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-121 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-704", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+
+	var buf1 bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now, &buf1)
+	if !strings.Contains(strings.ToLower(buf1.String()), "handoff") {
+		t.Fatalf("first tick should fire 120m nudge; got %q", buf1.String())
+	}
+
+	var buf2 bytes.Buffer
+	maybePrintTimeBoxNudge(context.Background(), env.DB, env.RepoID, env.AgentID, now.Add(time.Minute), &buf2)
+	if strings.Contains(strings.ToLower(buf2.String()), "handoff") {
+		t.Errorf("second tick re-fired 120m nudge; got %q", buf2.String())
+	}
+	if buf2.String() != "" {
+		t.Errorf("second tick after 120m fire should be silent; got %q", buf2.String())
+	}
+	var n90 sql.NullInt64
+	_ = env.DB.QueryRow(`SELECT nudged_90m_at FROM claims WHERE item_id=?`, "BUG-704").Scan(&n90)
+	if n90.Valid {
+		t.Errorf("nudged_90m_at must not be stamped under a 120m print; got %v", n90)
+	}
+}
+
 func TestMaybePrintTimeBoxNudge_NoClaimNoOp(t *testing.T) {
 	env := newTestEnv(t)
 	var buf bytes.Buffer

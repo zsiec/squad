@@ -43,14 +43,51 @@ type autoRefineRunResult struct {
 // autoRefineRunner is the seam tests inject to bypass the real subprocess.
 type autoRefineRunner func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult
 
+// autoRefineMCPServerName is the key under which the narrow MCP config
+// registers the squad server; the spawned claude addresses tools by the
+// fully-qualified name `mcp__<server>__<tool>` and we mirror that here.
+const autoRefineMCPServerName = "squad"
+
+// autoRefineAllowedToolsArg returns the comma-separated --allowedTools
+// argument value: each AutoRefineNarrowTools entry fully qualified as
+// mcp__<server>__<tool>. Defense-in-depth — the spawned squad mcp
+// subprocess also restricts its tool surface via SQUAD_MCP_TOOLS.
+func autoRefineAllowedToolsArg() string {
+	parts := make([]string, len(AutoRefineNarrowTools))
+	for i, t := range AutoRefineNarrowTools {
+		parts[i] = "mcp__" + autoRefineMCPServerName + "__" + t
+	}
+	return strings.Join(parts, ",")
+}
+
+// autoRefineCommand assembles the `claude -p` invocation. Extracted from
+// the default runner so tests can pin the argv and env without spawning a
+// real subprocess. Two non-obvious knobs are load-bearing:
+//
+//   - --allowedTools / --strict-mcp-config: claude -p has no interactive
+//     permission prompt, so any unallowed tool call would die "denied by
+//     permissions on three attempts" and the handler would always 504.
+//   - SQUAD_NO_HOOKS=1 in env: the squad Stop hook runs `squad listen
+//     --max 24h`, which holds the subprocess open after the response
+//     prints. Without the opt-out the spawned claude never exits.
+func autoRefineCommand(ctx context.Context, prompt, mcpConfigPath string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "claude", "-p", prompt,
+		"--mcp-config", mcpConfigPath,
+		"--strict-mcp-config",
+		"--allowedTools", autoRefineAllowedToolsArg(),
+	)
+	cmd.Env = append(os.Environ(), "SQUAD_NO_HOOKS=1")
+	autoRefineSetProcessGroup(cmd)
+	return cmd
+}
+
 // autoRefineDefaultRunner spawns `claude -p` with the narrow MCP config and
 // a process group so timeout-kill takes any spawned helpers with it.
 var autoRefineDefaultRunner autoRefineRunner = func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
 	if _, err := exec.LookPath("claude"); err != nil {
 		return autoRefineRunResult{Err: errClaudeNotFound}
 	}
-	cmd := exec.CommandContext(ctx, "claude", "-p", prompt, "--mcp-config", mcpConfigPath)
-	autoRefineSetProcessGroup(cmd)
+	cmd := autoRefineCommand(ctx, prompt, mcpConfigPath)
 	// Output() captures stderr into *exec.ExitError on non-zero exit, which
 	// is the path we care about; stdout is incidental and discarded.
 	if _, err := cmd.Output(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -59,6 +60,39 @@ func writeAutoRefineItem(t *testing.T, itemsDir, id, status string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks pins the exact
+// argv and env of the spawned `claude -p` subprocess. Two non-obvious knobs:
+//   - --allowedTools / --strict-mcp-config: claude -p has no interactive
+//     permission prompt, so any unallowed tool call would die with "denied
+//     by permissions on three attempts" and the handler would always 504.
+//   - SQUAD_NO_HOOKS=1: the squad Stop hook runs `squad listen --max 24h`,
+//     which holds the subprocess open after the response prints. Without
+//     this, the spawned claude never exits and the handler always 504s.
+func TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks(t *testing.T) {
+	cmd := autoRefineCommand(context.Background(), "the-prompt", "/tmp/cfg.json")
+
+	wantArgs := []string{
+		"claude", "-p", "the-prompt",
+		"--mcp-config", "/tmp/cfg.json",
+		"--strict-mcp-config",
+		"--allowedTools", "mcp__squad__squad_get_item,mcp__squad__squad_inbox,mcp__squad__squad_history,mcp__squad__squad_auto_refine_apply",
+	}
+	if !reflect.DeepEqual(cmd.Args, wantArgs) {
+		t.Errorf("argv mismatch:\n got: %v\nwant: %v", cmd.Args, wantArgs)
+	}
+
+	found := false
+	for _, e := range cmd.Env {
+		if e == "SQUAD_NO_HOOKS=1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("env missing SQUAD_NO_HOOKS=1; have: %v", cmd.Env)
+	}
 }
 
 func TestAutoRefine_HappyPath(t *testing.T) {
