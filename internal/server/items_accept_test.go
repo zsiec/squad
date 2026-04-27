@@ -57,7 +57,7 @@ captured_at: 100
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 	writeCapturedItem(t, squadDir, "FEAT-500", body)
 	seedItem(t, s, filepath.Join(squadDir, "items", "FEAT-500-thing.md"))
@@ -99,7 +99,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 	writeCapturedItem(t, squadDir, "FEAT-501", body)
 	seedItem(t, s, filepath.Join(squadDir, "items", "FEAT-501-thing.md"))
@@ -245,7 +245,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 	writeCapturedItem(t, squadDir, "FEAT-505", body)
 	seedItem(t, s, filepath.Join(squadDir, "items", "FEAT-505-thing.md"))

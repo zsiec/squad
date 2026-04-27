@@ -25,7 +25,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const mcpAcceptItemDoRFails = `---
@@ -417,7 +417,7 @@ captured_at: 1714150000
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const mcpInboxItemB = `---
@@ -435,7 +435,7 @@ parent_spec: auth-rotation
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const mcpInboxItemBadDoR = `---

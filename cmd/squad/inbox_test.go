@@ -27,7 +27,7 @@ captured_at: 1714150000
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const inboxItemReadyByB = `---
@@ -44,7 +44,7 @@ captured_at: 1714150000
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const inboxItemDoRFails = `---
@@ -76,7 +76,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 func setupInboxRepo(t *testing.T, sessionID string) string {

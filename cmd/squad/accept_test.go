@@ -24,7 +24,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const acceptItemDoRFails = `---

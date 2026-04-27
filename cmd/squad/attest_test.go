@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +22,7 @@ evidence_required: [test]
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const attestReviewItemBody = `---
@@ -37,7 +38,7 @@ evidence_required: [review]
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 func TestParseReviewExit_StopsAtSeparator(t *testing.T) {
@@ -280,6 +281,212 @@ func TestAttest_Review_BlockingFindingsRecordsExit1(t *testing.T) {
 	}
 	if !strings.Contains(got, "FEAT-001") {
 		t.Errorf("output missing FEAT-001: %s", got)
+	}
+}
+
+// TestAttest_Review_BlockingCreatesGotchaLearning verifies a blocking
+// review attestation auto-files a `learning_propose` of kind=gotcha
+// with the rejection narrative as the body, tagged `review-rejection`,
+// and the item linked via related_items. Closes the
+// observation→knowledge gap by routing reviewer rationale into the
+// learning ledger automatically.
+func TestAttest_Review_BlockingCreatesGotchaLearning(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-attest-review-learning-1")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDirCommittedMain(t, repoDir)
+	t.Chdir(repoDir)
+
+	initCmd := newInitCmd()
+	initCmd.SetOut(&bytes.Buffer{})
+	initCmd.SetErr(&bytes.Buffer{})
+	initCmd.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := initCmd.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+
+	if err := os.WriteFile(
+		filepath.Join(repoDir, ".squad", "items", "FEAT-001-test.md"),
+		[]byte(attestReviewItemBody),
+		0o644,
+	); err != nil {
+		t.Fatalf("write item: %v", err)
+	}
+
+	claim := newRootCmd()
+	claim.SetOut(&bytes.Buffer{})
+	claim.SetErr(&bytes.Buffer{})
+	claim.SetArgs([]string{"claim", "FEAT-001"})
+	if err := claim.Execute(); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	const narrative = "the helper accepts a slice but should accept a single value; rewriting the call sites is a one-line change"
+	findings := filepath.Join(repoDir, "findings.md")
+	body := "status: blocking\ndisagreements: 1\nresolution: rejected\n---\n" + narrative + "\n"
+	if err := os.WriteFile(findings, []byte(body), 0o644); err != nil {
+		t.Fatalf("write findings: %v", err)
+	}
+
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"attest", "--item", "FEAT-001", "--kind", "review", "--reviewer-agent", "agent-r", "--findings-file", findings})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("attest: %v\nout=%s", err, out.String())
+	}
+
+	gotchaDir := filepath.Join(repoDir, ".squad", "learnings", "gotchas", "proposed")
+	entries, err := os.ReadDir(gotchaDir)
+	if err != nil {
+		t.Fatalf("read gotchas/proposed: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("want 1 proposed gotcha learning, got %d entries: %+v", len(entries), entries)
+	}
+	stub, err := os.ReadFile(filepath.Join(gotchaDir, entries[0].Name()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		narrative,
+		"## Looks like",
+		"FEAT-001",
+		"review-rejection",
+	} {
+		if !strings.Contains(string(stub), want) {
+			t.Errorf("gotcha stub missing %q\n---\n%s", want, stub)
+		}
+	}
+	if strings.Contains(string(stub), "second-round") {
+		t.Errorf("first rejection should not be tagged second-round:\n%s", stub)
+	}
+}
+
+// TestAttest_Review_SecondBlockingTagsSecondRound verifies a second
+// blocking review on the same item tags its learning `second-round` so
+// triage queries can prioritize patterns biting twice.
+func TestAttest_Review_SecondBlockingTagsSecondRound(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-attest-review-learning-2")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDirCommittedMain(t, repoDir)
+	t.Chdir(repoDir)
+
+	initCmd := newInitCmd()
+	initCmd.SetOut(&bytes.Buffer{})
+	initCmd.SetErr(&bytes.Buffer{})
+	initCmd.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := initCmd.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, ".squad", "items", "FEAT-001-test.md"), []byte(attestReviewItemBody), 0o644); err != nil {
+		t.Fatalf("write item: %v", err)
+	}
+	claim := newRootCmd()
+	claim.SetOut(&bytes.Buffer{})
+	claim.SetErr(&bytes.Buffer{})
+	claim.SetArgs([]string{"claim", "FEAT-001"})
+	if err := claim.Execute(); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	mustReview := func(idx int, narrative string) {
+		t.Helper()
+		findings := filepath.Join(repoDir, fmt.Sprintf("findings-%d.md", idx))
+		body := "status: blocking\nresolution: rejected\n---\n" + narrative + "\n"
+		if err := os.WriteFile(findings, []byte(body), 0o644); err != nil {
+			t.Fatalf("write findings %d: %v", idx, err)
+		}
+		c := newRootCmd()
+		var out bytes.Buffer
+		c.SetOut(&out)
+		c.SetErr(&out)
+		c.SetArgs([]string{"attest", "--item", "FEAT-001", "--kind", "review", "--reviewer-agent", "agent-r", "--findings-file", findings})
+		if err := c.Execute(); err != nil {
+			t.Fatalf("attest %d: %v\nout=%s", idx, err, out.String())
+		}
+	}
+	mustReview(1, "first rejection narrative — call sites use the wrong helper")
+	mustReview(2, "second rejection narrative — same pattern, different file")
+
+	gotchaDir := filepath.Join(repoDir, ".squad", "learnings", "gotchas", "proposed")
+	entries, err := os.ReadDir(gotchaDir)
+	if err != nil {
+		t.Fatalf("read gotchas/proposed: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("want 2 proposed gotcha learnings (one per rejection), got %d", len(entries))
+	}
+	var secondRoundCount, firstRoundCount int
+	for _, e := range entries {
+		stub, err := os.ReadFile(filepath.Join(gotchaDir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(stub), "second-round") {
+			secondRoundCount++
+		} else {
+			firstRoundCount++
+		}
+	}
+	if firstRoundCount != 1 || secondRoundCount != 1 {
+		t.Errorf("want 1 first-round + 1 second-round, got first=%d second=%d", firstRoundCount, secondRoundCount)
+	}
+}
+
+// TestAttest_Review_CleanDoesNotCreateLearning verifies a clean review
+// (status: clean, exit=0) does NOT auto-create a learning — only
+// blocking reviews trigger the pipeline.
+func TestAttest_Review_CleanDoesNotCreateLearning(t *testing.T) {
+	repoDir := t.TempDir()
+	state := t.TempDir()
+	t.Setenv("SQUAD_HOME", state)
+	t.Setenv("SQUAD_SESSION_ID", "test-attest-review-learning-3")
+	t.Setenv("SQUAD_AGENT", "")
+	gitInitDirCommittedMain(t, repoDir)
+	t.Chdir(repoDir)
+
+	initCmd := newInitCmd()
+	initCmd.SetOut(&bytes.Buffer{})
+	initCmd.SetErr(&bytes.Buffer{})
+	initCmd.SetArgs([]string{"--yes", "--dir", repoDir})
+	if err := initCmd.Execute(); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, ".squad", "items", "FEAT-001-test.md"), []byte(attestReviewItemBody), 0o644); err != nil {
+		t.Fatalf("write item: %v", err)
+	}
+	claim := newRootCmd()
+	claim.SetOut(&bytes.Buffer{})
+	claim.SetErr(&bytes.Buffer{})
+	claim.SetArgs([]string{"claim", "FEAT-001"})
+	if err := claim.Execute(); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+
+	findings := filepath.Join(repoDir, "findings.md")
+	body := "status: clean\ndisagreements: 0\n---\nlooks good\n"
+	if err := os.WriteFile(findings, []byte(body), 0o644); err != nil {
+		t.Fatalf("write findings: %v", err)
+	}
+	root := newRootCmd()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"attest", "--item", "FEAT-001", "--kind", "review", "--reviewer-agent", "agent-r", "--findings-file", findings})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("attest: %v", err)
+	}
+
+	gotchaDir := filepath.Join(repoDir, ".squad", "learnings", "gotchas", "proposed")
+	entries, _ := os.ReadDir(gotchaDir)
+	if len(entries) != 0 {
+		t.Errorf("clean review should not create a learning; got %d entries: %+v", len(entries), entries)
 	}
 }
 

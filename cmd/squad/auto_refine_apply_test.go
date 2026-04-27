@@ -33,7 +33,7 @@ captured_at: 1700000000
 - [ ] Specific, testable thing 2
 `
 
-const arDoRCleanBody = "## Problem\n\nreal prose.\n\n## Context\n\nreal context.\n\n## Acceptance criteria\n- [ ] real, testable acceptance criterion\n"
+const arDoRCleanBody = "## Problem\n\nreal prose.\n\n## Context\n\nreal context.\n\n## Acceptance criteria\n- [ ] the rule replaces the placeholder body verbatim\n"
 
 func writeAutoRefineFixture(t *testing.T, dir, id, status string) string {
 	t.Helper()
@@ -134,7 +134,7 @@ func TestMCP_AutoRefineApply_HappyPath(t *testing.T) {
 	if on.AutoRefinedAt != int64(at) {
 		t.Errorf("file auto_refined_at=%d response=%d (mismatch)", on.AutoRefinedAt, int64(at))
 	}
-	if !strings.Contains(on.Body, "real, testable acceptance criterion") {
+	if !strings.Contains(on.Body, "the rule replaces the placeholder body verbatim") {
 		t.Errorf("body not rewritten:\n%s", on.Body)
 	}
 	if on.Status != "captured" {

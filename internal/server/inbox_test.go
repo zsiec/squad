@@ -37,8 +37,8 @@ parent_spec: auth-rotation
 
 ## Acceptance criteria
 
-- [ ] %s
-`, id, title, area, capturedBy, capturedAt, title)
+- [ ] the test fixture writes %s to the items dir
+`, id, title, area, capturedBy, capturedAt, id)
 	return writeItem(t, itemsDir, id+"-x.md", body)
 }
 

@@ -26,7 +26,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const rejectItemB = `---
@@ -41,7 +41,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 func setupRejectRepo(t *testing.T, sessionID string) string {

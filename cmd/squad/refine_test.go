@@ -29,7 +29,7 @@ captured_at: 1714150000
 Auth flow is racy.
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const refineItemSecondCaptured = `---

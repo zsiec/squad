@@ -19,7 +19,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const readyItemFail = `---
@@ -49,7 +49,7 @@ updated: 2026-04-26
 ---
 
 ## Acceptance criteria
-- [ ] another acceptance criterion
+- [ ] another rule validates the AC bullet text
 `
 
 func TestRunReadyCheck_NoIDsNoCapturedItemsIsFriendly(t *testing.T) {

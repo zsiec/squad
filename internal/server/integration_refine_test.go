@@ -35,7 +35,7 @@ updated: 2026-04-26
 Need a dashboard widget.
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 	path := writeCapturedItem(t, squadDir, "FEAT-950", body)
 	seedItem(t, s, path)

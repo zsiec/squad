@@ -51,7 +51,7 @@ tighten the acceptance criteria
 Auth test is flaky.
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 	path := writeCapturedItem(t, squadDir, "FEAT-900", body)
 	seedItem(t, s, path)

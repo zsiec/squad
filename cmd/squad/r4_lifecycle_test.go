@@ -28,7 +28,7 @@ evidence_required: [test, review]
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 func TestR4_FullLifecycle(t *testing.T) {

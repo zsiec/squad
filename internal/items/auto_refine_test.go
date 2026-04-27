@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const dorCleanBody = "## Problem\n\nthe drafted body has real prose here.\n\n## Context\n\nwith a real context section.\n\n## Acceptance criteria\n- [ ] real, testable acceptance criterion\n"
+const dorCleanBody = "## Problem\n\nthe drafted body has real prose here.\n\n## Context\n\nwith a real context section.\n\n## Acceptance criteria\n- [ ] the rule replaces the placeholder body verbatim\n"
 
 func TestParse_RoundTripsAutoRefinedFields(t *testing.T) {
 	dir := t.TempDir()
@@ -52,7 +52,7 @@ func TestAutoRefineApply_HappyPath(t *testing.T) {
 	if it.AutoRefinedBy != "claude" {
 		t.Errorf("AutoRefinedBy=%q want claude", it.AutoRefinedBy)
 	}
-	if !strings.Contains(it.Body, "real, testable acceptance criterion") {
+	if !strings.Contains(it.Body, "the rule replaces the placeholder body verbatim") {
 		t.Errorf("body did not pick up the new AC: %q", it.Body)
 	}
 	if violations := DoRCheck(it); len(violations) != 0 {

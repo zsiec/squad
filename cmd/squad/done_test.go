@@ -26,7 +26,7 @@ evidence_required: [test, review]
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 const doneEvidenceItemOneKind = `---
@@ -42,7 +42,7 @@ evidence_required: [test]
 ---
 
 ## Acceptance criteria
-- [ ] does the thing
+- [ ] the rule does the thing as specified
 `
 
 func TestDone_BlockedWhenEvidenceMissing(t *testing.T) {
