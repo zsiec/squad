@@ -19,17 +19,16 @@ Invoke this skill any time you are about to write the words "tests pass," "build
 
 Two artifacts per verification, not one:
 
-1. **Paste** the relevant trailing output line into the conversation. Do not paraphrase. Do not summarize. Do not say "tests pass" — paste the line that proves it.
-2. **Attest** the same run via `squad attest`, writing the output to a file the ledger can keep. The paste is for the humans and agents reading the thread now; the attestation is for the next session, the reviewer, and `squad done`'s gate.
+1. **Attest** the run via `squad attest`. The binary executes the `--command` itself, captures stdout+stderr, hashes the result, and writes it under `.squad/attestations/`. The attestation is the durable record `squad done` reads to verify the gate.
+2. **Paste** the trailing output line into the conversation, in a code block, directly under the command. Do not paraphrase. Do not summarize. Do not say "tests pass" — paste the line that proves it. The paste is for the humans and agents reading the thread now.
 
-Concrete shape (capture once, use both ways):
+Concrete shape:
 
 ```bash
-go test ./... 2>&1 | tee .squad/attestations/_tmp_test.txt
-squad attest <ITEM-ID> --kind test --command "go test ./..." --output .squad/attestations/_tmp_test.txt
+squad attest <ITEM-ID> --kind test --command "go test ./..."
 ```
 
-Then paste the trailing `ok` line into chat. One run, both artifacts.
+`squad attest` runs the command, captures the output, and stores it. Read the captured output (or re-read it from the printed attestation path) and paste the trailing `ok` line into chat. One invocation, both artifacts.
 
 Concretely:
 
@@ -48,9 +47,9 @@ The paste is also a forcing function on you. If you cannot paste a green line, y
 
 ## How to apply
 
-1. Run the verification command in a tool call, capturing stdout.
-2. Read the output. Find the line that summarizes the result.
-3. Paste that line, in a code block, into the conversation directly under the command that produced it.
+1. Run the verification through `squad attest <ITEM-ID> --kind <kind> --command "..."`. The binary executes the command and writes captured output into the durable ledger.
+2. Read the captured output. Find the line that summarizes the result.
+3. Paste that line, in a code block, into the conversation directly under the attest invocation that produced it.
 4. If the line is buried in noise, paste the noise too — others may need it for diagnosis.
 5. If the command failed, paste the failure block verbatim and stop. Do not move on.
 
@@ -61,6 +60,7 @@ The paste is also a forcing function on you. If you cannot paste a green line, y
 - Pasting a green line for a different command than the one you claim to have run. Match the paste to the claim.
 - Pasting a stale paste from earlier in the session as if it were the latest run. Re-run; paste the latest.
 - Skipping the paste because "the commit hook would have caught it." The commit hook runs after you claim done, not before; the order matters.
+- Skipping the attestation. The paste lives in the chat transcript; without `squad attest` the durable ledger stays empty and `squad done` cannot verify the gate. Both artifacts, every time.
 
 ## What kinds to record
 
@@ -68,4 +68,16 @@ The paste is also a forcing function on you. If you cannot paste a green line, y
 
 - **`--kind test`** — any unit / integration / e2e command. `go test`, `pytest`, `vitest`, `cargo test`, `npm test`. Mandatory for `bug` / `feature` / `task` items; the per-item `evidence_required: [test]` field gates `squad done` on at least one attestation of this kind.
 - **`--kind review`** — a reviewer-agent run. Typically captured by reviewer agents themselves per `squad-reviewing-as-disprove`; the output is the reviewer's findings document or transcript.
-- **`--kind manual`** — manual verification. Browser smoke test, CLI demo, "I clicked through and the modal opened." Write down what you actually did and what you observed; the `--output` file is your description.
+- **`--kind manual`** — manual verification. Browser smoke test, CLI demo, "I clicked through and the modal opened." Write your observations to a file, then attest by pointing `--command` at a printer that emits them, e.g.:
+
+  ```bash
+  cat > /tmp/manual-notes.txt <<EOF
+  clicked the Refine button in the inbox modal — composer opened inline,
+  typed feedback, submitted; item flipped from inbox to needs-refinement
+  and SSE pushed inbox_changed within 100ms.
+  EOF
+
+  squad attest <ITEM-ID> --kind manual --command "cat /tmp/manual-notes.txt"
+  ```
+
+  The `--command` output (your description) is what gets hashed into the ledger. Generic notes like "works as expected" do not count.
