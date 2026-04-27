@@ -25,15 +25,13 @@ go install github.com/zsiec/squad/cmd/squad@latest
 /reload-plugins
 ```
 
-Restart Claude Code (or `/reload-plugins`) so the always-on hooks, skills, and MCP server load. Squad's tools then become available to every Claude Code session in any repo.
+Restart Claude Code (or `/reload-plugins`) so the always-on hooks, skills, and MCP server load. Squad's tools then become available to every Claude Code session in any repo. The first MCP boot also installs the dashboard daemon as a per-user system service and opens http://localhost:7777 in your default browser — once. No `squad serve` step.
 
-**Step 3.** Open Claude Code in your project and tell it what you want.
+That's it for setup. The first time you ask Claude to do squad work, it claims and walks the loop:
 
 > *"Claim the top ready item and walk me through it."*
 
-Claude calls `squad_next` to find the priority pick, `squad_claim` to lock it, prints the acceptance criteria, and flushes any pending peer chat into your context. You start working.
-
-**Step 4.** When the work is done, say so.
+Claude calls `squad_next` to find the priority pick, `squad_claim` to lock it, prints the acceptance criteria, and flushes any pending peer chat into your context. You start working. When the work is done, say so:
 
 > *"Mark this done with summary 'shipped retry logic'."*
 
@@ -41,7 +39,7 @@ Claude calls `squad_done`. If the item declared `evidence_required: [test, revie
 
 That's the whole loop. You never run a squad command yourself.
 
-> If you prefer typing, `/squad:work` is the slash-command equivalent of step 3.
+> If you prefer typing, `/squad:work` is the slash-command equivalent of "claim and walk".
 
 ## Beyond the quick start
 
@@ -57,7 +55,9 @@ A claim → work → done loop is the whole shape of squad. The next layer of th
 
 **Multi-repo views.** Squad keeps an operational DB at `~/.squad/global.db` covering every repo on the machine. Ask Claude *"what's ready across all my projects?"* and the workspace queries surface a unified ready stack and chat history. Concepts: [docs/concepts/multi-repo.md](docs/concepts/multi-repo.md).
 
-**Live dashboard.** Ask Claude to start `squad serve` (or run it yourself) and visit http://localhost:7777 — live SSE feed of who-has-what, item flow across repos, and an Insights panel charting verification rate, claim p99 latency, and WIP-cap violations over time. The same data is at `GET /api/stats` and `GET /metrics` (Prometheus exposition). Recipe: [docs/recipes/prometheus.md](docs/recipes/prometheus.md).
+**Live dashboard.** http://localhost:7777 — live SSE feed of who-has-what, item flow across repos, and an Insights panel charting verification rate, claim p99 latency, and WIP-cap violations over time. The first MCP boot installs the dashboard as a per-user system service (launchd on macOS, systemd-user on Linux) and opens the page in your browser; subsequent sessions detect a binary upgrade and transparently restart the daemon on the new version. The same data is at `GET /api/stats` and `GET /metrics` (Prometheus exposition). Recipe: [docs/recipes/prometheus.md](docs/recipes/prometheus.md).
+
+> **Power-user opt-outs.** `SQUAD_NO_AUTO_DAEMON=1` skips the auto-install entirely (use `squad serve` manually if you want the UI). `SQUAD_NO_BROWSER=1` skips only the auto-open but still installs the daemon and writes the welcome sentinel. Both are read on every MCP boot — set them in your shell rc to make the choice persistent.
 
 **When things go wrong.** Ask Claude to run `squad_status` for a quick health check or `squad_doctor` for the full diagnostic — stale claims, ghost agents, orphan touches, broken refs, DB integrity. Common failure modes and recovery paths are at [docs/troubleshooting.md](docs/troubleshooting.md).
 

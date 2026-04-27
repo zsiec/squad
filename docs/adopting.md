@@ -58,6 +58,7 @@ After `/reload-plugins` (or a Claude Code restart), the plugin's pieces are live
 - **Slash commands** — `/squad:work`, `/squad:done`, `/squad:pick`, `/squad:file`, etc. show up under `/help` (Claude Code namespaces all plugin slash commands as `/<plugin>:<command>`).
 - **Skills** — squad-loop, squad-handoff, squad-quality-bar, etc. auto-load when their `paths:` match the file you're editing.
 - **Hooks** — session-start, user-prompt-submit, stop, pre-compact, etc. fire automatically.
+- **Dashboard daemon** — on the first MCP boot, squad installs http://localhost:7777 as a per-user system service (launchd on macOS, systemd-user on Linux) and opens the URL in your default browser. Once. The next tool response carries a banner with the URL so it's discoverable in chat. After that, the daemon supervises itself across reboots and binary upgrades. Set `SQUAD_NO_AUTO_DAEMON=1` to skip the auto-install (use `squad serve` manually) or `SQUAD_NO_BROWSER=1` to skip just the auto-open.
 
 If you'd rather wire the plugin from a local git checkout (e.g., for plugin development), point Claude Code at the directory directly:
 

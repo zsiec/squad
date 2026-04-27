@@ -203,13 +203,13 @@ sqlite3 ~/.squad/global.db "SELECT id, root_path, name FROM repos"
 
 ## Web UI not updating
 
-**Symptom:** `squad serve` dashboard goes stale; new claims/messages don't appear.
+**Symptom:** the dashboard at http://localhost:7777 goes stale; new claims/messages don't appear.
 
 **Cause:** SSE connection dropped (browser tab backgrounded, network hiccup).
 
 **Fix:** Reload the tab. The dashboard reconnects on page load.
 
-If the server itself died, restart `squad serve`. Logs go to stderr; if it's exiting on startup, check for port conflicts.
+If the daemon itself died, the next MCP boot from any Claude Code session re-installs and restarts it. To force a restart without waiting, run `squad serve --reinstall-service` (or `--install-service` if it's already gone). If you've opted out of auto-install with `SQUAD_NO_AUTO_DAEMON=1`, restart your manual `squad serve` process. Logs land in `~/.squad/logs/serve.{out,err}.log` for the daemon-installed flow, or stderr for manual `squad serve`. If it's exiting on startup, check for port conflicts on 7777.
 
 ## When all else fails
 
