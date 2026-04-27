@@ -4,7 +4,7 @@ title: AGENTS.md Recently done sort tiebreaks by ID asc, surfacing oldest BUGs o
 type: bug
 priority: P2
 area: internal/scaffold
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

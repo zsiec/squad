@@ -4,7 +4,7 @@ title: AGENTS.md on main is in drift from generator output; documentation-contra
 type: bug
 priority: P2
 area: docs
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

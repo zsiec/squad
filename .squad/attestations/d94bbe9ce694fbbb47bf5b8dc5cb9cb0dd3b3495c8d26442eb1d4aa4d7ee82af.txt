@@ -1,0 +1,6 @@
+# github.com/zsiec/squad/cmd/squad [github.com/zsiec/squad/cmd/squad.test]
+cmd/squad/scaffold_agents_md.go:10:2: "strings" imported and not used
+cmd/squad/scaffold_agents_md.go:72:22: undefined: loadDoneSummaries
+ok  	github.com/zsiec/squad/internal/mcp/bootstrap	0.315s
+FAIL	github.com/zsiec/squad/cmd/squad [build failed]
+FAIL

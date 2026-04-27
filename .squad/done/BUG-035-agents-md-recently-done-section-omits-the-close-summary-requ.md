@@ -4,7 +4,7 @@ title: AGENTS.md Recently done section omits the close summary required by FEAT-
 type: bug
 priority: P2
 area: internal/scaffold
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

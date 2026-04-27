@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/server	0.813s
+ok  	github.com/zsiec/squad/internal/items	0.360s

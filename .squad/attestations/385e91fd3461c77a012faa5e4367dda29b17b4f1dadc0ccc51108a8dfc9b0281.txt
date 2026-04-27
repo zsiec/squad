@@ -1,0 +1,408 @@
+?   	github.com/zsiec/squad	[no test files]
+epic "does-not-exist" not found
+usage: squad ask @<agent> [--to ITEM|global] <message>
+first argument must be @<agent>
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestBootClaimContext_UpgradesUnscopedAgent2381549465/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: cd5c69023fdade99
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+[thinking -> #BUG-77] head's somewhere
+[stuck -> #global] need help
+[fyi -> #global] heads up
+usage: squad thinking [--to ITEM|global] [--mention a,b] <message>
+spec /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestEpicNew_RequiresExistingSpec2433806658/001/.squad/specs/auth-rework.md does not exist
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_InitsWhenSquadDirAbsent3124808939/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: c878a06de1576451
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_DoesNotReinitWhenSquadDirPresent1213250344/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: 168e16e618685a88
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_RegistersAgentWhenAbsent915581294/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: c6e9f4dd84d0711e
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_UpgradesUnscopedAgentFromHookRegistration1122095500/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: c78aee707d593870
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_DoesNotReregisterOnSecondRun4024572551/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: c274582065751e49
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_ClaimsTopReadyItem4219642846/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: f4c608d2ceb69bf8
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_NoReadyItemsIsNotAnError1528591043/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: 2f5093d5b5d33276
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_PrintsAcceptanceCriteria383096343/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: 22cd57812056b688
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_FlushesMailboxAtEnd2841662768/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: 4e1d8613d08b18fa
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_IdempotentTwoRunsOneClaim1815234160/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: 2ed3724db1bbe214
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestGoCmd_IdentityStableAcrossRuns715456060/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: aa49e241f8776c2b
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+handoff posted by agent-test (handoff)
+drafted 2 learning proposals — review with `squad learning list --proposed`
+  1. /var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestHandoffPropose_Integration3733780962/002/.squad/learnings/gotchas/proposed/expected-schemajson-to-canonicalise-key-order-on-round-trip.md
+  2. /var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestHandoffPropose_Integration3733780962/002/.squad/learnings/gotchas/proposed/didn-t-expect-cobra-to-swallow-stderr-from-rune-on-os-exit.md
+handoff requires at least one --shipped / --in-flight / --surprised-by / --unblocks / --note (or --stdin)
+handoff posted by agent-test (shipped 1)
+history: item id required
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestRunInit_RerunIsIdempotent2275732657/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: dcc0e4285984a433
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestRunInit_RerunIsIdempotent2275732657/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: dcc0e4285984a433
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+Plugin install: run `squad install-plugin` to materialize skills + commands under ~/.claude/plugins/squad/.
+  Optional: `squad install-hooks` for the SessionStart auto-register hook (other hooks opt-in).
+
+Scaffolded squad in /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestRunInit_DoesNotWriteAgentsDeep1972955206/001
+  AGENTS.md
+  .squad/config.yaml
+  .squad/STATUS.md
+  .squad/items/EXAMPLE-001-try-the-loop.md
+  .squad/items/IDEA-001-something-to-think-about.md
+  CLAUDE.md (squad-managed block)
+  .gitignore (squad lines appended)
+
+Registered repo: 2bf3023b6eb016b4
+Project name:    001
+ID prefixes:     BUG, FEAT, TASK, CHORE
+
+Next:
+  squad next             # see what to work on
+  squad claim EXAMPLE-001 --intent "trying the loop"
+  squad inbox            # IDEA-001 is captured; promote it with:
+  squad accept IDEA-001  # (edit area first, or it'll fail DoR)
+--- FAIL: TestInstallPlugin_UninstallRemovesDaemonAndSentinelsPreservesDB (0.02s)
+    install_plugin_daemon_test.go:82: .welcomed should be gone, err=<nil>
+knocked @agent-b
+[thinking -> #BUG-1] leaning toward approach Z
+handoff posted by agent-test (1 in flight)
+usage: squad knock @<agent> <message>
+knocked @agent-b
+/private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestAgentsMdApprove_BranchesAndArchivesWithoutRemote3881727505/001/.squad/learnings/agents-md/proposed/20260427T220522Z-agents-md-edit.md
+/private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestAgentsMdApprove_OnConflictLeavesProposal1877698126/001/.squad/learnings/agents-md/proposed/20260427T220522Z-agents-md-edit.md
+rejected: /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestAgentsMdReject_ArchivesNotDeletes584026610/001/.squad/learnings/agents-md/rejected/20260425T120000Z-test.md
+approved: /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestLearningApprove_MovesAndRewritesState3439248741/001/.squad/learnings/gotchas/approved/sqlite-busy.md
+/private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestLearningPropose_RefusesClobber1658696053/001/.squad/learnings/patterns/proposed/boot-context.md
+/private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestLearningQuick_KindOverride4013135439/001/.squad/learnings/patterns/proposed/use-channel-of-done-to-fan-out-workers.md
+  tip: edit the stub when you can — sections are placeholders · silence with SQUAD_NO_CADENCE_NUDGES=1
+/private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestLearningQuick_SlugCollisionWalksSuffix3149885064/001/.squad/learnings/gotchas/proposed/database-locked-error-on-fork-2.md
+  tip: edit the stub when you can — sections are placeholders · silence with SQUAD_NO_CADENCE_NUDGES=1
+rejected: /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestLearningReject_ArchivesNotDeletes3955495527/001/.squad/learnings/patterns/rejected/x.md
+squad: bootstrap install daemon: plist permission denied
+persist new item: open store: mkdir : mkdir /var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestRunNew_PropagatesPersistError360046141/001/not-a-dir: not a directory
+type "bug" maps to prefix "BUG" which is not in id_prefixes [STORY]
+no ready items
+invalid pct: strconv.Atoi: parsing "not-a-number": invalid syntax
+claims: claim held by another agent: BUG-9 is held by agent-other
+BUG-NEVER is not claimed; claim it first with `squad claim BUG-NEVER`
+usage: squad review-request <ITEM-ID> [--mention @<agent>]
+usage: squad say [--to ITEM|global] [--mention a,b] <message>
+squad serve: refusing to bind 0.0.0.0 without --token (or $SQUAD_DASHBOARD_TOKEN).
+  unauthenticated POST /api/messages would let any host on the network impersonate any agent.
+  pass --token <random-string> or bind to a loopback address.
+squad serve: refusing to bind 0.0.0.0 without --token (or $SQUAD_DASHBOARD_TOKEN).
+  unauthenticated POST /api/messages would let any host on the network impersonate any agent.
+  pass --token <random-string> or bind to a loopback address.
+squad serve: --bind takes only a host or IP, not a host:port pair (got "127.0.0.1:8080").
+  use --port for the port; e.g. --bind 127.0.0.1 --port 8080.
+spec /private/var/folders/cr/bxx3kj8s297238jlwbpw735h0000gn/T/TestSpecNew_RejectsExisting34523862/001/.squad/specs/auth-rework.md already exists
+time: invalid duration "garbage"
+FAIL
+FAIL	github.com/zsiec/squad/cmd/squad	18.574s
+ok  	github.com/zsiec/squad/internal/analyze	1.158s
+ok  	github.com/zsiec/squad/internal/api	0.211s
+ok  	github.com/zsiec/squad/internal/attest	2.259s
+ok  	github.com/zsiec/squad/internal/chat	1.189s
+ok  	github.com/zsiec/squad/internal/claims	0.836s
+ok  	github.com/zsiec/squad/internal/commitlog	2.285s
+ok  	github.com/zsiec/squad/internal/config	1.324s
+ok  	github.com/zsiec/squad/internal/epics	2.186s
+ok  	github.com/zsiec/squad/internal/hygiene	3.015s
+ok  	github.com/zsiec/squad/internal/identity	2.178s
+ok  	github.com/zsiec/squad/internal/installer	1.787s
+ok  	github.com/zsiec/squad/internal/intake	2.485s
+ok  	github.com/zsiec/squad/internal/items	2.397s
+ok  	github.com/zsiec/squad/internal/learning	2.050s
+ok  	github.com/zsiec/squad/internal/listener	3.543s
+ok  	github.com/zsiec/squad/internal/mcp	1.447s
+ok  	github.com/zsiec/squad/internal/mcp/bootstrap	3.875s
+ok  	github.com/zsiec/squad/internal/notify	1.904s
+ok  	github.com/zsiec/squad/internal/prmark	1.746s
+ok  	github.com/zsiec/squad/internal/repo	1.656s
+ok  	github.com/zsiec/squad/internal/scaffold	2.037s
+ok  	github.com/zsiec/squad/internal/server	15.636s
+ok  	github.com/zsiec/squad/internal/skills	1.946s
+ok  	github.com/zsiec/squad/internal/specs	2.072s
+ok  	github.com/zsiec/squad/internal/stats	1.925s
+ok  	github.com/zsiec/squad/internal/store	2.561s
+ok  	github.com/zsiec/squad/internal/subagent	1.781s
+ok  	github.com/zsiec/squad/internal/touch	1.320s
+ok  	github.com/zsiec/squad/internal/tui	1.890s
+ok  	github.com/zsiec/squad/internal/tui/client	2.254s
+ok  	github.com/zsiec/squad/internal/tui/components	1.503s
+ok  	github.com/zsiec/squad/internal/tui/daemon	1.384s
+?   	github.com/zsiec/squad/internal/tui/theme	[no test files]
+ok  	github.com/zsiec/squad/internal/tui/views	1.634s
+ok  	github.com/zsiec/squad/internal/workspace	1.765s
+ok  	github.com/zsiec/squad/internal/worktree	2.356s
+ok  	github.com/zsiec/squad/plugin/hooks	10.321s
+ok  	github.com/zsiec/squad/templates/github-actions	1.299s
+FAIL

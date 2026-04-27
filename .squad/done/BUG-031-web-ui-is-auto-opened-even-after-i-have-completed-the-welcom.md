@@ -4,12 +4,12 @@ title: web ui is auto-opened even after I have completed the welcome, happens wh
 type: bug
 priority: P0
 area: <fill-in>
-status: captured
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: web
 captured_at: 1777321403
 accepted_by: ""

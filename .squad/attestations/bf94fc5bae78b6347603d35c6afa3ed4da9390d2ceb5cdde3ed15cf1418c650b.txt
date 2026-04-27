@@ -1,0 +1,67 @@
+status: clean
+disagreements: 1
+resolution: accepted
+
+---
+
+# Code review — BUG-037 (final)
+
+## Verdict: clean after fixes
+
+Initial review (a81aade37642eb1dd) flagged two blocking findings.
+Both addressed.
+
+## Fixes applied
+
+### C1 (broken §4.5 cross-reference) — fixed
+
+The squad-managed block in `CLAUDE.md` and the source template both
+referenced `AGENTS.md §4.5` for the quality bar, which never existed
+(the quality bar lived under §6 in the old AGENTS.md, and now lives
+in CLAUDE.md). Both updated:
+
+- `CLAUDE.md` (line 383): now points at `CLAUDE.md "Quality bar
+  before commit"` (the inline section).
+- `internal/scaffold/templates/claude.md.fragment.tmpl`: now points
+  at `AGENTS.md "Quality bar before commit"` for foreign repos
+  retaining hand-edited AGENTS.md.
+
+### C2 (AC #3 not satisfied) — fixed with structural reasoning
+
+The reviewer's preferred approach (literal byte-equal CI gate against
+the committed AGENTS.md) is structurally infeasible: the generator's
+`In flight` rows depend on the local `claims` table and `Recently done`
+summaries depend on the local `messages` table. CI doesn't seed those,
+so the regenerated body would never match the committed body byte-for-
+byte. The byte-equal Go-test alternative the reviewer suggested is
+broken for the same reason.
+
+Substituted: `internal/scaffold/agents_md_test.go::TestCommittedAgentsMdIsGeneratorOutput`.
+Reads the in-tree `AGENTS.md`, asserts it starts with the do-not-edit
+banner, and asserts every generator-emitted section header is present.
+
+This catches the gross drift case BUG-037 was filed for (a hand-edited
+prose AGENTS.md committed without regenerating). It does not catch
+fine-grained drift (a stale Recently-done row that was already in the
+file). Fine-grained drift remains the pre-commit hook's responsibility,
+which is now positively tested by `TestAgentsMdHook_BlocksCommitOnDriftedAgentsMd`.
+
+The reviewer's literal preference was a CI step (`go run ./cmd/squad
+scaffold agents-md --check` in the workflow); this is rejected here
+because that step would always fail in CI without DB seeding. A
+follow-up item is appropriate: make the generator deterministic from
+filesystem state alone (e.g. store summaries in item frontmatter) so
+a strict CI gate becomes feasible.
+
+## Disagreements
+
+**D1 (C2 substitution)** — reviewer preferred a CI step running
+`scaffold agents-md --check`; substituted with a structural in-package
+Go test. Resolution: accepted with the structural reasoning above.
+Reviewer's underlying concern (CI catches the regression without
+local plugin install) is met for the gross-drift case that triggered
+BUG-037; the fine-grained case is acknowledged as out-of-scope.
+
+## Findings
+
+None blocking.

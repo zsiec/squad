@@ -4,7 +4,7 @@ title: auto-refine cannot satisfy DoR when area is placeholder
 type: bug
 priority: P1
 area: refine
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

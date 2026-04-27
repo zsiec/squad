@@ -4,7 +4,7 @@ title: SPA button to send needs-refinement item back to captured
 type: feature
 priority: P2
 area: web
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

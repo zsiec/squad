@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/mcp/bootstrap	0.420s
+ok  	github.com/zsiec/squad/cmd/squad	0.519s

@@ -1,0 +1,6 @@
+ok  	github.com/zsiec/squad/internal/mcp/bootstrap	0.341s
+# github.com/zsiec/squad/cmd/squad
+# [github.com/zsiec/squad/cmd/squad]
+vet: cmd/squad/scaffold_agents_md_test.go:183:14: undefined: loadDoneSummaries
+FAIL	github.com/zsiec/squad/cmd/squad [build failed]
+FAIL

@@ -4,7 +4,7 @@ title: auto-refine-inbox spec YAML breaks (acceptance bullet has unquoted colon-
 type: bug
 priority: P2
 area: docs
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

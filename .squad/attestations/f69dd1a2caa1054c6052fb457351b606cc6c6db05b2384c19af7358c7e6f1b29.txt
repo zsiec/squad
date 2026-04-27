@@ -1,0 +1,72 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — BUG-035
+
+## Verdict: clean — no blocking findings
+
+The implementation satisfies all four AC bullets, the design matches the
+Notes shape (cobra-side lookup, pure renderer), and tests + live-ledger
+smoke confirm the contract.
+
+## Disprove-loop walkthrough
+
+**1. SQL scope of `loadDoneSummaries`** — verified against `claims.Done`
+(`internal/claims/done.go:50-55`): the same body is written to
+`thread='global'` and `thread=itemID`. Filtering `thread != 'global'` is
+correct. `kind='done'` is the only emitter. `ORDER BY ts ASC` plus
+map-overwrite gives last-write-wins per item, exercised by
+`TestLoadDoneSummaries_LatestWriteWinsOnDuplicateClose`.
+
+**2. `extractDoneSummary` body shapes** — `claims.Done` only emits two
+shapes: `done <id>` and `done <id>: <summary>`. Both covered. Two
+adversarial inputs probed beyond the test table:
+- `done BUG-1: : preserved leading colon in summary` returns
+  `: preserved leading colon in summary` (leading colon survives — only
+  the separator is consumed).
+- `done BUG-1: ::: triple colons` returns `::: triple colons`.
+
+The previous dev-time bug (`TrimPrefix(": ")` producing `":"` for a
+trailing-colon body) is genuinely fixed; `TrimLeft(":")` strips the
+edge case to empty and the renderer prints the `_(no summary)_`
+fallback.
+
+**3. Renderer change vs `TestRenderAgentsMd_AllSectionsPresent`** — the
+existing regression test only asserts `BUG-099` and `CHORE-014` strings
+appear under `## Recently done`. It does not assert priority on done
+items (priority assertions are scoped to Ready). Dropping `(priority)`
+from the Recently-done line does not break the regression. AC source
+explicitly calls for `(id, title, summary)`.
+
+**4. Wider blast radius** — only consumers of `Summaries`,
+`extractDoneSummary`, `loadDoneSummaries`, `AgentsMdData`,
+`RenderAgentsMd` are the four files in this diff. Nothing else parses
+done-message bodies.
+
+**5. Live-ledger smoke** — reproduced. Each "Recently done" line carries
+the actual close summary text. `AGENTS.md` was restored byte-identically
+after the smoke run.
+
+**6. Pre-commit hook impact** — the `pre-commit-agents-md` hook only
+blocks when `AGENTS.md` is in the staged set; this changeset does not
+modify `AGENTS.md`, so the hook will not fire on this commit.
+
+## Convention checks
+
+- TDD evidence: RED test would have failed pre-impl; GREEN now.
+- No PM traces in identifiers or comments.
+- Comment minimality: three new doc comments each carry non-obvious
+  WHY (SQL scope rationale, parse-rules rationale, last-write-wins
+  semantics).
+- No defensive checks for impossible states.
+- Pure Go, no CGO; no new imports outside stdlib + project-internal.
+- `extractDoneSummary` extracted from `loadDoneSummaries` with a real
+  second caller (the unit test exercising body shapes in isolation).
+  Justified.
+
+## Findings
+
+None.
