@@ -170,6 +170,99 @@ func TestMigrate_AppliesIntakeProvenance(t *testing.T) {
 	}
 }
 
+func TestMigrate_AppliesAgentEvents(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	wantCols := map[string]string{
+		"id":          "INTEGER",
+		"repo_id":     "TEXT",
+		"agent_id":    "TEXT",
+		"session_id":  "TEXT",
+		"ts":          "INTEGER",
+		"event_kind":  "TEXT",
+		"tool":        "TEXT",
+		"target":      "TEXT",
+		"exit_code":   "INTEGER",
+		"duration_ms": "INTEGER",
+	}
+	rows, err := db.Query(`SELECT name, type FROM pragma_table_info('agent_events')`)
+	if err != nil {
+		t.Fatalf("pragma_table_info: %v", err)
+	}
+	defer rows.Close()
+	gotCols := map[string]string{}
+	for rows.Next() {
+		var name, typ string
+		if err := rows.Scan(&name, &typ); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		gotCols[name] = typ
+	}
+	if len(gotCols) == 0 {
+		t.Fatalf("agent_events table not created")
+	}
+	for name, typ := range wantCols {
+		if got, ok := gotCols[name]; !ok {
+			t.Errorf("missing column %s", name)
+		} else if !strings.EqualFold(got, typ) {
+			t.Errorf("column %s: want type %s, got %s", name, typ, got)
+		}
+	}
+
+	var strict int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pragma_table_list WHERE name='agent_events' AND "strict"=1`,
+	).Scan(&strict); err != nil {
+		t.Fatalf("pragma_table_list: %v", err)
+	}
+	if strict != 1 {
+		t.Fatalf("agent_events must be STRICT; got strict=%d", strict)
+	}
+
+	wantIdx := map[string][]string{
+		"idx_agent_events_agent_ts": {"repo_id", "agent_id", "ts"},
+		"idx_agent_events_repo_ts":  {"repo_id", "ts"},
+	}
+	for idxName, wantCols := range wantIdx {
+		idxRows, err := db.Query(`SELECT name FROM pragma_index_info(?) ORDER BY seqno`, idxName)
+		if err != nil {
+			t.Fatalf("pragma_index_info(%s): %v", idxName, err)
+		}
+		var gotCols []string
+		for idxRows.Next() {
+			var name string
+			if err := idxRows.Scan(&name); err != nil {
+				idxRows.Close()
+				t.Fatalf("scan idx col: %v", err)
+			}
+			gotCols = append(gotCols, name)
+		}
+		idxRows.Close()
+		if len(gotCols) == 0 {
+			t.Errorf("index %s missing or empty", idxName)
+			continue
+		}
+		if !slicesEqual(gotCols, wantCols) {
+			t.Errorf("index %s: want columns %v, got %v", idxName, wantCols, gotCols)
+		}
+	}
+}
+
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 	db := openEmptyDBNoMigrate(t)
 	legacy := fstest.MapFS{
@@ -190,7 +283,7 @@ func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
 		t.Fatalf("max: %v", err)
 	}
-	if maxV != 6 {
-		t.Fatalf("want version 6 after bootstrap; got %d", maxV)
+	if maxV != 8 {
+		t.Fatalf("want version 8 after bootstrap; got %d", maxV)
 	}
 }
