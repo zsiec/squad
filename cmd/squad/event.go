@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/zsiec/squad/internal/config"
 )
 
 var ErrInvalidEventKind = errors.New("invalid event kind")
@@ -130,6 +132,13 @@ func runEventRecord(ctx context.Context, a eventRecordArgs) error {
 	if agentID == "" {
 		agentID = bc.agentID
 	}
+
+	target := a.Target
+	if root, derr := discoverRepoRoot(); derr == nil {
+		cfg, _ := config.Load(root)
+		target, _ = redact(target, resolveRedactConfig(cfg.Events))
+	}
+
 	_, err = RecordEvent(ctx, RecordEventArgs{
 		DB:         bc.db,
 		RepoID:     bc.repoID,
@@ -137,7 +146,7 @@ func runEventRecord(ctx context.Context, a eventRecordArgs) error {
 		SessionID:  a.SessionID,
 		Kind:       a.Kind,
 		Tool:       a.Tool,
-		Target:     a.Target,
+		Target:     target,
 		ExitCode:   a.ExitCode,
 		DurationMs: a.DurationMs,
 	})

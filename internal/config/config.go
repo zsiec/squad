@@ -17,6 +17,17 @@ type Config struct {
 	Verification VerificationConfig `yaml:"verification"`
 	Hygiene      HygieneConfig      `yaml:"hygiene"`
 	Touch        TouchConfig        `yaml:"touch"`
+	Events       EventsConfig       `yaml:"events"`
+}
+
+// EventsConfig controls privacy redaction on rows recorded into agent_events
+// by the activity-stream hook recorder. Empty = no regex screen, target
+// truncated to the default cap. Set RedactRegex to drop sensitive patterns
+// (matches collapse the entire target to "<redacted>"); set MaxTargetLen to
+// override the cap. SQUAD_REDACT_REGEX takes precedence at call sites.
+type EventsConfig struct {
+	RedactRegex  string `yaml:"redact_regex"`
+	MaxTargetLen int    `yaml:"max_target_len"`
 }
 
 // TouchConfig controls how the pre-edit touch-check hook reacts when an Edit
