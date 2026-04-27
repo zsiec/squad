@@ -31,15 +31,15 @@ type itemWriter func(squadDir, prefix, title string, opts items.Options) (string
 // users about prefixes. Duplicated from cmd/squad/new.go:typeToPrefix
 // because internal/ may not import cmd/.
 var itemPrefixFor = map[string]string{
-	"":         "FEAT",
-	"feature":  "FEAT",
-	"feat":     "FEAT",
-	"bug":      "BUG",
-	"task":     "TASK",
-	"chore":    "CHORE",
+	"":          "FEAT",
+	"feature":   "FEAT",
+	"feat":      "FEAT",
+	"bug":       "BUG",
+	"task":      "TASK",
+	"chore":     "CHORE",
 	"tech-debt": "DEBT",
-	"debt":     "DEBT",
-	"bet":      "BET",
+	"debt":      "DEBT",
+	"bet":       "BET",
 }
 
 // Commit validates bundle, allocates item IDs, writes the item files,
@@ -246,12 +246,12 @@ func supersedeOriginal(
 
 func loadSession(ctx context.Context, db *sql.DB, sessionID string) (Session, error) {
 	var (
-		s            Session
-		refineItem   sql.NullString
-		shape        sql.NullString
-		createdAt    int64
-		updatedAt    int64
-		committedAt  sql.NullInt64
+		s           Session
+		refineItem  sql.NullString
+		shape       sql.NullString
+		createdAt   int64
+		updatedAt   int64
+		committedAt sql.NullInt64
 	)
 	err := db.QueryRowContext(ctx, `
 		SELECT id, repo_id, agent_id, mode, refine_item_id, idea_seed, status, shape,

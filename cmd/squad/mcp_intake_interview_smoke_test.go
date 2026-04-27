@@ -138,9 +138,9 @@ func TestMCP_IntakeSmoke_RefineSupersedesStubItem(t *testing.T) {
 	}
 
 	turnArgs, _ := json.Marshal(map[string]any{
-		"session_id": sessionID,
-		"role":       "user",
-		"content":    "we want exponential backoff capped at 30s with jitter",
+		"session_id":    sessionID,
+		"role":          "user",
+		"content":       "we want exponential backoff capped at 30s with jitter",
 		"fields_filled": []string{"title", "intent", "acceptance", "area"},
 	})
 	turnResp := callMCPTool(t, env, "squad_intake_turn", string(turnArgs))

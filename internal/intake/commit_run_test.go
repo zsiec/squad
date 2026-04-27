@@ -419,7 +419,7 @@ func TestCommit_RejectsSpecEpicShapeForNow(t *testing.T) {
 	sess := openSessionForCommit(t, db, squadDir, "agent-1")
 
 	bundle := Bundle{
-		Spec: &SpecDraft{Title: "x"},
+		Spec:  &SpecDraft{Title: "x"},
 		Epics: []EpicDraft{{Title: "e"}},
 		Items: []ItemDraft{{Title: "y", Intent: "z", Acceptance: []string{"a"}, Area: "core", Epic: "e"}},
 	}

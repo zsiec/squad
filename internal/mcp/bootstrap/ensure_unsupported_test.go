@@ -12,9 +12,11 @@ import (
 // internal/tui/daemon/install_other.go on Windows / unsupported OSes.
 type errUnsupportedManager struct{}
 
-func (errUnsupportedManager) Install(daemon.InstallOpts) error   { return daemon.ErrUnsupported }
-func (errUnsupportedManager) Uninstall() error                   { return daemon.ErrUnsupported }
-func (errUnsupportedManager) Status() (daemon.Status, error)     { return daemon.Status{}, daemon.ErrUnsupported }
+func (errUnsupportedManager) Install(daemon.InstallOpts) error { return daemon.ErrUnsupported }
+func (errUnsupportedManager) Uninstall() error                 { return daemon.ErrUnsupported }
+func (errUnsupportedManager) Status() (daemon.Status, error) {
+	return daemon.Status{}, daemon.ErrUnsupported
+}
 func (errUnsupportedManager) Reinstall(daemon.InstallOpts) error { return daemon.ErrUnsupported }
 
 func TestEnsure_UnsupportedPlatform_SetsBannerReturnsNil(t *testing.T) {

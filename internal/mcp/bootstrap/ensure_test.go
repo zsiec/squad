@@ -249,7 +249,7 @@ type reinstallSwap struct {
 }
 
 func (r *reinstallSwap) Reinstall(opts daemon.InstallOpts) error {
-	r.recordingMgr.Reinstall(opts)
+	_ = r.recordingMgr.Reinstall(opts)
 	r.d.binaryPath.Store(opts.BinaryPath)
 	return nil
 }
@@ -289,4 +289,3 @@ func TestEnsure_InstallErrorWrappedAndLogged(t *testing.T) {
 		t.Errorf("error %q does not wrap install cause", err)
 	}
 }
-

@@ -79,7 +79,7 @@ func AppendTurn(
 	if err != nil {
 		return 0, nil, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var statusInTx string
 	var lockedShape sql.NullString

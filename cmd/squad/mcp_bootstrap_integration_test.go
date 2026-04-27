@@ -25,10 +25,13 @@ type bootstrapRecordingMgr struct {
 	reinstallCalls atomic.Int32
 }
 
-func (m *bootstrapRecordingMgr) Install(daemon.InstallOpts) error   { m.installCalls.Add(1); return nil }
-func (m *bootstrapRecordingMgr) Uninstall() error                   { return nil }
-func (m *bootstrapRecordingMgr) Status() (daemon.Status, error)     { return daemon.Status{}, nil }
-func (m *bootstrapRecordingMgr) Reinstall(daemon.InstallOpts) error { m.reinstallCalls.Add(1); return nil }
+func (m *bootstrapRecordingMgr) Install(daemon.InstallOpts) error { m.installCalls.Add(1); return nil }
+func (m *bootstrapRecordingMgr) Uninstall() error                 { return nil }
+func (m *bootstrapRecordingMgr) Status() (daemon.Status, error)   { return daemon.Status{}, nil }
+func (m *bootstrapRecordingMgr) Reinstall(daemon.InstallOpts) error {
+	m.reinstallCalls.Add(1)
+	return nil
+}
 
 // failingMgr returns the configured error from Install / Reinstall so
 // the failure-path test can assert MCP keeps serving even when

@@ -67,7 +67,7 @@ func TestProbe_NoDaemon_ReturnsAbsent(t *testing.T) {
 func TestProbe_SlowDaemon_TimesOutAsAbsent(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer ts.Close()
 	setProbeBase(t, ts.URL)
