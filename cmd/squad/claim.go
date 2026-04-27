@@ -209,7 +209,9 @@ func newClaimCmd() *cobra.Command {
 				if itemPath := findItemPath(bc.itemsDir, itemID); itemPath != "" {
 					if parsed, perr := items.Parse(itemPath); perr == nil {
 						printSecondOpinionNudge(cmd.ErrOrStderr(), parsed.Priority, parsed.Risk)
-						printMilestoneTargetNudge(cmd.ErrOrStderr(), items.CountAC(parsed.Body))
+						acTotal := items.CountAC(parsed.Body)
+						printMilestoneTargetNudge(cmd.ErrOrStderr(), acTotal)
+						printDecomposeNudge(cmd.ErrOrStderr(), itemID, acTotal, items.CountFileRefs(parsed.Body))
 					}
 				}
 				if res.WorktreePath != "" {

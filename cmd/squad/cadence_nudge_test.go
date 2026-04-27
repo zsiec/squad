@@ -448,3 +448,52 @@ func TestMilestoneTargetNudgeText_MatchesPrintOutput(t *testing.T) {
 		})
 	}
 }
+
+func TestDecomposeNudgeText_FiresAboveBothThresholds(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	got := decomposeNudgeText("FEAT-100", 4, 3)
+	if !strings.Contains(got, "4 AC items") {
+		t.Errorf("output should mention AC count (4), got %q", got)
+	}
+	if !strings.Contains(got, "3 files") {
+		t.Errorf("output should mention file-ref count (3), got %q", got)
+	}
+	if !strings.Contains(got, "squad decompose FEAT-100") {
+		t.Errorf("output should suggest `squad decompose <id>`, got %q", got)
+	}
+	if !strings.Contains(got, "SQUAD_NO_CADENCE_NUDGES") {
+		t.Errorf("output should advertise the silence env var, got %q", got)
+	}
+	if strings.HasSuffix(got, "\n") {
+		t.Errorf("text helper must not include a trailing newline, got %q", got)
+	}
+}
+
+func TestDecomposeNudgeText_QuietBelowThresholds(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	cases := []struct{ ac, refs int }{
+		{3, 5}, {4, 2}, {0, 0}, {1, 1}, {3, 3},
+	}
+	for _, c := range cases {
+		if got := decomposeNudgeText("FEAT-100", c.ac, c.refs); got != "" {
+			t.Errorf("ac=%d refs=%d should be empty, got %q", c.ac, c.refs, got)
+		}
+	}
+}
+
+func TestDecomposeNudgeText_RespectsSilence(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "1")
+	if got := decomposeNudgeText("FEAT-100", 10, 10); got != "" {
+		t.Errorf("env=1 should suppress nudge even far above threshold, got %q", got)
+	}
+}
+
+func TestDecomposeNudgeText_MatchesPrintOutput(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printDecomposeNudge(&buf, "FEAT-100", 4, 3)
+	want := strings.TrimRight(buf.String(), "\n")
+	if got := decomposeNudgeText("FEAT-100", 4, 3); got != want {
+		t.Fatalf("text differs from print output:\n  text:  %q\n  print: %q", got, want)
+	}
+}

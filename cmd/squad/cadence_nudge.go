@@ -87,6 +87,27 @@ func printMilestoneTargetNudge(w io.Writer, acTotal int) {
 	}
 }
 
+// decomposeNudgeText returns the post-claim nudge suggesting `squad
+// decompose <ID>` for items whose AC count and distinct file-reference
+// count both clear thresholds. Empty when silenced or when either signal
+// is below threshold — a 4-bullet item with all bullets in one file is
+// not the target case.
+func decomposeNudgeText(itemID string, acTotal, fileRefs int) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	if acTotal < 4 || fileRefs < 3 {
+		return ""
+	}
+	return fmt.Sprintf("  tip: %d AC items spanning %d files — consider `squad decompose %s` before starting · silence with SQUAD_NO_CADENCE_NUDGES=1", acTotal, fileRefs, itemID)
+}
+
+func printDecomposeNudge(w io.Writer, itemID string, acTotal, fileRefs int) {
+	if t := decomposeNudgeText(itemID, acTotal, fileRefs); t != "" {
+		fmt.Fprintln(w, t)
+	}
+}
+
 // worktreeNudgeText returns the post-claim cd hint when the claim provisioned
 // an isolated worktree. Empty when silenced or path is empty so the caller
 // can branch on a single value.
