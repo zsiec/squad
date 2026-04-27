@@ -48,6 +48,37 @@ The global DB is **machine-local**. If you switch laptops, your claim does not f
 
 Cross-machine claim sync is **out of scope for v1.** v2 may add it (the design doc has a section on this). For now: one machine = one claim namespace.
 
+## Per-claim worktrees
+
+When two agents claim into the same working tree, their pending edits flow into each other's test runs — a sibling's WIP can produce a misleading green that doesn't validate either claim's code in isolation. The structural fix is one git worktree per claim.
+
+Opt in per claim:
+
+```bash
+squad claim FEAT-123 --intent "..." --worktree
+```
+
+or globally for the repo, in `.squad/config.yaml`:
+
+```yaml
+agent:
+  default_worktree_per_claim: true
+```
+
+What `--worktree` does:
+
+- Provisions `<repoRoot>/.squad/worktrees/<agent>-<item>/` on a fresh `squad/<item>-<agent>` branch forked from the current HEAD.
+- Records the absolute path in the `claims.worktree` column so `squad done` and `squad handoff` can tear it down without re-deriving.
+- Prints a `cd <path>` nudge after claim — that's where you do the work.
+
+Teardown happens automatically:
+
+- `squad done <ID>` runs `git worktree remove --force` then `git branch -D squad/<item>-<agent>` if no commits landed. Commits leave the branch in place — the user (or a follow-up PR) owns the merge.
+- `squad handoff` does the same for every claim it releases.
+- Cleanup failures are warnings, never block the close-out. Stranded directories surface in `squad doctor` as `worktree_orphan`.
+
+The `--worktree` flag is opt-in for this ship. Solo flows are unaffected — the column is empty, the cleanup path is a no-op.
+
 ## Common races and how they resolve
 
 - **Two agents claim simultaneously.** SQLite `BEGIN IMMEDIATE` serializes the transactions; one commits, the other gets `unique_constraint`-equivalent and the `squad claim` command exits with a clear "already claimed by X" message. No corruption, no torn state.

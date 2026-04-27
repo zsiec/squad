@@ -88,7 +88,33 @@ squad claim BUG-042 --intent "..."
 
 The `claim_history` table records the takeover with the reason, so future audits can see what happened.
 
-## Worktree variant
+## Per-claim worktrees (recommended for parallel)
+
+Each claim gets its own checkout, so concurrent agents never share pending edits during a test run. Two ways to enable:
+
+```bash
+squad claim FEAT-123 --intent "..." --worktree
+```
+
+or set the default in `.squad/config.yaml` once:
+
+```yaml
+agent:
+  default_worktree_per_claim: true
+```
+
+After the claim, `cd` into the printed path:
+
+```
+claimed FEAT-123
+  tip: cd into the isolated worktree: cd /path/to/repo/.squad/worktrees/agent-blue-FEAT-123
+```
+
+`squad done` and `squad handoff` tear the worktree down automatically. If teardown fails (uncommitted edits in the checkout, etc.), the close-out still succeeds — the warning is surfaced and `squad doctor` will flag the stranded directory as `worktree_orphan` so you can clean it up later. See [recipes/recovering-from-orphan-worktrees.md](recovering-from-orphan-worktrees.md).
+
+## Manual worktree variant
+
+If you want one Claude Code session per branch (rather than one per claim), you can still drive it manually:
 
 ```bash
 git worktree add ../your-project-feat-a feat-a

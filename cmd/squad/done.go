@@ -20,6 +20,7 @@ import (
 	"github.com/zsiec/squad/internal/commitlog"
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/worktree"
 )
 
 // EvidenceMissingError signals that the item declares evidence_required and
@@ -62,6 +63,10 @@ type DoneResult struct {
 	ForceOverride bool          `json:"force_override,omitempty"`
 	BypassedKinds []attest.Kind `json:"bypassed_kinds,omitempty"`
 	Tips          []string      `json:"tips,omitempty"`
+	// WorktreeCleanupWarning holds the human-readable git error when
+	// worktree teardown failed after a successful done. Empty on the
+	// happy path (no worktree, or clean removal).
+	WorktreeCleanupWarning string `json:"worktree_cleanup_warning,omitempty"`
 }
 
 // Done releases the claim and rewrites the item file in done state. The
@@ -111,12 +116,14 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 		}
 	}
 
-	// Read claimed_at BEFORE store.Done — Done releases the claim, so the
-	// row is gone by the time we'd want to scope git log to it.
+	// Read claimed_at AND worktree BEFORE store.Done — Done releases the
+	// claim, so the row is gone by the time we'd want to scope git log
+	// to it or tear down the per-claim worktree.
 	var claimedAt int64
+	var worktreePath string
 	_ = args.DB.QueryRowContext(ctx,
-		`SELECT claimed_at FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
-		args.RepoID, args.ItemID, args.AgentID).Scan(&claimedAt)
+		`SELECT claimed_at, COALESCE(worktree,'') FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
+		args.RepoID, args.ItemID, args.AgentID).Scan(&claimedAt, &worktreePath)
 
 	store := claims.New(args.DB, args.RepoID, clock)
 	if err := store.Done(ctx, args.ItemID, args.AgentID, claims.DoneOpts{
@@ -134,12 +141,20 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 		_, _ = commitlog.RecordSinceClaim(ctx, args.DB, args.RepoID, args.RepoRoot, args.ItemID, args.AgentID, claimedAt)
 	}
 
+	var cleanupWarning string
+	if worktreePath != "" && args.RepoRoot != "" {
+		if err := worktree.Cleanup(args.RepoRoot, worktreePath); err != nil {
+			cleanupWarning = err.Error()
+		}
+	}
+
 	return &DoneResult{
-		ItemID:        args.ItemID,
-		Summary:       args.Summary,
-		ClosedAt:      clock().Unix(),
-		ForceOverride: len(bypassed) > 0,
-		BypassedKinds: bypassed,
+		ItemID:                 args.ItemID,
+		Summary:                args.Summary,
+		ClosedAt:               clock().Unix(),
+		ForceOverride:          len(bypassed) > 0,
+		BypassedKinds:          bypassed,
+		WorktreeCleanupWarning: cleanupWarning,
 	}, nil
 }
 
@@ -187,6 +202,10 @@ func newDoneCmd() *cobra.Command {
 				if res.ForceOverride {
 					fmt.Fprintf(cmd.ErrOrStderr(), "warning: --force override recorded for %s (bypassed: %s)\n",
 						res.ItemID, joinKinds(res.BypassedKinds))
+				}
+				if res.WorktreeCleanupWarning != "" {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: worktree cleanup failed for %s: %s\n",
+						res.ItemID, res.WorktreeCleanupWarning)
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "done %s\n", res.ItemID)
 				itemType := ""

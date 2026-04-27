@@ -211,6 +211,19 @@ const schemaLearningPropose = `{
   "additionalProperties": false
 }`
 
+const schemaLearningQuick = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["one_liner"],
+  "properties": {
+    "one_liner":  {"type": "string", "minLength": 1, "maxLength": 200},
+    "kind":       {"type": "string", "enum": ["gotcha", "pattern", "dead-end"]},
+    "session_id": {"type": "string"},
+    "agent_id":   {"type": "string"}
+  },
+  "additionalProperties": false
+}`
+
 const schemaLearningList = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

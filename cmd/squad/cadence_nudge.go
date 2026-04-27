@@ -86,3 +86,22 @@ func printMilestoneTargetNudge(w io.Writer, acTotal int) {
 		fmt.Fprintln(w, t)
 	}
 }
+
+// worktreeNudgeText returns the post-claim cd hint when the claim provisioned
+// an isolated worktree. Empty when silenced or path is empty so the caller
+// can branch on a single value.
+func worktreeNudgeText(path string) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	if path == "" {
+		return ""
+	}
+	return "  tip: cd into the isolated worktree: cd " + path
+}
+
+func printWorktreeNudge(w io.Writer, path string) {
+	if t := worktreeNudgeText(path); t != "" {
+		fmt.Fprintln(w, t)
+	}
+}

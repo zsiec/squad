@@ -47,12 +47,23 @@ type ClaimOption func(*claimOpts)
 type claimOpts struct {
 	preflightItemsDir string
 	preflightDoneDir  string
+	worktreePath      string
 }
 
 func ClaimWithPreflight(itemsDir, doneDir string) ClaimOption {
 	return func(o *claimOpts) {
 		o.preflightItemsDir = itemsDir
 		o.preflightDoneDir = doneDir
+	}
+}
+
+// ClaimWithWorktree records the absolute path of the per-claim worktree
+// in the claim row so done/handoff can tear it down without re-deriving.
+// Empty path is a no-op (preserves the default-empty column for the
+// majority of users who don't opt in).
+func ClaimWithWorktree(path string) ClaimOption {
+	return func(o *claimOpts) {
+		o.worktreePath = path
 	}
 }
 
@@ -106,9 +117,9 @@ LIMIT 1`
 			}
 		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, s.repoID, itemID, agentID, now, now, intent, longVal)
+			INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long, worktree)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, s.repoID, itemID, agentID, now, now, intent, longVal, co.worktreePath)
 		if err != nil {
 			if isUniqueViolation(err) {
 				return ErrClaimTaken

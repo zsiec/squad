@@ -125,14 +125,15 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 	var currentClaim any
 	var lastTouch int64
 	row := s.db.QueryRowContext(r.Context(),
-		`SELECT agent_id, COALESCE(intent, ''), claimed_at, last_touch FROM claims WHERE item_id = ? AND repo_id = ?`,
+		`SELECT agent_id, COALESCE(intent, ''), claimed_at, last_touch, COALESCE(worktree, '') FROM claims WHERE item_id = ? AND repo_id = ?`,
 		id, s.cfg.RepoID)
 	var cc struct {
 		AgentID   string `json:"agent_id"`
 		Intent    string `json:"intent"`
 		ClaimedAt int64  `json:"claimed_at"`
+		Worktree  string `json:"worktree,omitempty"`
 	}
-	switch err := row.Scan(&cc.AgentID, &cc.Intent, &cc.ClaimedAt, &lastTouch); {
+	switch err := row.Scan(&cc.AgentID, &cc.Intent, &cc.ClaimedAt, &lastTouch, &cc.Worktree); {
 	case err == nil:
 		currentClaim = cc
 	case errors.Is(err, sql.ErrNoRows):

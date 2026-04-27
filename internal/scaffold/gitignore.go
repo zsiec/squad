@@ -11,6 +11,7 @@ import (
 var managedIgnoreLines = []string{
 	".squad/db-snapshot/",
 	".squad/backups/",
+	".squad/worktrees/",
 }
 
 func EnsureGitignore(repoRoot string) error {

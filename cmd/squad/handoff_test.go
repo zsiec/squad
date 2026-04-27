@@ -13,7 +13,7 @@ import (
 func TestRunHandoff_RejectsEmpty(t *testing.T) {
 	f := newChatFixture(t)
 	st := claims.New(f.db, f.repoID, func() time.Time { return time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC) })
-	if code := runHandoffBody(context.Background(), f.chat, st, f.agentID, chat.HandoffBody{}); code == 0 {
+	if code := runHandoffBody(context.Background(), f.chat, st, f.db, f.repoID, "", f.agentID, chat.HandoffBody{}); code == 0 {
 		t.Fatal("expected non-zero")
 	}
 }
@@ -24,7 +24,7 @@ func TestRunHandoff_StoresAndReleasesClaim(t *testing.T) {
 	st := claims.New(f.db, f.repoID, func() time.Time { return time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC) })
 
 	h := chat.HandoffBody{Shipped: []string{"BUG-9"}, Note: "headed to lunch"}
-	if code := runHandoffBody(context.Background(), f.chat, st, f.agentID, h); code != 0 {
+	if code := runHandoffBody(context.Background(), f.chat, st, f.db, f.repoID, "", f.agentID, h); code != 0 {
 		t.Fatalf("exit=%d", code)
 	}
 

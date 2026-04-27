@@ -618,6 +618,37 @@ func registerLearningTools(srv *mcp.Server, repoRoot string) {
 	})
 
 	srv.Register(mcp.Tool{
+		Name:        "squad_learning_quick",
+		Description: "Frictionless one-line learning capture (auto-derives slug, defaults kind=gotcha, infers area).",
+		InputSchema: json.RawMessage(schemaLearningQuick),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				OneLiner  string `json:"one_liner"`
+				Kind      string `json:"kind"`
+				SessionID string `json:"session_id"`
+				AgentID   string `json:"agent_id"`
+			}
+			if err := json.Unmarshal(raw, &args); err != nil {
+				return nil, err
+			}
+			if repoRoot == "" {
+				return nil, asInvalidParams(errNoRepo)
+			}
+			agent, err := resolveAgentID(args.AgentID)
+			if err != nil {
+				return nil, err
+			}
+			return LearningQuick(ctx, LearningQuickArgs{
+				RepoRoot:  repoRoot,
+				OneLiner:  args.OneLiner,
+				Kind:      args.Kind,
+				SessionID: args.SessionID,
+				CreatedBy: agent,
+			})
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_learning_list",
 		Description: "List learning artifacts (filterable by area, state, kind).",
 		InputSchema: json.RawMessage(schemaLearningList),

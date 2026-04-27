@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/stats"
+	"github.com/zsiec/squad/internal/worktree"
 )
 
 // ConcurrencyExceededError signals the agent has already met or exceeded its
@@ -59,14 +61,24 @@ type ClaimArgs struct {
 	ItemsDir       string   `json:"items_dir,omitempty"`
 	DoneDir        string   `json:"done_dir,omitempty"`
 	ConcurrencyCap int      `json:"concurrency_cap,omitempty"`
+	// Worktree, when true, provisions an isolated git worktree under
+	// <repoRoot>/.squad/worktrees/<agentID>-<itemID>/ before inserting
+	// the claim row. Failure to provision aborts the claim — no row is
+	// inserted, no chat is posted.
+	Worktree bool   `json:"worktree,omitempty"`
+	RepoRoot string `json:"repo_root,omitempty"`
+	// BaseBranch is the branch the worktree forks from. Empty defers to
+	// the current HEAD of repoRoot.
+	BaseBranch string `json:"base_branch,omitempty"`
 }
 
 type ClaimResult struct {
-	ItemID    string   `json:"item_id"`
-	AgentID   string   `json:"agent_id"`
-	Intent    string   `json:"intent,omitempty"`
-	ClaimedAt int64    `json:"claimed_at"`
-	Tips      []string `json:"tips,omitempty"`
+	ItemID       string   `json:"item_id"`
+	AgentID      string   `json:"agent_id"`
+	Intent       string   `json:"intent,omitempty"`
+	ClaimedAt    int64    `json:"claimed_at"`
+	Tips         []string `json:"tips,omitempty"`
+	WorktreePath string   `json:"worktree_path,omitempty"`
 }
 
 func Claim(ctx context.Context, args ClaimArgs) (*ClaimResult, error) {
@@ -87,22 +99,58 @@ func Claim(ctx context.Context, args ClaimArgs) (*ClaimResult, error) {
 		}
 	}
 
+	var worktreePath string
+	var clOpts []claims.ClaimOption
+	clOpts = append(clOpts, claims.ClaimWithPreflight(args.ItemsDir, args.DoneDir))
+	if args.Worktree {
+		if args.RepoRoot == "" {
+			return nil, fmt.Errorf("claim --worktree: repo root not discovered")
+		}
+		base := args.BaseBranch
+		if base == "" {
+			base = currentHEADBranch(args.RepoRoot)
+		}
+		path, _, perr := worktree.Provision(args.RepoRoot, base, args.ItemID, args.AgentID)
+		if perr != nil && !errors.Is(perr, worktree.ErrExists) {
+			return nil, fmt.Errorf("claim --worktree: %w", perr)
+		}
+		worktreePath = path
+		clOpts = append(clOpts, claims.ClaimWithWorktree(path))
+	}
+
 	store := claims.New(args.DB, args.RepoID, nil)
-	err := store.Claim(ctx, args.ItemID, args.AgentID, args.Intent, args.Touches, args.Long,
-		claims.ClaimWithPreflight(args.ItemsDir, args.DoneDir))
+	err := store.Claim(ctx, args.ItemID, args.AgentID, args.Intent, args.Touches, args.Long, clOpts...)
 	if err == nil {
 		return &ClaimResult{
-			ItemID:    args.ItemID,
-			AgentID:   args.AgentID,
-			Intent:    args.Intent,
-			ClaimedAt: time.Now().Unix(),
+			ItemID:       args.ItemID,
+			AgentID:      args.AgentID,
+			Intent:       args.Intent,
+			ClaimedAt:    time.Now().Unix(),
+			WorktreePath: worktreePath,
 		}, nil
+	}
+	if args.Worktree && worktreePath != "" {
+		_ = worktree.Cleanup(args.RepoRoot, worktreePath)
 	}
 	if errors.Is(err, claims.ErrClaimTaken) {
 		holder := lookupClaimHolderDB(ctx, args.DB, args.RepoID, args.ItemID)
 		return nil, &ClaimHeldError{ItemID: args.ItemID, Holder: holder}
 	}
 	return nil, err
+}
+
+// currentHEADBranch reads the symbolic short ref of HEAD in repoRoot. Used
+// to default --worktree's base branch to whatever the user is currently on.
+// Empty string on detached HEAD or git failure — Provision will let git
+// surface the error verbatim.
+func currentHEADBranch(repoRoot string) string {
+	cmd := exec.Command("git", "symbolic-ref", "--short", "HEAD")
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func lookupClaimHolderDB(ctx context.Context, db *sql.DB, repoID, itemID string) string {
@@ -117,9 +165,10 @@ func lookupClaimHolderDB(ctx context.Context, db *sql.DB, repoID, itemID string)
 
 func newClaimCmd() *cobra.Command {
 	var (
-		intent  string
-		touches string
-		long    bool
+		intent       string
+		touches      string
+		long         bool
+		worktreeFlag bool
 	)
 	cmd := &cobra.Command{
 		Use:   "claim <ITEM-ID>",
@@ -143,6 +192,8 @@ func newClaimCmd() *cobra.Command {
 				}
 			}
 
+			repoRoot, _ := discoverRepoRoot()
+			useWorktree := worktreeFlag || worktreeDefault()
 			res, err := Claim(ctx, ClaimArgs{
 				DB:             bc.db,
 				RepoID:         bc.repoID,
@@ -154,6 +205,8 @@ func newClaimCmd() *cobra.Command {
 				ItemsDir:       bc.itemsDir,
 				DoneDir:        bc.doneDir,
 				ConcurrencyCap: claimConcurrencyCap(),
+				Worktree:       useWorktree,
+				RepoRoot:       repoRoot,
 			})
 			if err == nil {
 				fmt.Fprintf(cmd.OutOrStdout(), "claimed %s\n", res.ItemID)
@@ -163,6 +216,9 @@ func newClaimCmd() *cobra.Command {
 						printSecondOpinionNudge(cmd.ErrOrStderr(), parsed.Priority, parsed.Risk)
 						printMilestoneTargetNudge(cmd.ErrOrStderr(), items.CountAC(parsed.Body))
 					}
+				}
+				if res.WorktreePath != "" {
+					printWorktreeNudge(cmd.ErrOrStderr(), res.WorktreePath)
 				}
 				return nil
 			}
@@ -201,7 +257,24 @@ func newClaimCmd() *cobra.Command {
 	cmd.Flags().StringVar(&intent, "intent", "", "short sentence describing intent")
 	cmd.Flags().StringVar(&touches, "touches", "", "comma-separated file paths you'll modify")
 	cmd.Flags().BoolVar(&long, "long", false, "use the 2h long-running threshold instead of hygiene.stale_claim_minutes")
+	cmd.Flags().BoolVar(&worktreeFlag, "worktree", false, "provision a per-claim isolated git worktree under .squad/worktrees/")
 	return cmd
+}
+
+func worktreeDefault() bool {
+	wd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	root, err := repo.Discover(wd)
+	if err != nil {
+		return false
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		return false
+	}
+	return cfg.Agent.DefaultWorktreePerClaim
 }
 
 func claimConcurrencyCap() int {

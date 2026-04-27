@@ -38,6 +38,12 @@ type AgentConfig struct {
 	// once. 0 means "use the default" (DefaultClaimConcurrency below).
 	// Set to a large number (e.g. 100) to effectively disable.
 	ClaimConcurrency int `yaml:"claim_concurrency"`
+
+	// DefaultWorktreePerClaim implies --worktree on every claim. Off by
+	// default; flip on for parallel-agent setups once orphan-cleanup has
+	// been exercised. Per-invocation `--no-worktree` overrides remain
+	// future work.
+	DefaultWorktreePerClaim bool `yaml:"default_worktree_per_claim"`
 }
 
 type HygieneConfig struct {

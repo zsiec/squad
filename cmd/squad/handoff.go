@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/zsiec/squad/internal/chat"
 	"github.com/zsiec/squad/internal/claims"
+	"github.com/zsiec/squad/internal/worktree"
 )
 
 func newHandoffCmd() *cobra.Command {
@@ -53,7 +55,8 @@ func newHandoffCmd() *cobra.Command {
 					h.Note = extra
 				}
 			}
-			if code := runHandoffBody(ctx, bc.chat, bc.store, bc.agentID, h); code != 0 {
+			repoRoot, _ := discoverRepoRoot()
+			if code := runHandoffBody(ctx, bc.chat, bc.store, bc.db, bc.repoID, repoRoot, bc.agentID, h); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -74,6 +77,9 @@ func newHandoffCmd() *cobra.Command {
 type HandoffArgs struct {
 	Chat        *chat.Chat
 	ClaimStore  *claims.Store
+	DB          *sql.DB
+	RepoID      string
+	RepoRoot    string
 	AgentID     string
 	Shipped     []string
 	InFlight    []string
@@ -85,9 +91,10 @@ type HandoffArgs struct {
 // HandoffResult reports the outcome of a successful handoff: the summary
 // chat surfaced, plus the count of claims released.
 type HandoffResult struct {
-	AgentID        string `json:"agent_id"`
-	Summary        string `json:"summary"`
-	ClaimsReleased int    `json:"claims_released"`
+	AgentID         string   `json:"agent_id"`
+	Summary         string   `json:"summary"`
+	ClaimsReleased  int      `json:"claims_released"`
+	CleanupWarnings []string `json:"cleanup_warnings,omitempty"`
 }
 
 // ErrHandoffEmpty is returned when no handoff fields are populated.
@@ -109,21 +116,55 @@ func Handoff(ctx context.Context, args HandoffArgs) (*HandoffResult, error) {
 	if err := args.Chat.PostHandoff(ctx, args.AgentID, h); err != nil {
 		return nil, err
 	}
+	worktreePaths := lookupAgentWorktrees(ctx, args.DB, args.RepoID, args.AgentID)
 	released, err := args.ClaimStore.ReleaseAllCount(ctx, args.AgentID, "handoff")
 	if err != nil {
 		return nil, err
 	}
+	var warnings []string
+	if args.RepoRoot != "" {
+		for item, path := range worktreePaths {
+			if err := worktree.Cleanup(args.RepoRoot, path); err != nil {
+				warnings = append(warnings, fmt.Sprintf("%s: %s", item, err))
+			}
+		}
+	}
 	return &HandoffResult{
-		AgentID:        args.AgentID,
-		Summary:        h.Summary(),
-		ClaimsReleased: released,
+		AgentID:         args.AgentID,
+		Summary:         h.Summary(),
+		ClaimsReleased:  released,
+		CleanupWarnings: warnings,
 	}, nil
 }
 
-func runHandoffBody(ctx context.Context, c *chat.Chat, claimStore *claims.Store, agentID string, h chat.HandoffBody) int {
+func lookupAgentWorktrees(ctx context.Context, db *sql.DB, repoID, agentID string) map[string]string {
+	out := map[string]string{}
+	rows, err := db.QueryContext(ctx,
+		`SELECT item_id, COALESCE(worktree,'') FROM claims WHERE repo_id = ? AND agent_id = ?`,
+		repoID, agentID)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, path string
+		if err := rows.Scan(&id, &path); err != nil {
+			continue
+		}
+		if path != "" {
+			out[id] = path
+		}
+	}
+	return out
+}
+
+func runHandoffBody(ctx context.Context, c *chat.Chat, claimStore *claims.Store, db *sql.DB, repoID, repoRoot, agentID string, h chat.HandoffBody) int {
 	res, err := Handoff(ctx, HandoffArgs{
 		Chat:        c,
 		ClaimStore:  claimStore,
+		DB:          db,
+		RepoID:      repoID,
+		RepoRoot:    repoRoot,
 		AgentID:     agentID,
 		Shipped:     h.Shipped,
 		InFlight:    h.InFlight,
@@ -138,6 +179,9 @@ func runHandoffBody(ctx context.Context, c *chat.Chat, claimStore *claims.Store,
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 4
+	}
+	for _, w := range res.CleanupWarnings {
+		fmt.Fprintf(os.Stderr, "warning: worktree cleanup failed: %s\n", w)
 	}
 	fmt.Printf("handoff posted by %s (%s)\n", res.AgentID, res.Summary)
 	return 0

@@ -17,6 +17,61 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
+// checkWorktreeOrphans scans <squadDir>/worktrees/ for directories that have
+// no matching active claim row. Each unmatched directory becomes a finding
+// with the path and a `git worktree remove` fix. Returns empty when the
+// worktrees dir is absent (the common case for users who don't opt in).
+func checkWorktreeOrphans(ctx context.Context, db *sql.DB, repoID, squadDir string) []hygiene.Finding {
+	wtDir := filepath.Join(squadDir, "worktrees")
+	entries, err := os.ReadDir(wtDir)
+	if err != nil {
+		return nil
+	}
+	active := map[string]struct{}{}
+	rows, err := db.QueryContext(ctx,
+		`SELECT COALESCE(worktree,'') FROM claims WHERE repo_id = ? AND worktree != ''`, repoID)
+	if err == nil {
+		for rows.Next() {
+			var p string
+			if err := rows.Scan(&p); err == nil {
+				active[canonicalizePath(p)] = struct{}{}
+			}
+		}
+		rows.Close()
+	}
+	var findings []hygiene.Finding
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		full := filepath.Join(wtDir, e.Name())
+		if _, ok := active[canonicalizePath(full)]; ok {
+			continue
+		}
+		findings = append(findings, hygiene.Finding{
+			Severity: hygiene.SeverityWarn,
+			Code:     "worktree_orphan",
+			Message:  "orphan worktree: " + full + " has no matching active claim",
+			Fix:      "cd <repo-root> && git worktree remove --force " + full,
+		})
+	}
+	return findings
+}
+
+// canonicalizePath resolves a path through filepath.Abs and EvalSymlinks so
+// the orphan check matches paths that the worktree library writes (which
+// run through EvalSymlinks via filepath.Abs at provision time on macOS,
+// where /tmp → /private/tmp).
+func canonicalizePath(p string) string {
+	if abs, err := filepath.Abs(p); err == nil {
+		p = abs
+	}
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return real
+	}
+	return p
+}
+
 const (
 	intakeStaleCaptureThreshold    = 30 * 24 * time.Hour
 	intakeInboxOverflowThreshold   = 50
@@ -67,6 +122,7 @@ func Doctor(ctx context.Context, args DoctorArgs) (*DoctorResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	findings = append(findings, checkWorktreeOrphans(ctx, args.DB, args.RepoID, squadDir)...)
 	out := make([]DoctorFinding, 0, len(findings))
 	for _, f := range findings {
 		out = append(out, DoctorFinding{
@@ -155,6 +211,7 @@ func newDoctorCmd() *cobra.Command {
 			}
 			intakeFindings := checkIntake(ctx, bc.db, bc.repoID, squadDir)
 			findings = append(findings, intakeFindings...)
+			findings = append(findings, checkWorktreeOrphans(ctx, bc.db, bc.repoID, squadDir)...)
 			hookFindings := checkHookDrift(cmd.OutOrStdout())
 			totalFindings := len(findings) + len(hookFindings)
 			if totalFindings == 0 {
