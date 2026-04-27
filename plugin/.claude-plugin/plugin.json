@@ -1,6 +1,6 @@
 {
   "name": "squad",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Operating loop for AI coding agents: atomic claims, typed chat, evidence-gated done, mandatory review, multi-agent coordination.",
   "author": {
     "name": "Thomas Symborski",
