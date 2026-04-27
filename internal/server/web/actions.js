@@ -39,6 +39,13 @@ export function renderItemActions(it) {
   if (heldByMe)          out.push(btn('blocked',       'Blocked',       'warn'));
   if (heldByMe)          out.push(btn('handoff',       'Handoff'));
   if (heldByMe)          out.push(btn('touch',         'Touch',         'ghost'));
+  // Recapture sends a needs-refinement item back to captured. Visible only
+  // when the click would actually succeed: caller must be able to claim
+  // (unclaimed) or already hold it (heldByMe). A peer's claim hides the
+  // button rather than surfacing a 403 on click.
+  if (it.status === 'needs-refinement' && (unclaimed || heldByMe)) {
+    out.push(btn('recapture', 'Send back to captured', 'warn'));
+  }
   if (claim && stale)    out.push(btn('force-release', 'Force release', 'danger'));
 
   if (!out.length) return '';
@@ -117,6 +124,19 @@ async function runAction(action, id, item) {
       if (!window.confirm(`Force-release ${id}?`)) return;
       await postJSON(`/api/items/${encodeURIComponent(id)}/force-release`, { reason });
       toast({ kind: 'ok', title: `Force-released ${id}` });
+      onMutated(id);
+      return;
+    }
+    case 'recapture': {
+      // Backend recapture requires the caller to hold the claim. If the
+      // item is unclaimed, take it under the current agent first; if we
+      // already hold it, skip the claim step.
+      const claim = item.current_claim || null;
+      if (!claim) {
+        await postJSON(`/api/items/${encodeURIComponent(id)}/claim`, { intent: 'send back to captured' });
+      }
+      await postJSON(`/api/items/${encodeURIComponent(id)}/recapture`, {});
+      toast({ kind: 'ok', title: `Sent ${id} back to captured` });
       onMutated(id);
       return;
     }
