@@ -4,7 +4,7 @@ title: DoR accepts items with placeholder template AC ("Specific, testable thing
 type: bug
 priority: P2
 area: intake
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

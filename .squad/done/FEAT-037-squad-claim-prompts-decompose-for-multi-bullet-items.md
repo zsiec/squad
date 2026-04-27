@@ -4,7 +4,7 @@ title: squad claim prompts decompose for multi-bullet items
 type: feature
 priority: P2
 area: cmd/squad
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

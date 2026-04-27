@@ -1,0 +1,4 @@
+# github.com/zsiec/squad/cmd/squad [github.com/zsiec/squad/cmd/squad.test]
+cmd/squad/cadence_nudge.go:6:2: "errors" imported and not used
+FAIL	github.com/zsiec/squad/cmd/squad [build failed]
+FAIL

@@ -4,7 +4,7 @@ title: squad accept rejects vague AC bullets
 type: feature
 priority: P2
 area: internal/items
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

@@ -4,7 +4,7 @@ title: squad_auto_refine_apply MCP tool wires the items primitive
 type: feature
 priority: P2
 area: mcp
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
