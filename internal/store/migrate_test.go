@@ -283,7 +283,168 @@ func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
 		t.Fatalf("max: %v", err)
 	}
-	if maxV != 8 {
-		t.Fatalf("want version 8 after bootstrap; got %d", maxV)
+	if maxV != 9 {
+		t.Fatalf("want version 9 after bootstrap; got %d", maxV)
 	}
+}
+
+func TestMigrate_AppliesIntakeInterview(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	wantSession := map[string]string{
+		"id":             "TEXT",
+		"repo_id":        "TEXT",
+		"agent_id":       "TEXT",
+		"mode":           "TEXT",
+		"refine_item_id": "TEXT",
+		"idea_seed":      "TEXT",
+		"status":         "TEXT",
+		"shape":          "TEXT",
+		"bundle_json":    "TEXT",
+		"created_at":     "INTEGER",
+		"updated_at":     "INTEGER",
+		"committed_at":   "INTEGER",
+	}
+	gotSession := pragmaCols(t, db, "intake_sessions")
+	if len(gotSession) == 0 {
+		t.Fatalf("intake_sessions table not created")
+	}
+	for n, typ := range wantSession {
+		if got, ok := gotSession[n]; !ok {
+			t.Errorf("intake_sessions: missing column %s", n)
+		} else if !strings.EqualFold(got, typ) {
+			t.Errorf("intake_sessions.%s: want %s, got %s", n, typ, got)
+		}
+	}
+
+	wantTurn := map[string]string{
+		"id":            "INTEGER",
+		"session_id":    "TEXT",
+		"seq":           "INTEGER",
+		"role":          "TEXT",
+		"content":       "TEXT",
+		"fields_filled": "TEXT",
+		"created_at":    "INTEGER",
+	}
+	gotTurn := pragmaCols(t, db, "intake_turns")
+	if len(gotTurn) == 0 {
+		t.Fatalf("intake_turns table not created")
+	}
+	for n, typ := range wantTurn {
+		if got, ok := gotTurn[n]; !ok {
+			t.Errorf("intake_turns: missing column %s", n)
+		} else if !strings.EqualFold(got, typ) {
+			t.Errorf("intake_turns.%s: want %s, got %s", n, typ, got)
+		}
+	}
+
+	var hasCol int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM pragma_table_info('items') WHERE name='intake_session_id'`,
+	).Scan(&hasCol); err != nil {
+		t.Fatalf("items.intake_session_id check: %v", err)
+	}
+	if hasCol != 1 {
+		t.Fatalf("items.intake_session_id column missing")
+	}
+
+	var idxCount, idxUnique int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM sqlite_master
+		 WHERE type='index' AND name='idx_intake_sessions_open'`,
+	).Scan(&idxCount); err != nil {
+		t.Fatalf("idx exists: %v", err)
+	}
+	if idxCount != 1 {
+		t.Fatalf("idx_intake_sessions_open not created")
+	}
+	if err := db.QueryRow(
+		`SELECT "unique" FROM pragma_index_list('intake_sessions') WHERE name='idx_intake_sessions_open'`,
+	).Scan(&idxUnique); err != nil {
+		t.Fatalf("idx unique: %v", err)
+	}
+	if idxUnique != 1 {
+		t.Fatalf("idx_intake_sessions_open must be UNIQUE; got unique=%d", idxUnique)
+	}
+
+	if _, err := db.Exec(
+		`INSERT INTO intake_sessions (id, repo_id, agent_id, mode, idea_seed, created_at, updated_at)
+		 VALUES ('intake-1', 'r', 'a', 'new', 'seed', 0, 0)`,
+	); err != nil {
+		t.Fatalf("first insert: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO intake_sessions (id, repo_id, agent_id, mode, idea_seed, created_at, updated_at)
+		 VALUES ('intake-2', 'r', 'a', 'new', 'seed', 0, 0)`,
+	); err == nil {
+		t.Fatalf("want UNIQUE violation on second open session for same (repo, agent)")
+	}
+
+	if _, err := db.Exec(
+		`UPDATE intake_sessions SET status='cancelled' WHERE id='intake-1'`,
+	); err != nil {
+		t.Fatalf("cancel first: %v", err)
+	}
+	if _, err := db.Exec(
+		`INSERT INTO intake_sessions (id, repo_id, agent_id, mode, idea_seed, created_at, updated_at)
+		 VALUES ('intake-3', 'r', 'a', 'new', 'seed', 0, 0)`,
+	); err != nil {
+		t.Fatalf("second open after cancel: %v", err)
+	}
+
+	var maxV int
+	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
+		t.Fatalf("max: %v", err)
+	}
+	if maxV < 9 {
+		t.Fatalf("want at least version 9; got %d", maxV)
+	}
+}
+
+func TestMigrate_IntakeInterviewIdempotent_From008(t *testing.T) {
+	db := openEmptyDBNoMigrate(t)
+	v8only := fstest.MapFS{
+		"migrations/001_initial.sql":           readMigration(t, "001_initial.sql"),
+		"migrations/002_items_extras.sql":      readMigration(t, "002_items_extras.sql"),
+		"migrations/003_subagent_events.sql":   readMigration(t, "003_subagent_events.sql"),
+		"migrations/004_intake_provenance.sql": readMigration(t, "004_intake_provenance.sql"),
+		"migrations/005_claims_repo_scope.sql": readMigration(t, "005_claims_repo_scope.sql"),
+		"migrations/006_commits.sql":           readMigration(t, "006_commits.sql"),
+		"migrations/007_claim_worktree.sql":    readMigration(t, "007_claim_worktree.sql"),
+		"migrations/008_agent_events.sql":      readMigration(t, "008_agent_events.sql"),
+	}
+	if err := Migrate(context.Background(), db, v8only); err != nil {
+		t.Fatalf("seed at v8: %v", err)
+	}
+	if err := Migrate(context.Background(), db, defaultMigrationsFS); err != nil {
+		t.Fatalf("upgrade to latest: %v", err)
+	}
+	var maxV int
+	if err := db.QueryRow(`SELECT max(version) FROM migration_versions`).Scan(&maxV); err != nil {
+		t.Fatalf("max: %v", err)
+	}
+	if maxV != 9 {
+		t.Fatalf("want max version 9 after 008→009 upgrade; got %d", maxV)
+	}
+}
+
+func pragmaCols(t *testing.T, db *sql.DB, table string) map[string]string {
+	t.Helper()
+	rows, err := db.Query(`SELECT name, type FROM pragma_table_info(?)`, table)
+	if err != nil {
+		t.Fatalf("pragma_table_info(%s): %v", table, err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var name, typ string
+		if err := rows.Scan(&name, &typ); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		out[name] = typ
+	}
+	return out
 }

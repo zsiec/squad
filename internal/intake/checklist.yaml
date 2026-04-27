@@ -1,0 +1,16 @@
+shapes:
+  item_only:
+    description: "A single bug fix, small enhancement, or scoped chore."
+    required: [title, intent, acceptance, area]
+    optional: [kind, effort]
+
+  spec_epic_items:
+    description: "An initiative big enough to warrant a spec, >=1 epic, and >=1 item per epic."
+    required:
+      spec:  [title, motivation, acceptance, non_goals, integration]
+      epic:  [title, parallelism, dependencies]
+      item:  [title, intent, acceptance, area]
+    optional:
+      spec: [risks, open_questions]
+      epic: [status]
+      item: [kind, effort]
