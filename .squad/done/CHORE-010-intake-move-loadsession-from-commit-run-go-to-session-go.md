@@ -4,7 +4,7 @@ title: 'intake: move loadSession from commit_run.go to session.go'
 type: chore
 priority: P2
 area: internal/intake
-status: open
+status: done
 estimate: 15m
 risk: low
 evidence_required: []

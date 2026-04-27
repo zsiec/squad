@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/intake	(cached)
+ok  	github.com/zsiec/squad/cmd/squad	12.596s
