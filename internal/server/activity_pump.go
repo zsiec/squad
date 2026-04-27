@@ -35,6 +35,16 @@ type activityPump struct {
 	initialCommitSha         string
 }
 
+// touchSnap is the active-touch projection the snapshot-diff loop keys on.
+// Carrying agent/item/path/ts here means the untouch event (emitted when an
+// id leaves the active set) does not need a follow-up SELECT.
+type touchSnap struct {
+	agentID   string
+	itemID    string
+	path      string
+	startedAt int64
+}
+
 // commitCursor pairs ts with sha so two commits at the exact same unix
 // second don't lose the second one to a strict `ts > ?` filter. The
 // (repo_id, sha) primary key on commits means sha is unique per repo,
@@ -69,6 +79,30 @@ func (p *activityPump) start() {
 	go p.loop()
 }
 
+func (p *activityPump) snapshotTouches() (map[int64]touchSnap, error) {
+	q := `SELECT id, agent_id, COALESCE(item_id, ''), path, started_at FROM touches WHERE released_at IS NULL`
+	args := []any{}
+	if p.repoID != "" {
+		q += ` AND repo_id = ?`
+		args = append(args, p.repoID)
+	}
+	rows, err := p.db.QueryContext(context.Background(), q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64]touchSnap)
+	for rows.Next() {
+		var id int64
+		var snap touchSnap
+		if err := rows.Scan(&id, &snap.agentID, &snap.itemID, &snap.path, &snap.startedAt); err != nil {
+			return nil, err
+		}
+		out[id] = snap
+	}
+	return out, rows.Err()
+}
+
 func (p *activityPump) stop() {
 	p.stopOnce.Do(func() { close(p.stopCh) })
 	<-p.doneCh
@@ -79,6 +113,7 @@ func (p *activityPump) loop() {
 	attCursor := p.initialAttestationCursor
 	evCursor := p.initialEventCursor
 	commit := commitCursor{ts: p.initialCommitTS, sha: p.initialCommitSha}
+	prevTouches, _ := p.snapshotTouches()
 
 	t := time.NewTicker(p.interval)
 	defer t.Stop()
@@ -96,6 +131,9 @@ func (p *activityPump) loop() {
 			}
 			if next, err := p.drainCommits(commit); err == nil {
 				commit = next
+			}
+			if next, err := p.drainTouches(prevTouches); err == nil {
+				prevTouches = next
 			}
 		}
 	}
@@ -176,6 +214,52 @@ func (p *activityPump) drainAgentEvents(after int64) (int64, error) {
 		})
 	}
 	return highest, rows.Err()
+}
+
+// drainTouches snapshot-diffs the active-touch set (released_at IS NULL).
+// Touches are not append-only — Release flips released_at, taking the row
+// out of the active set. The snapshot-diff also handles outright deletion,
+// should hygiene ever take that path.
+func (p *activityPump) drainTouches(prev map[int64]touchSnap) (map[int64]touchSnap, error) {
+	cur, err := p.snapshotTouches()
+	if err != nil {
+		return prev, err
+	}
+	for id, snap := range cur {
+		if _, existed := prev[id]; existed {
+			continue
+		}
+		p.bus.Publish(chat.Event{
+			Kind: "agent_activity",
+			Payload: map[string]any{
+				"id":       id,
+				"agent_id": snap.agentID,
+				"source":   "touch",
+				"kind":     "touch",
+				"ts":       snap.startedAt,
+				"item_id":  snap.itemID,
+				"path":     snap.path,
+			},
+		})
+	}
+	for id, snap := range prev {
+		if _, stillActive := cur[id]; stillActive {
+			continue
+		}
+		p.bus.Publish(chat.Event{
+			Kind: "agent_activity",
+			Payload: map[string]any{
+				"id":       id,
+				"agent_id": snap.agentID,
+				"source":   "touch",
+				"kind":     "untouch",
+				"ts":       snap.startedAt,
+				"item_id":  snap.itemID,
+				"path":     snap.path,
+			},
+		})
+	}
+	return cur, nil
 }
 
 // drainCommits cursors on a (ts, sha) tuple because the commits table has

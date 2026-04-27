@@ -9,6 +9,7 @@ const CHIPS = [
   { id: 'blocked',        label: 'blocked'  },
   { id: 'commit',         label: 'commit' },
   { id: 'attestation',    label: 'attest' },
+  { id: 'touch',          label: 'touch'  },
   { id: 'pre_tool',       label: 'pre'    },
   { id: 'post_tool',      label: 'post'   },
   { id: 'subagent_start', label: 'sub-start' },
@@ -48,6 +49,8 @@ function classify(row) {
   if (kind === 'blocked')     return ['blocked', null];
   if (kind === 'commit')      return ['commit', null];
   if (kind === 'attestation') return ['attestation', null];
+  if (kind === 'touch')       return ['touch', null];
+  if (kind === 'untouch')     return ['touch', null];
   if (kind === 'event') {
     const ek = row.event_kind || '';
     if (ek === 'PreToolUse')      return ['pre_tool',  row.tool === 'Read' ? 'read' : null];
@@ -113,6 +116,13 @@ function renderRow(row, primary, secondary) {
         <span class="tl-time">${escapeHtml(ts)}</span>
         <span class="tl-badge tl-attestation">${escapeHtml(row.attestation_kind || 'attest')}</span>
         <span class="tl-body">${escapeHtml(row.item_id || '')}${row.exit_code != null ? ' · exit ' + row.exit_code : ''}</span>
+      </div>`;
+    case 'touch':
+    case 'untouch':
+      return `<div class="tl-row" ${dataAttrs}>
+        <span class="tl-time">${escapeHtml(ts)}</span>
+        <span class="tl-badge tl-${kind}">${escapeHtml(kind)}</span>
+        <span class="tl-body"><code>${escapeHtml(row.path || '')}</code>${row.item_id ? ' · ' + escapeHtml(row.item_id) : ''}</span>
       </div>`;
     case 'event': {
       const ek = row.event_kind || '';

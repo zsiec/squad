@@ -131,9 +131,12 @@ func TestSSE_ActivityPump_CommitInsert(t *testing.T) {
 
 func TestSSE_ActivityPump_NoReplayAtBoot(t *testing.T) {
 	db := newTestDB(t)
-	// Pre-seed before the server starts: pump cursors are captured at start
-	// and the row should NOT replay on the first tick.
+	// Pre-seed before the server starts: pump cursors / snapshots are
+	// captured at start and pre-existing rows must NOT replay on the
+	// first tick. Touches are seeded too because their snapshot-diff
+	// drain is a separate path from the cursor-based commits/events.
 	insertAgentEvent(t, db, testRepoID, "agent-prior", "PreToolUse", "Bash", "old", 0)
+	insertTouch(t, db, testRepoID, "agent-prior", "BUG-prior", "internal/old.go", time.Now().Unix())
 
 	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
 	defer s.Close()
@@ -163,6 +166,107 @@ func insertAgentEvent(t *testing.T, db *sql.DB, repoID, agentID, eventKind, tool
 	)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func insertTouch(t *testing.T, db *sql.DB, repoID, agentID, itemID, path string, ts int64) int64 {
+	t.Helper()
+	res, err := db.Exec(
+		`INSERT INTO touches (repo_id, agent_id, item_id, path, started_at) VALUES (?, ?, ?, ?, ?)`,
+		repoID, agentID, itemID, path, ts,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestSSE_ActivityPump_TouchInsert(t *testing.T) {
+	db := newTestDB(t)
+	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	defer s.Close()
+
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/events", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	time.Sleep(700 * time.Millisecond)
+
+	insertTouch(t, db, testRepoID, "agent-T", "BUG-1", "internal/foo.go", time.Now().Unix())
+
+	payload := waitSSEPayload(t, resp.Body, "agent_activity", 3*time.Second)
+	if payload == nil {
+		t.Fatal("did not see agent_activity event after touches insert")
+	}
+	if got := payload["source"]; got != "touch" {
+		t.Errorf("payload source = %v; want touch", got)
+	}
+	if got := payload["kind"]; got != "touch" {
+		t.Errorf("payload kind = %v; want touch", got)
+	}
+	if got := payload["agent_id"]; got != "agent-T" {
+		t.Errorf("payload agent_id = %v; want agent-T", got)
+	}
+	if got := payload["path"]; got != "internal/foo.go" {
+		t.Errorf("payload path = %v; want internal/foo.go", got)
+	}
+	if got := payload["item_id"]; got != "BUG-1" {
+		t.Errorf("payload item_id = %v; want BUG-1", got)
+	}
+}
+
+func TestSSE_ActivityPump_UntouchEmitsOnRelease(t *testing.T) {
+	db := newTestDB(t)
+	// Pre-seed the touch so the initial snapshot has it; the release after
+	// subscription is the transition we want to see emitted.
+	id := insertTouch(t, db, testRepoID, "agent-U", "BUG-2", "internal/bar.go", time.Now().Unix())
+
+	s := New(db, testRepoID, Config{SquadDir: "testdata", LearningsRoot: "testdata/repo-root"})
+	defer s.Close()
+
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/events", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	time.Sleep(700 * time.Millisecond)
+
+	if _, err := db.Exec(`UPDATE touches SET released_at = ? WHERE id = ?`, time.Now().Unix(), id); err != nil {
+		t.Fatal(err)
+	}
+
+	payload := waitSSEPayload(t, resp.Body, "agent_activity", 3*time.Second)
+	if payload == nil {
+		t.Fatal("did not see agent_activity event after touches release")
+	}
+	if got := payload["source"]; got != "touch" {
+		t.Errorf("payload source = %v; want touch", got)
+	}
+	if got := payload["kind"]; got != "untouch" {
+		t.Errorf("payload kind = %v; want untouch", got)
+	}
+	if got := payload["agent_id"]; got != "agent-U" {
+		t.Errorf("payload agent_id = %v; want agent-U", got)
+	}
+	if got := payload["path"]; got != "internal/bar.go" {
+		t.Errorf("payload path = %v; want internal/bar.go", got)
 	}
 }
 

@@ -2824,6 +2824,8 @@ a.agent-detail-claim:hover {
 .tl-badge.tl-commit      { color: var(--accent-2, #9cf); }
 .tl-badge.tl-attestation { color: var(--ok, #6c6); }
 .tl-badge.tl-event       { color: var(--fg-dim); }
+.tl-badge.tl-touch       { color: var(--accent-2, #9cf); }
+.tl-badge.tl-untouch     { color: var(--fg-dim); }
 .tl-body {
   color: var(--fg);
   word-break: break-word;
