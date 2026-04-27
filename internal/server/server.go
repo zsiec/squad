@@ -26,15 +26,16 @@ type Config struct {
 }
 
 type Server struct {
-	db          *sql.DB
-	chat        *chat.Chat
-	cfg         Config
-	callerAgent string
-	rlMu        sync.Mutex
-	rl          map[string][]time.Time
-	pump        *messagesPump
-	claimsPump  *claimsPump
-	agentsPump  *agentsPump
+	db           *sql.DB
+	chat         *chat.Chat
+	cfg          Config
+	callerAgent  string
+	rlMu         sync.Mutex
+	rl           map[string][]time.Time
+	pump         *messagesPump
+	claimsPump   *claimsPump
+	agentsPump   *agentsPump
+	activityPump *activityPump
 }
 
 func New(db *sql.DB, repoID string, cfg Config) *Server {
@@ -64,6 +65,8 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 	s.claimsPump.start()
 	s.agentsPump = newAgentsPump(db, repoID, c.Bus())
 	s.agentsPump.start()
+	s.activityPump = newActivityPump(db, repoID, c.Bus())
+	s.activityPump.start()
 	return s
 }
 
@@ -78,6 +81,9 @@ func (s *Server) Close() {
 	}
 	if s.agentsPump != nil {
 		s.agentsPump.stop()
+	}
+	if s.activityPump != nil {
+		s.activityPump.stop()
 	}
 }
 

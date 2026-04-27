@@ -1,12 +1,18 @@
-import { fetchJSON, escapeHtml, fmtAgo } from './util.js';
+import { fetchJSON, escapeHtml, fmtAgo, token } from './util.js';
 import { displayName } from './names.js';
 import { identicon } from './identicon.js';
+
+// MAX_TIMELINE_ROWS bounds the in-memory cache and (transitively) the DOM.
+// 500 keeps the drawer responsive even after a long agent session — the
+// initial fetch caps at 50, SSE appends thereafter.
+const MAX_TIMELINE_ROWS = 500;
 
 let modalEl;
 let currentAgentId = null;
 let lastEventsCache = null;
 let renderTimelineCb = (_events) => {};
 let onClaimNavigate = (_itemId) => {};
+let liveES = null;
 
 export function setTimelineRenderer(fn) {
   renderTimelineCb = typeof fn === 'function' ? fn : () => {};
@@ -41,15 +47,106 @@ export function openAgentDetail(agent, claim) {
     requestAnimationFrame(() => el.classList.add('show'));
   }
   fetchAndCache(agentId);
+  startLiveStream(agentId);
 }
 
 function close() {
   if (!modalEl) return;
+  stopLiveStream();
   modalEl.classList.remove('show');
   setTimeout(() => {
     if (modalEl) modalEl.hidden = true;
   }, 180);
   currentAgentId = null;
+}
+
+// startLiveStream opens a dedicated EventSource for the open drawer. The
+// drawer owns this connection — it is opened on openAgentDetail and closed
+// in stopLiveStream when the drawer closes (matching AC for resource
+// cleanup). Auth posture is inherited from /api/sse — same cookie/token
+// surface as the global stream.
+function startLiveStream(agentId) {
+  stopLiveStream();
+  if (typeof EventSource === 'undefined') return;
+  // Inherit the same /api/events route + token-in-query-string posture the
+  // global EventSource uses (app.js). EventSource cannot set Authorization
+  // headers, so token-protected dashboards rely on the query-string fallback.
+  const url = '/api/events' + (token ? '?token=' + encodeURIComponent(token) : '');
+  liveES = new EventSource(url);
+  const onSSE = (e, sseKind) => {
+    if (currentAgentId !== agentId) return;
+    let env;
+    try { env = JSON.parse(e.data); } catch { return; }
+    const payload = env.Payload || env.payload || env;
+    if (!payload || payload.agent_id !== agentId) return;
+    const row = toTimelineRow(payload, sseKind);
+    if (row) appendLiveRow(row);
+  };
+  liveES.addEventListener('agent_activity', (e) => onSSE(e, 'agent_activity'));
+  liveES.addEventListener('message', (e) => onSSE(e, 'message'));
+  liveES.addEventListener('item_changed', (e) => onSSE(e, 'item_changed'));
+}
+
+// toTimelineRow converts an SSE event payload into the row shape
+// agent_timeline.js's classify() and renderRow() expect. Each pump
+// publishes a different schema; the renderer is shared. Returns null when
+// the event isn't representable on the timeline.
+function toTimelineRow(p, sseKind) {
+  if (sseKind === 'agent_activity') {
+    // activityPump already emits timeline-row-shaped payloads.
+    return p;
+  }
+  if (sseKind === 'message') {
+    return {
+      kind: 'chat',
+      source: 'chat',
+      agent_id: p.agent_id,
+      ts: Math.floor(Date.now() / 1000),
+      body: p.body || '',
+      outcome: p.kind || 'say',
+      thread: p.thread || '',
+    };
+  }
+  if (sseKind === 'item_changed') {
+    // claimsPump kinds: "claimed" | "released" | "reassigned" | "done" | "blocked"
+    let kind = 'claim';
+    if (p.kind === 'released') kind = 'release';
+    else if (p.kind === 'done') kind = 'done';
+    return {
+      kind,
+      source: kind === 'release' ? 'release' : 'claim',
+      agent_id: p.agent_id,
+      ts: p.claimed_at || p.released_at || Math.floor(Date.now() / 1000),
+      item_id: p.item_id || '',
+      intent: p.intent || '',
+      outcome: p.outcome || '',
+    };
+  }
+  return null;
+}
+
+function stopLiveStream() {
+  if (liveES) {
+    liveES.close();
+    liveES = null;
+  }
+}
+
+// appendLiveRow prepends a freshly-arrived row to the cached event list,
+// caps at MAX_TIMELINE_ROWS, and asks the registered renderer to repaint.
+// The renderer's existing filter-chip state is preserved — a hidden chip
+// for the new row's kind keeps it hidden until the operator toggles back.
+function appendLiveRow(payload) {
+  if (!modalEl || modalEl.hidden) return;
+  const body = modalEl.querySelector('#agent-detail-body');
+  if (!body) return;
+  if (!Array.isArray(lastEventsCache)) lastEventsCache = [];
+  lastEventsCache = [payload, ...lastEventsCache];
+  if (lastEventsCache.length > MAX_TIMELINE_ROWS) {
+    lastEventsCache = lastEventsCache.slice(0, MAX_TIMELINE_ROWS);
+  }
+  body.innerHTML = '';
+  renderTimelineCb(lastEventsCache, body, currentAgentId, () => fetchAndCache(currentAgentId));
 }
 
 function ensureDrawer() {
