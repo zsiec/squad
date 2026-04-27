@@ -15,6 +15,15 @@ import (
 // the daemon advertises by default.
 var probeBase = "http://127.0.0.1:7777"
 
+// SetProbeBaseForTest swaps the URL Probe / Ensure target. Returns a
+// restore closure callers should defer. Test-only seam — production
+// code uses the default loopback target.
+func SetProbeBaseForTest(url string) (restore func()) {
+	prev := probeBase
+	probeBase = url
+	return func() { probeBase = prev }
+}
+
 // probeTimeout is the per-request budget Probe gives the daemon. Short
 // enough that a missing daemon doesn't stall the MCP boot, long enough
 // to absorb the round-trip on a busy laptop.

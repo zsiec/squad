@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/mcp/bootstrap"
 )
 
 func TestMCP_ListsAllTools(t *testing.T) {
@@ -1355,5 +1357,100 @@ func TestMCP_StandupEmptyWindow(t *testing.T) {
 	}
 	if len(resp.Result.StructuredContent.Closed) != 0 {
 		t.Errorf("expected empty closed in tiny window; got %+v", resp.Result.StructuredContent.Closed)
+	}
+}
+
+func TestMCP_BootstrapHookStagesBannerInToolsCall(t *testing.T) {
+	env := newTestEnv(t)
+	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
+
+	const bannerText = "Squad dashboard ready at http://localhost:7777"
+	var hookCalls atomic.Int32
+	hook := func(ctx context.Context) {
+		hookCalls.Add(1)
+		bootstrap.SetBanner(bannerText)
+	}
+
+	in := strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+			`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_whoami","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out, WithBootstrap(hook)); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+
+	if got := hookCalls.Load(); got != 1 {
+		t.Errorf("bootstrap hook calls = %d, want 1", got)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 responses, got %d:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		ID     int `json:"id"`
+		Result struct {
+			Content []map[string]any `json:"content"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode tools/call: %v", err)
+	}
+	if resp.ID != 2 {
+		t.Fatalf("response id = %d, want 2", resp.ID)
+	}
+	if len(resp.Result.Content) < 2 {
+		t.Fatalf("expected leading banner + tool result, got content=%v", resp.Result.Content)
+	}
+	if first := resp.Result.Content[0]; first["text"] != bannerText {
+		t.Errorf("first content text = %q, want %q", first["text"], bannerText)
+	}
+}
+
+func TestMCP_BootstrapHookConsumedOnceAcrossTools(t *testing.T) {
+	env := newTestEnv(t)
+	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
+
+	const bannerText = "Squad dashboard ready at http://localhost:7777"
+	hook := func(ctx context.Context) {
+		bootstrap.SetBanner(bannerText)
+	}
+
+	in := strings.NewReader(
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+			`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_whoami","arguments":{}}}` + "\n" +
+			`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"squad_whoami","arguments":{}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out, WithBootstrap(hook)); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 responses, got %d", len(lines))
+	}
+
+	parse := func(line string) []map[string]any {
+		var resp struct {
+			Result struct {
+				Content []map[string]any `json:"content"`
+			} `json:"result"`
+		}
+		if err := json.Unmarshal([]byte(line), &resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return resp.Result.Content
+	}
+
+	first := parse(lines[1])
+	second := parse(lines[2])
+
+	if len(first) < 2 || first[0]["text"] != bannerText {
+		t.Errorf("first call should carry banner, content=%v", first)
+	}
+	for _, block := range second {
+		if block["text"] == bannerText {
+			t.Errorf("second call should NOT carry banner, content=%v", second)
+		}
 	}
 }

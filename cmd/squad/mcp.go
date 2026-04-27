@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -11,9 +12,11 @@ import (
 
 	"github.com/zsiec/squad/internal/chat"
 	"github.com/zsiec/squad/internal/mcp"
+	"github.com/zsiec/squad/internal/mcp/bootstrap"
 	"github.com/zsiec/squad/internal/notify"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/store"
+	"github.com/zsiec/squad/internal/tui/daemon"
 )
 
 func newMCPCmd() *cobra.Command {
@@ -26,8 +29,57 @@ func newMCPCmd() *cobra.Command {
 				return err
 			}
 			defer closeFn()
-			return runMCP(cmd.Context(), db, repoID, repoRoot, os.Stdin, os.Stdout)
+			return runMCP(cmd.Context(), db, repoID, repoRoot, os.Stdin, os.Stdout, WithBootstrap(realBootstrap))
 		},
+	}
+}
+
+// runMCPOption tunes runMCP without changing its required parameters.
+// Tests use WithBootstrap to inject a deterministic hook; production
+// passes the real bootstrap so the dashboard daemon comes up on first
+// boot.
+type runMCPOption func(*runMCPConfig)
+
+type runMCPConfig struct {
+	bootstrapFn func(context.Context)
+}
+
+// WithBootstrap registers a function to invoke after tools are
+// registered and before the JSON-RPC loop blocks on stdin. nil hook is
+// equivalent to passing no option (no bootstrap).
+func WithBootstrap(fn func(context.Context)) runMCPOption {
+	return func(c *runMCPConfig) { c.bootstrapFn = fn }
+}
+
+// realBootstrap is the production hook: bring the dashboard daemon up
+// (or upgrade / reinstall) and run the welcome flow on first run. Both
+// failures are non-fatal — MCP must keep serving tools even if the UI
+// layer can't come up.
+func realBootstrap(ctx context.Context) {
+	bin, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "squad: dashboard auto-install skipped: resolve binary: %v\n", err)
+		return
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "squad: dashboard auto-install skipped: resolve home: %v\n", err)
+		return
+	}
+	opts := bootstrap.Options{
+		BinaryPath: bin,
+		Bind:       "127.0.0.1",
+		Port:       7777,
+		HomeDir:    home,
+		Manager:    daemon.New(),
+		Version:    versionString,
+	}
+	if err := bootstrap.Ensure(ctx, opts); err != nil {
+		fmt.Fprintf(os.Stderr, "squad: dashboard auto-install skipped: %v\n", err)
+		return
+	}
+	if err := bootstrap.Welcome(ctx, opts); err != nil {
+		fmt.Fprintf(os.Stderr, "squad: welcome flow skipped: %v\n", err)
 	}
 }
 
@@ -58,9 +110,16 @@ func openMCPContext() (*sql.DB, string, string, func(), error) {
 	return db, repoID, repoRoot, closeFn, nil
 }
 
-func runMCP(ctx context.Context, db *sql.DB, repoID, repoRoot string, in io.Reader, out io.Writer) error {
+func runMCP(ctx context.Context, db *sql.DB, repoID, repoRoot string, in io.Reader, out io.Writer, opts ...runMCPOption) error {
+	cfg := runMCPConfig{}
+	for _, o := range opts {
+		o(&cfg)
+	}
 	srv := mcp.NewServer(mcp.ServerInfo{Name: "squad", Version: versionString})
 	registerTools(srv, db, repoID, repoRoot)
+	if cfg.bootstrapFn != nil {
+		cfg.bootstrapFn(ctx)
+	}
 	return srv.Serve(ctx, in, out)
 }
 

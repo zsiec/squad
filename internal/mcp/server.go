@@ -54,6 +54,15 @@ func (s *Server) Register(t Tool) {
 	s.tools[t.Name] = t
 }
 
+// SetBanner stages a one-shot text block for the next successful
+// tools/call response. Thin facade over bootstrap.SetBanner so callers
+// holding a *Server reference don't need to import the bootstrap
+// package; the banner state still lives in the bootstrap package so
+// callTool's existing ConsumeBanner read drains the same value.
+func (s *Server) SetBanner(text string) {
+	bootstrap.SetBanner(text)
+}
+
 type rpcRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id,omitempty"`
