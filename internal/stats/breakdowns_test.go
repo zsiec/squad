@@ -33,6 +33,101 @@ func TestByAgentSortAndCap(t *testing.T) {
 	}
 }
 
+func TestByAgentSpillRollsUpReleaseCount(t *testing.T) {
+	db := openTestDB(t)
+	now := time.Unix(2_000_000_000, 0)
+	base := now.Add(-12 * time.Hour).Unix()
+
+	// 60 distinct agents, each with 1 done + 1 released. 50 fit; 10 spill.
+	for i := 0; i < 60; i++ {
+		agent := "agent-" + string(rune('a'+i/26)) + string(rune('a'+i%26))
+		seedClaimHistory(t, db, "BUG-X", agent, base+int64(2*i), base+int64(2*i)+10, "done")
+		seedClaimHistory(t, db, "BUG-X", agent, base+int64(2*i+1000), base+int64(2*i+1010), "released")
+	}
+
+	snap, err := Compute(context.Background(), db, ComputeOpts{
+		RepoID: "repo-1", Now: now, Window: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var spill *AgentRow
+	for i := range snap.ByAgent {
+		if snap.ByAgent[i].AgentID == "_other" {
+			spill = &snap.ByAgent[i]
+			break
+		}
+	}
+	if spill == nil {
+		t.Fatal("expected _other spill row, got none")
+	}
+	if spill.ClaimsCompleted != 10 || spill.ReleaseCount != 10 {
+		t.Errorf("spill: done=%d release=%d, want 10/10", spill.ClaimsCompleted, spill.ReleaseCount)
+	}
+	if spill.Ratio == nil || *spill.Ratio != 1.0 {
+		t.Errorf("spill ratio=%v want 1.0", spill.Ratio)
+	}
+}
+
+func TestByAgentDoneReleaseRatio(t *testing.T) {
+	db := openTestDB(t)
+	now := time.Unix(2_000_000_000, 0)
+	base := now.Add(-12 * time.Hour).Unix()
+
+	// agent-a: 6 done, 2 released → ratio 3.0
+	for i := 0; i < 6; i++ {
+		seedClaimHistory(t, db, "BUG-A", "agent-a", base+int64(i), base+int64(i)+10, "done")
+	}
+	for i := 0; i < 2; i++ {
+		seedClaimHistory(t, db, "BUG-A", "agent-a", base+int64(100+i), base+int64(110+i), "released")
+	}
+	// agent-b: 4 done, 0 released → ratio nil (rendered as "-" by CLI)
+	for i := 0; i < 4; i++ {
+		seedClaimHistory(t, db, "BUG-B", "agent-b", base+int64(200+i), base+int64(210+i), "done")
+	}
+	// agent-c: 1 done, 4 released → ratio 0.25
+	seedClaimHistory(t, db, "BUG-C", "agent-c", base+int64(300), base+int64(310), "done")
+	for i := 0; i < 4; i++ {
+		seedClaimHistory(t, db, "BUG-C", "agent-c", base+int64(311+i), base+int64(320+i), "released")
+	}
+
+	snap, err := Compute(context.Background(), db, ComputeOpts{
+		RepoID: "repo-1", Now: now, Window: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byID := map[string]AgentRow{}
+	for _, r := range snap.ByAgent {
+		byID[r.AgentID] = r
+	}
+
+	a := byID["agent-a"]
+	if a.ClaimsCompleted != 6 || a.ReleaseCount != 2 {
+		t.Errorf("agent-a: done=%d releases=%d, want 6/2", a.ClaimsCompleted, a.ReleaseCount)
+	}
+	if a.Ratio == nil || *a.Ratio != 3.0 {
+		t.Errorf("agent-a ratio=%v want 3.0", a.Ratio)
+	}
+
+	b := byID["agent-b"]
+	if b.ClaimsCompleted != 4 || b.ReleaseCount != 0 {
+		t.Errorf("agent-b: done=%d releases=%d, want 4/0", b.ClaimsCompleted, b.ReleaseCount)
+	}
+	if b.Ratio != nil {
+		t.Errorf("agent-b ratio=%v want nil (zero releases)", *b.Ratio)
+	}
+
+	c := byID["agent-c"]
+	if c.ClaimsCompleted != 1 || c.ReleaseCount != 4 {
+		t.Errorf("agent-c: done=%d releases=%d, want 1/4", c.ClaimsCompleted, c.ReleaseCount)
+	}
+	if c.Ratio == nil || *c.Ratio != 0.25 {
+		t.Errorf("agent-c ratio=%v want 0.25", c.Ratio)
+	}
+}
+
 func TestSeriesBucketsByDay(t *testing.T) {
 	db := openTestDB(t)
 	ensureAttestationsTable(t, db)

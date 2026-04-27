@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sort"
 	"syscall"
 	"time"
 
@@ -38,12 +39,16 @@ func Stats(ctx context.Context, args StatsArgs) (*StatsResult, error) {
 func newStatsCmd() *cobra.Command {
 	var jsonOut, tail bool
 	var window, interval time.Duration
+	var by string
 	cmd := &cobra.Command{
 		Use:   "stats",
 		Short: "Operational statistics: verification rate, claim p99, WIP violations.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
+			if by != "" && by != "agent" {
+				return fmt.Errorf("--by: unknown group %q (valid: agent)", by)
+			}
 			bc, err := bootClaimContext(ctx)
 			if err != nil {
 				return err
@@ -56,6 +61,10 @@ func newStatsCmd() *cobra.Command {
 				}
 				if jsonOut {
 					return writeIndented(cmd.OutOrStdout(), snap)
+				}
+				if by == "agent" {
+					renderAgentRatioTable(cmd.OutOrStdout(), snap.ByAgent)
+					return nil
 				}
 				renderHumanStats(cmd.OutOrStdout(), *snap)
 				return nil
@@ -83,7 +92,44 @@ func newStatsCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&tail, "tail", false, "stream NDJSON until interrupted")
 	cmd.Flags().DurationVar(&window, "window", 24*time.Hour, "metric window (0 = unbounded)")
 	cmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "tail emit interval")
+	cmd.Flags().StringVar(&by, "by", "", "group breakdown: agent")
 	return cmd
+}
+
+// renderAgentRatioTable prints a focused per-agent table sorted by ratio
+// DESC. Ratio is rendered as "-" when ReleaseCount is 0 — undefined ratio
+// is intentionally distinct from a low one because zero releases is a
+// different signal than spinning. Tie-break: nil-ratio agents (zero
+// releases) sort after every defined ratio, then alphabetically.
+func renderAgentRatioTable(w io.Writer, rows []stats.AgentRow) {
+	sorted := make([]stats.AgentRow, len(rows))
+	copy(sorted, rows)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		ri, rj := sorted[i].Ratio, sorted[j].Ratio
+		switch {
+		case ri != nil && rj != nil:
+			if *ri != *rj {
+				return *ri > *rj
+			}
+		case ri != nil && rj == nil:
+			return true
+		case ri == nil && rj != nil:
+			return false
+		}
+		return sorted[i].AgentID < sorted[j].AgentID
+	})
+	fmt.Fprintf(w, "%-20s %10s %14s %8s\n", "agent", "done_count", "release_count", "ratio")
+	for _, r := range sorted {
+		fmt.Fprintf(w, "%-20s %10d %14d %8s\n",
+			r.AgentID, r.ClaimsCompleted, r.ReleaseCount, fmtRatio(r.Ratio))
+	}
+}
+
+func fmtRatio(r *float64) string {
+	if r == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%.2f", *r)
 }
 
 func writeIndented(w io.Writer, v any) error {

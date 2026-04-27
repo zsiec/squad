@@ -9,10 +9,13 @@ import (
 func computeByAgent(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
 	rows, err := db.QueryContext(ctx, `
 		SELECT ch.agent_id, COALESCE(a.display_name, ch.agent_id),
-		       COUNT(*), GROUP_CONCAT(ch.released_at - ch.claimed_at)
+		       SUM(CASE WHEN ch.outcome = 'done' THEN 1 ELSE 0 END) AS done_count,
+		       SUM(CASE WHEN ch.outcome = 'released' THEN 1 ELSE 0 END) AS release_count,
+		       GROUP_CONCAT(CASE WHEN ch.outcome = 'done'
+		                         THEN ch.released_at - ch.claimed_at END)
 		FROM claim_history ch
 		LEFT JOIN agents a ON a.id = ch.agent_id
-		WHERE ch.repo_id = ? AND ch.outcome = 'done'
+		WHERE ch.repo_id = ? AND ch.outcome IN ('done', 'released')
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)
 		GROUP BY ch.agent_id`, repoID, since, until, until)
 	if err != nil {
@@ -24,8 +27,13 @@ func computeByAgent(ctx context.Context, db *sql.DB, repoID string, since, until
 	for rows.Next() {
 		var ar AgentRow
 		var concat sql.NullString
-		if err := rows.Scan(&ar.AgentID, &ar.DisplayName, &ar.ClaimsCompleted, &concat); err != nil {
+		if err := rows.Scan(&ar.AgentID, &ar.DisplayName,
+			&ar.ClaimsCompleted, &ar.ReleaseCount, &concat); err != nil {
 			return err
+		}
+		if ar.ReleaseCount > 0 {
+			r := float64(ar.ClaimsCompleted) / float64(ar.ReleaseCount)
+			ar.Ratio = &r
 		}
 		if concat.Valid {
 			p := computePercentiles(splitInts(concat.String))
@@ -49,7 +57,12 @@ func computeByAgent(ctx context.Context, db *sql.DB, repoID string, since, until
 		spill := AgentRow{AgentID: "_other", DisplayName: "_other"}
 		for _, a := range out[cap:] {
 			spill.ClaimsCompleted += a.ClaimsCompleted
+			spill.ReleaseCount += a.ReleaseCount
 			spill.WIPViolationsAttempted += a.WIPViolationsAttempted
+		}
+		if spill.ReleaseCount > 0 {
+			r := float64(spill.ClaimsCompleted) / float64(spill.ReleaseCount)
+			spill.Ratio = &r
 		}
 		out = append(out[:cap], spill)
 	}

@@ -91,6 +91,16 @@ type AgentRow struct {
 	AgentID                string   `json:"agent_id"`
 	DisplayName            string   `json:"display_name"`
 	ClaimsCompleted        int64    `json:"claims_completed"`
+	// ReleaseCount is the count of claim_history rows with outcome='released'
+	// for this agent in the same window. Together with ClaimsCompleted (the
+	// 'done' count) it gives the "are they finishing or spinning" signal.
+	// Voluntary self-release only — force_released and reclaimed are
+	// operator/reaper-driven and don't reflect agent quality.
+	ReleaseCount           int64    `json:"release_count"`
+	// Ratio is ClaimsCompleted / ReleaseCount when ReleaseCount > 0, nil
+	// otherwise. nil renders as "-" in the CLI breakdown — zero releases is
+	// a different signal from a poor ratio and the two should not collapse.
+	Ratio                  *float64 `json:"ratio"`
 	ClaimP50Seconds        *float64 `json:"claim_p50_seconds"`
 	ClaimP99Seconds        *float64 `json:"claim_p99_seconds"`
 	VerificationRate       *float64 `json:"verification_rate"`
