@@ -75,3 +75,13 @@ Sessions are not continuous; agents come and go; coworkers pick up where others 
 - Padding the "surprised by" bullet with content the commits already cover. The bullet exists for what the commits do NOT say.
 - Leaving an in-progress item with no `## Session log` entry. The next session has no breadcrumb.
 - Releasing a claim because you went to lunch. Heartbeat handles absence; release only on true handoff or done.
+
+## After every handoff
+
+Surprise bullets are write-only by default — they land in chat and scroll out of context within a session. Convert each one into a learning artifact so the next session inherits it. The pre-filled `--body` flag means there is no retyping cost:
+
+```bash
+squad learning quick --body "the surprise text verbatim" "<short slug-shaped one-liner>"
+```
+
+If a surprise genuinely is not worth a learning artifact (it was a status note, not a gotcha), say so explicitly in the same handoff post — `not filed: <one-line reason>`. The mandate is per-bullet: for each surprise bullet, file via `squad learning quick` or explain why not.

@@ -141,6 +141,39 @@ func TestLearningQuick_HappyPath(t *testing.T) {
 	}
 }
 
+// TestLearningQuick_BodyArgPrefillsLooksLikeSection verifies the
+// --body flag pre-fills the gotcha stub's "## Looks like" section
+// with the supplied text, so the squad-handoff skill can route a
+// surprise bullet straight into a stub without forcing the agent to
+// retype it.
+func TestLearningQuick_BodyArgPrefillsLooksLikeSection(t *testing.T) {
+	repo := setupSquadRepo(t)
+	t.Chdir(repo)
+
+	const surprise = "intake commit silently drops bundle bodies for item-only and refine flows"
+
+	root := newRootCmd()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"learning", "quick", "--body", surprise, "intake-commit-drops-bundle-body"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	wantPath := filepath.Join(repo, ".squad", "learnings", "gotchas", "proposed", "intake-commit-drops-bundle-body.md")
+	body, err := os.ReadFile(wantPath)
+	if err != nil {
+		t.Fatalf("expected stub at %s: %v", wantPath, err)
+	}
+	if !strings.Contains(string(body), surprise) {
+		t.Errorf("stub did not pre-fill the surprise body; got:\n%s", body)
+	}
+	// Sanity: the placeholder text should be replaced, not duplicated.
+	if strings.Contains(string(body), "_What it appears to be on first read._") {
+		t.Errorf("stub still contains the placeholder body; --body did not override:\n%s", body)
+	}
+}
+
 func TestLearningQuick_KindOverride(t *testing.T) {
 	repo := setupSquadRepo(t)
 	t.Chdir(repo)

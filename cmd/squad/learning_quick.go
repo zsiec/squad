@@ -95,6 +95,11 @@ type LearningQuickArgs struct {
 	Kind      string `json:"kind,omitempty"`
 	SessionID string `json:"session_id,omitempty"`
 	CreatedBy string `json:"created_by"`
+	// Body, when non-empty, pre-fills the gotcha stub's "## Looks like"
+	// section with the supplied text verbatim. Used by the squad-handoff
+	// skill so a surprise bullet can be routed straight into a learning
+	// without forcing the agent to retype it.
+	Body string `json:"body,omitempty"`
 }
 
 // LearningQuickResult mirrors LearningProposeResult plus the Tips slice so
@@ -137,6 +142,7 @@ func LearningQuick(ctx context.Context, args LearningQuickArgs) (*LearningQuickR
 			SessionID: args.SessionID,
 			CreatedBy: args.CreatedBy,
 			Via:       "quick",
+			Looks:     args.Body,
 		})
 		if perr == nil {
 			out := &LearningQuickResult{LearningProposeResult: res}
@@ -156,6 +162,7 @@ func LearningQuick(ctx context.Context, args LearningQuickArgs) (*LearningQuickR
 
 func newLearningQuickCmd() *cobra.Command {
 	var kind string
+	var body string
 	cmd := &cobra.Command{
 		Use:   "quick <one-liner>",
 		Short: "Stub a learning artifact with one-line capture (defaults kind=gotcha, area inferred)",
@@ -175,6 +182,7 @@ Use squad learning propose for full control over slug, title, area, and paths.`,
 				Kind:      kind,
 				SessionID: os.Getenv("SQUAD_SESSION_ID"),
 				CreatedBy: agentID,
+				Body:      body,
 			})
 			if err != nil {
 				return err
@@ -185,5 +193,6 @@ Use squad learning propose for full control over slug, title, area, and paths.`,
 		},
 	}
 	cmd.Flags().StringVar(&kind, "kind", "gotcha", "learning kind (gotcha, pattern, dead-end)")
+	cmd.Flags().StringVar(&body, "body", "", "pre-fill the stub's `## Looks like` section so the squad-handoff skill can route a surprise bullet straight into a learning")
 	return cmd
 }

@@ -3,10 +3,38 @@ package skills
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 )
+
+// TestSquadHandoffSkill_EndsWithPerSurpriseMandate covers the handoff
+// skill's per-surprise mandate: the file must end with the rule that
+// each surprise bullet either gets filed via `squad learning quick`
+// or has an explicit skip reason. The mandate is the load-bearing
+// contract — its position at end-of-file is what makes it the
+// authoritative rule over earlier soft guidance in the same skill.
+func TestSquadHandoffSkill_EndsWithPerSurpriseMandate(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "plugin", "skills", "squad-handoff", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(raw)
+	const mandate = "for each surprise bullet, file via `squad learning quick` or explain why not."
+	if !strings.Contains(body, mandate) {
+		t.Fatalf("SKILL.md missing mandate sentence %q", mandate)
+	}
+	tail := strings.TrimSpace(body)
+	if !strings.HasSuffix(tail, mandate) {
+		const tailWindow = 200
+		shown := tail
+		if len(shown) > tailWindow {
+			shown = shown[len(shown)-tailWindow:]
+		}
+		t.Errorf("mandate must be the last sentence of the skill; tail was:\n...%s", shown)
+	}
+}
 
 func TestSquadLoopSkill_RegistersScopedHook(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "plugin", "skills", "squad-loop", "SKILL.md"))
