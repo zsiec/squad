@@ -4,7 +4,7 @@ title: 'CI: smoke-test goreleaser snapshot output prints injected version'
 type: chore
 priority: P2
 area: release
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: []
