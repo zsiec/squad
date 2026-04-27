@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/stats	1.561s

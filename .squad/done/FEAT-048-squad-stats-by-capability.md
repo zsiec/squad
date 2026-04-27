@@ -4,7 +4,7 @@ title: squad stats by capability
 type: feature
 priority: P2
 area: internal/stats
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
