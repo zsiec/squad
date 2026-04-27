@@ -53,8 +53,12 @@ func (s *Server) handleMessagesList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sqlq := `SELECT id, ts, agent_id, thread, kind, COALESCE(body, ''),
-	         COALESCE(mentions, '[]'), priority FROM messages WHERE repo_id = ?`
-	args := []any{s.cfg.RepoID}
+	         COALESCE(mentions, '[]'), priority, repo_id FROM messages WHERE 1=1`
+	args := []any{}
+	if s.cfg.RepoID != "" {
+		sqlq += " AND repo_id = ?"
+		args = append(args, s.cfg.RepoID)
+	}
 	if thread != "" {
 		sqlq += " AND thread = ?"
 		args = append(args, thread)
@@ -84,12 +88,13 @@ func (s *Server) handleMessagesList(w http.ResponseWriter, r *http.Request) {
 		Body     string          `json:"body"`
 		Mentions json.RawMessage `json:"mentions"`
 		Priority string          `json:"priority"`
+		RepoID   string          `json:"repo_id"`
 	}
 	out := []msgRow{}
 	for rows.Next() {
 		var m msgRow
 		var ment string
-		if err := rows.Scan(&m.ID, &m.TS, &m.AgentID, &m.Thread, &m.Kind, &m.Body, &ment, &m.Priority); err != nil {
+		if err := rows.Scan(&m.ID, &m.TS, &m.AgentID, &m.Thread, &m.Kind, &m.Body, &ment, &m.Priority, &m.RepoID); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}

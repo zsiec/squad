@@ -74,3 +74,40 @@ func TestComputeClaimDurationPercentiles(t *testing.T) {
 		t.Errorf("p50: %v", snap.Claims.DurationSeconds.P50)
 	}
 }
+
+// TestComputeWorkspaceModeAggregatesAcrossRepos pins the "" sentinel:
+// stats.Compute called with ComputeOpts.RepoID == "" must aggregate
+// items / claims across every repo, not silently filter to repo_id = ''.
+// The dashboard daemon takes this path when no repo is discovered.
+func TestComputeWorkspaceModeAggregatesAcrossRepos(t *testing.T) {
+	db := openTestDB(t)
+	// Seed two repos, two items each.
+	for _, repo := range []string{"repo-A", "repo-B"} {
+		for i, status := range []string{"open", "done"} {
+			id := repo + "-" + status + "-" + string(rune('0'+i))
+			_, err := db.Exec(`INSERT INTO items (repo_id, item_id, title, type, priority, area,
+				status, estimate, risk, ac_total, ac_checked, archived, path, updated_at)
+				VALUES (?, ?, 't', 'feat', 'P2', '', ?, '', '', 0, 0, 0, '', ?)`,
+				repo, id, status, time.Now().Unix())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	snap, err := Compute(context.Background(), db, ComputeOpts{
+		RepoID: "", Now: time.Unix(2_000_000_000, 0), Window: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Items.Total != 4 {
+		t.Errorf("workspace-mode items.Total=%d, want 4 (cross-repo aggregation)", snap.Items.Total)
+	}
+	if snap.Items.Done != 2 {
+		t.Errorf("workspace-mode items.Done=%d, want 2", snap.Items.Done)
+	}
+	if snap.Items.Open != 2 {
+		t.Errorf("workspace-mode items.Open=%d, want 2", snap.Items.Open)
+	}
+}

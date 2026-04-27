@@ -64,7 +64,7 @@ func computeItems(ctx context.Context, db *sql.DB, repoID string, snap *Snapshot
 		       (CASE WHEN c.item_id IS NULL THEN 0 ELSE 1 END) AS claimed
 		FROM items i
 		LEFT JOIN claims c ON c.item_id = i.item_id AND c.repo_id = i.repo_id
-		WHERE i.repo_id = ? AND i.archived = 0`, repoID)
+		WHERE `+scopeSQL("i.", repoID)+` AND i.archived = 0`, scopeArgs(repoID)...)
 	if err != nil {
 		return err
 	}
@@ -98,15 +98,16 @@ func computeItems(ctx context.Context, db *sql.DB, repoID string, snap *Snapshot
 
 func computeClaims(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
 	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM claims WHERE repo_id = ?`, repoID).
+		`SELECT COUNT(*) FROM claims WHERE `+scopeSQL("", repoID), scopeArgs(repoID)...).
 		Scan(&snap.Claims.Active); err != nil {
 		return err
 	}
+	args := append(scopeArgs(repoID), since, until, until)
 	rows, err := db.QueryContext(ctx, `
 		SELECT released_at - claimed_at FROM claim_history
-		WHERE repo_id = ? AND outcome = 'done'
+		WHERE `+scopeSQL("", repoID)+` AND outcome = 'done'
 		  AND released_at >= ? AND (? = 0 OR released_at < ?)`,
-		repoID, since, until, until)
+		args...)
 	if err != nil {
 		return err
 	}

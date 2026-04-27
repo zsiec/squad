@@ -15,17 +15,18 @@ func RecordWIPViolation(ctx context.Context, db *sql.DB, repoID, agentID string,
 }
 
 // CountWIPViolations returns the total wip_violations rows in the time
-// window [since, until]. since=0, until=0 means unbounded.
+// window [since, until]. since=0, until=0 means unbounded. repoID == ""
+// counts across every repo (workspace mode).
 func CountWIPViolations(ctx context.Context, db *sql.DB, repoID string, since, until int64) (int64, error) {
 	return countViolations(ctx, db,
-		`SELECT COUNT(*) FROM wip_violations WHERE repo_id = ?`,
-		[]any{repoID}, since, until)
+		`SELECT COUNT(*) FROM wip_violations WHERE `+scopeSQL("", repoID),
+		scopeArgs(repoID), since, until)
 }
 
 func CountWIPViolationsByAgent(ctx context.Context, db *sql.DB, repoID, agentID string, since, until int64) (int64, error) {
 	return countViolations(ctx, db,
-		`SELECT COUNT(*) FROM wip_violations WHERE repo_id = ? AND agent_id = ?`,
-		[]any{repoID, agentID}, since, until)
+		`SELECT COUNT(*) FROM wip_violations WHERE `+scopeSQL("", repoID)+` AND agent_id = ?`,
+		append(scopeArgs(repoID), agentID), since, until)
 }
 
 func countViolations(ctx context.Context, db *sql.DB, q string, args []any, since, until int64) (int64, error) {

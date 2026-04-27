@@ -8,6 +8,7 @@ import (
 )
 
 func computeByAgent(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
+	args := append(scopeArgs(repoID), since, until, until)
 	rows, err := db.QueryContext(ctx, `
 		SELECT ch.agent_id, COALESCE(a.display_name, ch.agent_id),
 		       SUM(CASE WHEN ch.outcome = 'done' THEN 1 ELSE 0 END) AS done_count,
@@ -16,9 +17,9 @@ func computeByAgent(ctx context.Context, db *sql.DB, repoID string, since, until
 		                         THEN ch.released_at - ch.claimed_at END)
 		FROM claim_history ch
 		LEFT JOIN agents a ON a.id = ch.agent_id
-		WHERE ch.repo_id = ? AND ch.outcome IN ('done', 'released')
+		WHERE `+scopeSQL("ch.", repoID)+` AND ch.outcome IN ('done', 'released')
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)
-		GROUP BY ch.agent_id`, repoID, since, until, until)
+		GROUP BY ch.agent_id`, args...)
 	if err != nil {
 		return err
 	}
@@ -78,15 +79,16 @@ func perAgentVerificationRate(ctx context.Context, db *sql.DB, repoID, agentID s
 		return nil
 	}
 	var full int64
+	args := append(scopeArgs(repoID), agentID, since, until, until)
 	_ = db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT ch.item_id) FROM claim_history ch
-		WHERE ch.repo_id = ? AND ch.agent_id = ? AND ch.outcome = 'done'
+		WHERE `+scopeSQL("ch.", repoID)+` AND ch.agent_id = ? AND ch.outcome = 'done'
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)
 		  AND EXISTS (SELECT 1 FROM attestations a WHERE a.repo_id = ch.repo_id
 		              AND a.item_id = ch.item_id AND a.kind='test' AND a.exit_code=0)
 		  AND EXISTS (SELECT 1 FROM attestations a WHERE a.repo_id = ch.repo_id
 		              AND a.item_id = ch.item_id AND a.kind='review' AND a.exit_code=0)`,
-		repoID, agentID, since, until, until).Scan(&full)
+		args...).Scan(&full)
 	r := float64(full) / float64(completed)
 	return &r
 }
@@ -99,8 +101,8 @@ func computeByEpic(ctx context.Context, db *sql.DB, repoID string, _, _ int64, s
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(epic_id, ''), COUNT(*),
 		       SUM(CASE WHEN status='done' THEN 1 ELSE 0 END)
-		FROM items WHERE repo_id = ? AND archived = 0
-		GROUP BY COALESCE(epic_id, '')`, repoID)
+		FROM items WHERE `+scopeSQL("", repoID)+` AND archived = 0
+		GROUP BY COALESCE(epic_id, '')`, scopeArgs(repoID)...)
 	if err != nil {
 		return err
 	}
@@ -132,14 +134,15 @@ func computeByEpic(ctx context.Context, db *sql.DB, repoID string, _, _ int64, s
 
 func perEpicVerificationRate(ctx context.Context, db *sql.DB, repoID, epic string, done int64) *float64 {
 	var full int64
+	args := append(scopeArgs(repoID), epic)
 	_ = db.QueryRowContext(ctx, `
 		SELECT COUNT(DISTINCT i.item_id) FROM items i
-		WHERE i.repo_id = ? AND i.epic_id = ? AND i.status = 'done'
+		WHERE `+scopeSQL("i.", repoID)+` AND i.epic_id = ? AND i.status = 'done'
 		  AND EXISTS (SELECT 1 FROM attestations a WHERE a.repo_id = i.repo_id
 		              AND a.item_id = i.item_id AND a.kind='test' AND a.exit_code=0)
 		  AND EXISTS (SELECT 1 FROM attestations a WHERE a.repo_id = i.repo_id
 		              AND a.item_id = i.item_id AND a.kind='review' AND a.exit_code=0)`,
-		repoID, epic).Scan(&full)
+		args...).Scan(&full)
 	r := float64(full) / float64(done)
 	return &r
 }
@@ -154,13 +157,14 @@ func computeByCapability(ctx context.Context, db *sql.DB, repoID string, since, 
 	if !columnExists(ctx, db, "items", "requires_capability") {
 		return nil
 	}
+	args := append(scopeArgs(repoID), since, until, until)
 	rows, err := db.QueryContext(ctx, `
 		SELECT DISTINCT i.item_id, COALESCE(i.requires_capability, '[]')
 		FROM items i
 		INNER JOIN claim_history ch ON ch.item_id = i.item_id AND ch.repo_id = i.repo_id
-		WHERE i.repo_id = ? AND ch.outcome = 'done'
+		WHERE `+scopeSQL("i.", repoID)+` AND ch.outcome = 'done'
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)`,
-		repoID, since, until, until,
+		args...,
 	)
 	if err != nil {
 		return err

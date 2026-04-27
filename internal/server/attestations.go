@@ -15,6 +15,7 @@ type attestRow struct {
 	OutputPath string `json:"output_path"`
 	CreatedAt  int64  `json:"created_at"`
 	AgentID    string `json:"agent_id"`
+	RepoID     string `json:"repo_id"`
 }
 
 func (s *Server) handleAttestationsForItem(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +31,7 @@ func (s *Server) handleAttestationsForItem(w http.ResponseWriter, r *http.Reques
 		out = append(out, attestRow{
 			ID: rec.ID, Kind: string(rec.Kind), Command: rec.Command,
 			ExitCode: rec.ExitCode, OutputHash: rec.OutputHash, OutputPath: rec.OutputPath,
-			CreatedAt: rec.CreatedAt, AgentID: rec.AgentID,
+			CreatedAt: rec.CreatedAt, AgentID: rec.AgentID, RepoID: rec.RepoID,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

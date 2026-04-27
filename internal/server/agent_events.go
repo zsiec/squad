@@ -22,6 +22,7 @@ type agentEventRow struct {
 	ExitCode   int    `json:"exit_code"`
 	DurationMS int64  `json:"duration_ms"`
 	SessionID  string `json:"session_id"`
+	RepoID     string `json:"repo_id"`
 }
 
 func (s *Server) handleAgentEvents(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +43,13 @@ func (s *Server) handleAgentEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	order := "DESC"
-	args := []any{s.cfg.RepoID, id}
-	where := "repo_id = ? AND agent_id = ?"
+	args := []any{}
+	where := "agent_id = ?"
+	if s.cfg.RepoID != "" {
+		where = "repo_id = ? AND " + where
+		args = append(args, s.cfg.RepoID)
+	}
+	args = append(args, id)
 	if hasSince {
 		where += " AND ts >= ?"
 		args = append(args, since)
@@ -51,7 +57,7 @@ func (s *Server) handleAgentEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	args = append(args, limit)
 	q := `
-		SELECT ts, event_kind, tool, target, exit_code, duration_ms, session_id
+		SELECT ts, event_kind, tool, target, exit_code, duration_ms, session_id, repo_id
 		FROM agent_events
 		WHERE ` + where + `
 		ORDER BY ts ` + order + `, id ` + order + `
@@ -66,7 +72,7 @@ func (s *Server) handleAgentEvents(w http.ResponseWriter, r *http.Request) {
 	out := []agentEventRow{}
 	for rows.Next() {
 		var ev agentEventRow
-		if err := rows.Scan(&ev.TS, &ev.EventKind, &ev.Tool, &ev.Target, &ev.ExitCode, &ev.DurationMS, &ev.SessionID); err != nil {
+		if err := rows.Scan(&ev.TS, &ev.EventKind, &ev.Tool, &ev.Target, &ev.ExitCode, &ev.DurationMS, &ev.SessionID, &ev.RepoID); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -95,6 +101,7 @@ type timelineRow struct {
 	ExitCode   *int   `json:"exit_code,omitempty"`
 	DurationMS int64  `json:"duration_ms,omitempty"`
 	SessionID  string `json:"session_id,omitempty"`
+	RepoID     string `json:"repo_id,omitempty"`
 }
 
 func (s *Server) handleAgentTimeline(w http.ResponseWriter, r *http.Request) {
@@ -136,6 +143,13 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		tsArgs = []any{since}
 	}
 
+	repoCond := ""
+	repoArgs := []any{}
+	if s.cfg.RepoID != "" {
+		repoCond = "repo_id = ? AND "
+		repoArgs = []any{s.cfg.RepoID}
+	}
+
 	queries := []struct {
 		name string
 		sql  string
@@ -143,13 +157,13 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 	}{
 		{
 			name: "chat",
-			sql: `SELECT ts, thread, kind, COALESCE(body,'')
+			sql: `SELECT ts, thread, kind, COALESCE(body,''), repo_id
 			      FROM messages
-			      WHERE repo_id = ? AND agent_id = ?` + tsClause,
+			      WHERE ` + repoCond + `agent_id = ?` + tsClause,
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "chat", AgentID: agentID, Kind: "chat"}
 				var thread, kind, body string
-				if err := rows.Scan(&row.TS, &thread, &kind, &body); err != nil {
+				if err := rows.Scan(&row.TS, &thread, &kind, &body, &row.RepoID); err != nil {
 					return row, err
 				}
 				row.Thread = thread
@@ -160,12 +174,12 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		},
 		{
 			name: "claim",
-			sql: `SELECT claimed_at, item_id, COALESCE(intent,'')
+			sql: `SELECT claimed_at, item_id, COALESCE(intent,''), repo_id
 			      FROM claims
-			      WHERE repo_id = ? AND agent_id = ?` + replaceTSClause(tsClause, "claimed_at"),
+			      WHERE ` + repoCond + `agent_id = ?` + replaceTSClause(tsClause, "claimed_at"),
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "claim", AgentID: agentID, Kind: "claim"}
-				if err := rows.Scan(&row.TS, &row.ItemID, &row.Intent); err != nil {
+				if err := rows.Scan(&row.TS, &row.ItemID, &row.Intent, &row.RepoID); err != nil {
 					return row, err
 				}
 				return row, nil
@@ -173,13 +187,13 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		},
 		{
 			name: "release",
-			sql: `SELECT released_at, item_id, outcome
+			sql: `SELECT released_at, item_id, outcome, repo_id
 			      FROM claim_history
-			      WHERE repo_id = ? AND agent_id = ?` + replaceTSClause(tsClause, "released_at"),
+			      WHERE ` + repoCond + `agent_id = ?` + replaceTSClause(tsClause, "released_at"),
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "release", AgentID: agentID, Kind: "release"}
 				var outcome string
-				if err := rows.Scan(&row.TS, &row.ItemID, &outcome); err != nil {
+				if err := rows.Scan(&row.TS, &row.ItemID, &outcome, &row.RepoID); err != nil {
 					return row, err
 				}
 				row.Outcome = outcome
@@ -191,12 +205,12 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		},
 		{
 			name: "commit",
-			sql: `SELECT ts, item_id, sha, subject
+			sql: `SELECT ts, item_id, sha, subject, repo_id
 			      FROM commits
-			      WHERE repo_id = ? AND agent_id = ?` + tsClause,
+			      WHERE ` + repoCond + `agent_id = ?` + tsClause,
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "commit", AgentID: agentID, Kind: "commit"}
-				if err := rows.Scan(&row.TS, &row.ItemID, &row.SHA, &row.Subject); err != nil {
+				if err := rows.Scan(&row.TS, &row.ItemID, &row.SHA, &row.Subject, &row.RepoID); err != nil {
 					return row, err
 				}
 				return row, nil
@@ -204,14 +218,14 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		},
 		{
 			name: "attestation",
-			sql: `SELECT created_at, item_id, kind, exit_code
+			sql: `SELECT created_at, item_id, kind, exit_code, repo_id
 			      FROM attestations
-			      WHERE repo_id = ? AND agent_id = ?` + replaceTSClause(tsClause, "created_at"),
+			      WHERE ` + repoCond + `agent_id = ?` + replaceTSClause(tsClause, "created_at"),
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "attestation", AgentID: agentID, Kind: "attestation"}
 				var attKind string
 				var exit int
-				if err := rows.Scan(&row.TS, &row.ItemID, &attKind, &exit); err != nil {
+				if err := rows.Scan(&row.TS, &row.ItemID, &attKind, &exit, &row.RepoID); err != nil {
 					return row, err
 				}
 				row.AttKind = attKind
@@ -221,13 +235,13 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		},
 		{
 			name: "event",
-			sql: `SELECT ts, event_kind, tool, target, exit_code, duration_ms, COALESCE(session_id,'')
+			sql: `SELECT ts, event_kind, tool, target, exit_code, duration_ms, COALESCE(session_id,''), repo_id
 			      FROM agent_events
-			      WHERE repo_id = ? AND agent_id = ?` + tsClause,
+			      WHERE ` + repoCond + `agent_id = ?` + tsClause,
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "event", AgentID: agentID, Kind: "event"}
 				var exit int
-				if err := rows.Scan(&row.TS, &row.EventKind, &row.Tool, &row.Target, &exit, &row.DurationMS, &row.SessionID); err != nil {
+				if err := rows.Scan(&row.TS, &row.EventKind, &row.Tool, &row.Target, &exit, &row.DurationMS, &row.SessionID, &row.RepoID); err != nil {
 					return row, err
 				}
 				row.ExitCode = &exit
@@ -241,7 +255,9 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		order = "ASC"
 	}
 	for _, q := range queries {
-		args := append([]any{s.cfg.RepoID, agentID}, tsArgs...)
+		args := append([]any{}, repoArgs...)
+		args = append(args, agentID)
+		args = append(args, tsArgs...)
 		args = append(args, limit)
 		rows, err := s.db.QueryContext(ctx, q.sql+" ORDER BY 1 "+order+" LIMIT ?", args...)
 		if err != nil {

@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 
 	"github.com/zsiec/squad/internal/commitlog"
-	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/prmark"
 )
 
@@ -29,20 +28,21 @@ type linksResponse struct {
 func (s *Server) handleItemLinks(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	walk, err := items.Walk(s.cfg.SquadDir)
+	all, err := s.walkAll()
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	found := false
-	for _, group := range [][]items.Item{walk.Active, walk.Done} {
-		for _, it := range group {
-			if it.ID == id {
-				found = true
-				break
-			}
-		}
-		if found {
+	var (
+		found    bool
+		repoID   string
+		squadDir string
+	)
+	for _, it := range all {
+		if it.ID == id {
+			found = true
+			repoID = it.RepoID
+			squadDir = filepath.Dir(filepath.Dir(it.Path))
 			break
 		}
 	}
@@ -56,7 +56,7 @@ func (s *Server) handleItemLinks(w http.ResponseWriter, r *http.Request) {
 	var remoteURL string
 	if err := s.db.QueryRowContext(r.Context(),
 		`SELECT COALESCE(remote_url, '') FROM repos WHERE id = ?`,
-		s.cfg.RepoID).Scan(&remoteURL); err != nil {
+		repoID).Scan(&remoteURL); err != nil {
 		writeJSON(w, http.StatusOK, resp)
 		return
 	}
@@ -66,7 +66,7 @@ func (s *Server) handleItemLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pendingPath := filepath.Join(s.cfg.SquadDir, "pending-prs.json")
+	pendingPath := filepath.Join(squadDir, "pending-prs.json")
 	pending, _ := prmark.ReadPending(pendingPath)
 	for _, e := range pending {
 		if e.ItemID == id {
@@ -76,7 +76,7 @@ func (s *Server) handleItemLinks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	commits, err := commitlog.ListForItem(r.Context(), s.db, s.cfg.RepoID, id)
+	commits, err := commitlog.ListForItem(r.Context(), s.db, repoID, id)
 	if err != nil {
 		writeJSON(w, http.StatusOK, resp)
 		return

@@ -13,6 +13,7 @@ type searchHit struct {
 	Title   string  `json:"title"`
 	Snippet string  `json:"snippet"`
 	Score   float64 `json:"score"`
+	RepoID  string  `json:"repo_id,omitempty"`
 }
 
 const searchSnippetMax = 160
@@ -46,28 +47,32 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 			}
 			hits = append(hits, searchHit{
 				Kind: "item", ID: it.ID, Title: it.Title, Snippet: snip, Score: score,
+				RepoID: it.RepoID,
 			})
 		}
 	}
 
-	rows, err := s.db.QueryContext(r.Context(),
-		`SELECT id, agent_id, thread, COALESCE(body,'') FROM messages
-		 WHERE repo_id = ? AND LOWER(body) LIKE ?
-		 ORDER BY id DESC LIMIT 200`,
-		s.cfg.RepoID, "%"+needle+"%")
+	msgQ := `SELECT id, agent_id, thread, COALESCE(body,''), repo_id FROM messages WHERE LOWER(body) LIKE ?`
+	msgArgs := []any{"%" + needle + "%"}
+	if s.cfg.RepoID != "" {
+		msgQ += " AND repo_id = ?"
+		msgArgs = append(msgArgs, s.cfg.RepoID)
+	}
+	msgQ += " ORDER BY id DESC LIMIT 200"
+	rows, err := s.db.QueryContext(r.Context(), msgQ, msgArgs...)
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
 			var id int64
-			var agent, thread, body string
-			if err := rows.Scan(&id, &agent, &thread, &body); err != nil {
+			var agent, thread, body, repoID string
+			if err := rows.Scan(&id, &agent, &thread, &body, &repoID); err != nil {
 				continue
 			}
 			snip := snippetAround(body, needle)
 			title := agent + " in #" + thread
 			hits = append(hits, searchHit{
 				Kind: "message", ID: strconv.FormatInt(id, 10),
-				Title: title, Snippet: snip, Score: 10,
+				Title: title, Snippet: snip, Score: 10, RepoID: repoID,
 			})
 		}
 	}

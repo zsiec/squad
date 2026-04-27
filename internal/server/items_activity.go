@@ -35,9 +35,13 @@ func (s *Server) handleItemActivity(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sqlq := `SELECT id, ts, agent_id, kind, COALESCE(body, ''), COALESCE(mentions, '[]')
-		FROM messages WHERE repo_id = ? AND thread = ?`
-	args := []any{s.cfg.RepoID, id}
+	sqlq := `SELECT id, ts, agent_id, kind, COALESCE(body, ''), COALESCE(mentions, '[]'), repo_id
+		FROM messages WHERE thread = ?`
+	args := []any{id}
+	if s.cfg.RepoID != "" {
+		sqlq += " AND repo_id = ?"
+		args = append(args, s.cfg.RepoID)
+	}
 	if beforeTS > 0 {
 		sqlq += " AND ts < ?"
 		args = append(args, beforeTS)
@@ -59,12 +63,13 @@ func (s *Server) handleItemActivity(w http.ResponseWriter, r *http.Request) {
 		Kind     string          `json:"kind"`
 		Body     string          `json:"body"`
 		Mentions json.RawMessage `json:"mentions"`
+		RepoID   string          `json:"repo_id"`
 	}
 	out := []evt{}
 	for rows.Next() {
 		var e evt
 		var ment string
-		if err := rows.Scan(&e.ID, &e.TS, &e.AgentID, &e.Kind, &e.Body, &ment); err != nil {
+		if err := rows.Scan(&e.ID, &e.TS, &e.AgentID, &e.Kind, &e.Body, &ment, &e.RepoID); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}

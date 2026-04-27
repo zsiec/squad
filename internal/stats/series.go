@@ -25,6 +25,7 @@ func computeSeries(ctx context.Context, db *sql.DB, repoID string, since, until 
 }
 
 func loadVerifySeries(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
+	args := append(scopeArgs(repoID), since, until, until)
 	rows, err := db.QueryContext(ctx, `
 		SELECT `+dayBucket+` AS bucket, COUNT(*) AS dones,
 		       SUM(CASE
@@ -34,9 +35,9 @@ func loadVerifySeries(ctx context.Context, db *sql.DB, repoID string, since, unt
 		               AND a.item_id = ch.item_id AND a.kind='review' AND a.exit_code=0)
 		           THEN 1 ELSE 0 END) AS full
 		FROM claim_history ch
-		WHERE ch.repo_id = ? AND ch.outcome = 'done'
+		WHERE `+scopeSQL("ch.", repoID)+` AND ch.outcome = 'done'
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)
-		GROUP BY bucket ORDER BY bucket`, repoID, since, until, until)
+		GROUP BY bucket ORDER BY bucket`, args...)
 	if err != nil {
 		return err
 	}
@@ -57,12 +58,13 @@ func loadVerifySeries(ctx context.Context, db *sql.DB, repoID string, since, unt
 }
 
 func loadP99Series(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
+	args := append(scopeArgs(repoID), since, until, until)
 	rows, err := db.QueryContext(ctx, `
 		SELECT `+dayBucket+`, GROUP_CONCAT(released_at-claimed_at), COUNT(*)
 		FROM claim_history
-		WHERE repo_id = ? AND outcome = 'done'
+		WHERE `+scopeSQL("", repoID)+` AND outcome = 'done'
 		  AND released_at >= ? AND (? = 0 OR released_at < ?)
-		GROUP BY 1 ORDER BY 1`, repoID, since, until, until)
+		GROUP BY 1 ORDER BY 1`, args...)
 	if err != nil {
 		return err
 	}
@@ -84,12 +86,13 @@ func loadP99Series(ctx context.Context, db *sql.DB, repoID string, since, until 
 }
 
 func loadWIPSeries(ctx context.Context, db *sql.DB, repoID string, since, until int64, snap *Snapshot) error {
+	args := append(scopeArgs(repoID), since, until, until)
 	rows, err := db.QueryContext(ctx, `
 		SELECT CAST(strftime('%s', date(attempted_at, 'unixepoch')) AS INTEGER), COUNT(*)
 		FROM wip_violations
-		WHERE repo_id = ?
+		WHERE `+scopeSQL("", repoID)+`
 		  AND attempted_at >= ? AND (? = 0 OR attempted_at < ?)
-		GROUP BY 1 ORDER BY 1`, repoID, since, until, until)
+		GROUP BY 1 ORDER BY 1`, args...)
 	if err != nil {
 		return err
 	}

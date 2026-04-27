@@ -108,13 +108,16 @@ type Commit struct {
 }
 
 // ListForItem returns every recorded commit for an item, newest first.
+// repoID == "" widens the query to all repos (workspace mode).
 func ListForItem(ctx context.Context, db *sql.DB, repoID, itemID string) ([]Commit, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT sha, subject, ts, agent_id
-		FROM commits
-		WHERE repo_id = ? AND item_id = ?
-		ORDER BY ts DESC
-	`, repoID, itemID)
+	q := `SELECT sha, subject, ts, agent_id FROM commits WHERE item_id = ?`
+	args := []any{itemID}
+	if repoID != "" {
+		q += ` AND repo_id = ?`
+		args = append(args, repoID)
+	}
+	q += ` ORDER BY ts DESC`
+	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

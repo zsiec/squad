@@ -13,20 +13,21 @@ func computeVerification(ctx context.Context, db *sql.DB, repoID string, since, 
 	required := []string{"test", "review"}
 
 	// Dones in window.
+	donesArgs := append(scopeArgs(repoID), since, until, until)
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM claim_history
-		WHERE repo_id = ? AND outcome = 'done'
+		WHERE `+scopeSQL("", repoID)+` AND outcome = 'done'
 		  AND released_at >= ? AND (? = 0 OR released_at < ?)`,
-		repoID, since, until, until).
+		donesArgs...).
 		Scan(&snap.Verification.DonesTotal); err != nil {
 		return err
 	}
 
 	// Dones whose required kinds are all attested with exit=0.
 	fq := `SELECT COUNT(DISTINCT ch.item_id) FROM claim_history ch
-		WHERE ch.repo_id = ? AND ch.outcome = 'done'
+		WHERE ` + scopeSQL("ch.", repoID) + ` AND ch.outcome = 'done'
 		  AND ch.released_at >= ? AND (? = 0 OR ch.released_at < ?)`
-	fArgs := []any{repoID, since, until, until}
+	fArgs := append(scopeArgs(repoID), since, until, until)
 	for _, k := range required {
 		fq += ` AND EXISTS (SELECT 1 FROM attestations a
 			WHERE a.repo_id = ch.repo_id AND a.item_id = ch.item_id
@@ -42,12 +43,13 @@ func computeVerification(ctx context.Context, db *sql.DB, repoID string, since, 
 	}
 
 	// Per-kind attested + passed counts.
+	kindArgs := append(scopeArgs(repoID), since, until, until)
 	kr, err := db.QueryContext(ctx, `
 		SELECT kind, COUNT(*),
 		       SUM(CASE WHEN exit_code = 0 THEN 1 ELSE 0 END)
 		FROM attestations
-		WHERE repo_id = ? AND created_at >= ? AND (? = 0 OR created_at < ?)
-		GROUP BY kind`, repoID, since, until, until)
+		WHERE `+scopeSQL("", repoID)+` AND created_at >= ? AND (? = 0 OR created_at < ?)
+		GROUP BY kind`, kindArgs...)
 	if err != nil {
 		return err
 	}
@@ -63,13 +65,14 @@ func computeVerification(ctx context.Context, db *sql.DB, repoID string, since, 
 
 	// Reviewer disagreement.
 	var total, withD int64
+	revArgs := append(scopeArgs(repoID), since, until, until)
 	if err := db.QueryRowContext(ctx, `
 		SELECT COUNT(*),
 		       COALESCE(SUM(CASE WHEN review_disagreements > 0 THEN 1 ELSE 0 END), 0)
 		FROM attestations
-		WHERE repo_id = ? AND kind = 'review'
+		WHERE `+scopeSQL("", repoID)+` AND kind = 'review'
 		  AND created_at >= ? AND (? = 0 OR created_at < ?)`,
-		repoID, since, until, until).Scan(&total, &withD); err != nil {
+		revArgs...).Scan(&total, &withD); err != nil {
 		return err
 	}
 	snap.Verification.ReviewsTotal = total

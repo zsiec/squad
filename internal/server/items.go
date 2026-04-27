@@ -61,7 +61,7 @@ func (s *Server) walkAll() ([]itemWithRepo, error) {
 		}
 		return out, nil
 	}
-	rows, err := s.db.Query(`SELECT id, COALESCE(root_path, '') FROM repos`)
+	rows, err := s.db.Query(`SELECT id, COALESCE(root_path, '') FROM repos ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}

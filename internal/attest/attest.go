@@ -195,13 +195,18 @@ func (l *Ledger) MissingKinds(ctx context.Context, itemID string, required []Kin
 	return missing, nil
 }
 
+// ListForItem returns every attestation for itemID. A Ledger with
+// repoID == "" widens the query across all repos (workspace mode).
 func (l *Ledger) ListForItem(ctx context.Context, itemID string) ([]Record, error) {
-	rows, err := l.db.QueryContext(ctx, `
-		SELECT id, item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id
-		FROM attestations
-		WHERE repo_id = ? AND item_id = ?
-		ORDER BY created_at ASC, id ASC
-	`, l.repoID, itemID)
+	q := `SELECT id, item_id, kind, command, exit_code, output_hash, output_path, created_at, agent_id, repo_id
+	      FROM attestations WHERE item_id = ?`
+	args := []any{itemID}
+	if l.repoID != "" {
+		q += ` AND repo_id = ?`
+		args = append(args, l.repoID)
+	}
+	q += ` ORDER BY created_at ASC, id ASC`
+	rows, err := l.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

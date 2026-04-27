@@ -360,3 +360,47 @@ func TestLedger_Verify_MissingFile(t *testing.T) {
 		t.Fatalf("want ErrOutputMissing, got %v", err)
 	}
 }
+
+// TestLedger_ListForItem_WorkspaceModeAggregatesAllRepos pins the
+// "" sentinel: a Ledger constructed with repoID == "" must list rows
+// from every repo, not silently filter to repo_id = ''. The dashboard
+// daemon takes this path when no repo is discovered at startup.
+func TestLedger_ListForItem_WorkspaceModeAggregatesAllRepos(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "g.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	mkRec := func(hash string) Record {
+		return Record{
+			ItemID:     "FEAT-700",
+			Kind:       KindTest,
+			Command:    "go test ./...",
+			ExitCode:   0,
+			OutputHash: hash,
+			OutputPath: ".squad/attestations/" + hash + ".txt",
+			AgentID:    "agent-x",
+		}
+	}
+	if _, err := New(db, "repo-A", nil).Insert(context.Background(), mkRec("aaa")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(db, "repo-B", nil).Insert(context.Background(), mkRec("bbb")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := New(db, "", nil).ListForItem(context.Background(), "FEAT-700")
+	if err != nil {
+		t.Fatalf("workspace ListForItem: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("workspace-mode listing returned %d rows, want 2 (cross-repo): %+v", len(got), got)
+	}
+	repos := map[string]bool{}
+	for _, r := range got {
+		repos[r.RepoID] = true
+	}
+	if !repos["repo-A"] || !repos["repo-B"] {
+		t.Errorf("expected rows tagged with both repo-A and repo-B; got %v", repos)
+	}
+}

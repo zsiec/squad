@@ -80,6 +80,46 @@ func TestRecordSinceClaim_NoCommitsInWindow(t *testing.T) {
 	}
 }
 
+// TestListForItem_WorkspaceModeAggregatesAllRepos pins the "" sentinel:
+// when the caller passes repoID == "", ListForItem must return rows for
+// the given item id from every repo, not silently filter to repo_id = ''.
+// The dashboard's links handler takes this path in workspace mode.
+func TestListForItem_WorkspaceModeAggregatesAllRepos(t *testing.T) {
+	repoA, db := newFixture(t)
+	repoB := t.TempDir()
+	for _, dir := range []string{repoB} {
+		run := func(args ...string) {
+			t.Helper()
+			c := exec.Command("git", append([]string{"-C", dir}, args...)...)
+			if out, err := c.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", args, err, out)
+			}
+		}
+		run("init", "-q", "-b", "main")
+		run("config", "user.email", "test@example.com")
+		run("config", "user.name", "Test")
+		run("config", "commit.gpgsign", "false")
+	}
+	claimedAt := time.Now().Add(-30 * time.Minute).Unix()
+	commitAt(t, repoA, "a.go", "from-A", time.Now().Add(-10*time.Minute))
+	commitAt(t, repoB, "b.go", "from-B", time.Now().Add(-5*time.Minute))
+
+	if _, err := RecordSinceClaim(context.Background(), db, "repo-A", repoA, "BUG-700", "agent-a", claimedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RecordSinceClaim(context.Background(), db, "repo-B", repoB, "BUG-700", "agent-b", claimedAt); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ListForItem(context.Background(), db, "", "BUG-700")
+	if err != nil {
+		t.Fatalf("ListForItem(repoID=\"\"): %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("workspace-mode listing returned %d rows, want 2 (cross-repo): %+v", len(got), got)
+	}
+}
+
 // --- fixtures ---
 
 func newFixture(t *testing.T) (string, *sql.DB) {
