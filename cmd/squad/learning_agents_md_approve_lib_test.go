@@ -9,9 +9,10 @@ import (
 	"testing"
 )
 
-func TestAgentsMdApprove_PureAppliesAndArchives(t *testing.T) {
+func TestAgentsMdApprove_PureBranchesAndArchives(t *testing.T) {
 	repo := setupSquadRepo(t)
 	t.Chdir(repo)
+	mustGit(t, repo, "checkout", "-b", "main")
 	agents := filepath.Join(repo, "AGENTS.md")
 	if err := os.WriteFile(agents, []byte("# agents\n\nbody\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -39,9 +40,20 @@ func TestAgentsMdApprove_PureAppliesAndArchives(t *testing.T) {
 	if res.AppliedPath != want {
 		t.Errorf("AppliedPath=%q want %q", res.AppliedPath, want)
 	}
+	if res.Branch != "squad/learning-agents-md-"+id {
+		t.Errorf("Branch=%q want squad/learning-agents-md-%s", res.Branch, id)
+	}
+	if res.PRURL != "" {
+		t.Errorf("PRURL=%q want empty (no remote)", res.PRURL)
+	}
+	if res.PRSkippedReason == "" {
+		t.Errorf("PRSkippedReason should explain why no PR was opened")
+	}
+	// Working tree on the original branch is untouched — the patch lives
+	// on the squad branch, not in the operator's checkout.
 	got, _ := os.ReadFile(agents)
-	if !strings.Contains(string(got), "extra") {
-		t.Errorf("AGENTS.md not patched:\n%s", got)
+	if strings.Contains(string(got), "extra") {
+		t.Errorf("approve should not modify the original branch's working tree:\n%s", got)
 	}
 	if _, err := os.Stat(filepath.Join(dir, id+".md")); !os.IsNotExist(err) {
 		t.Errorf("expected proposal removed, got %v", err)
