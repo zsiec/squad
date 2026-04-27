@@ -17,7 +17,19 @@ Invoke this skill any time you are about to write the words "tests pass," "build
 
 ## The rule
 
-After running each verification command, paste the relevant trailing output line into the conversation. Do not paraphrase. Do not summarize. Do not say "tests pass" — paste the line that proves it.
+Two artifacts per verification, not one:
+
+1. **Paste** the relevant trailing output line into the conversation. Do not paraphrase. Do not summarize. Do not say "tests pass" — paste the line that proves it.
+2. **Attest** the same run via `squad attest`, writing the output to a file the ledger can keep. The paste is for the humans and agents reading the thread now; the attestation is for the next session, the reviewer, and `squad done`'s gate.
+
+Concrete shape (capture once, use both ways):
+
+```bash
+go test ./... 2>&1 | tee .squad/attestations/_tmp_test.txt
+squad attest <ITEM-ID> --kind test --command "go test ./..." --output .squad/attestations/_tmp_test.txt
+```
+
+Then paste the trailing `ok` line into chat. One run, both artifacts.
 
 Concretely:
 
@@ -49,3 +61,11 @@ The paste is also a forcing function on you. If you cannot paste a green line, y
 - Pasting a green line for a different command than the one you claim to have run. Match the paste to the claim.
 - Pasting a stale paste from earlier in the session as if it were the latest run. Re-run; paste the latest.
 - Skipping the paste because "the commit hook would have caught it." The commit hook runs after you claim done, not before; the order matters.
+
+## What kinds to record
+
+`squad attest --kind <kind>` accepts a few standard kinds. Pick the one that matches the run:
+
+- **`--kind test`** — any unit / integration / e2e command. `go test`, `pytest`, `vitest`, `cargo test`, `npm test`. Mandatory for `bug` / `feature` / `task` items; the per-item `evidence_required: [test]` field gates `squad done` on at least one attestation of this kind.
+- **`--kind review`** — a reviewer-agent run. Typically captured by reviewer agents themselves per `squad-reviewing-as-disprove`; the output is the reviewer's findings document or transcript.
+- **`--kind manual`** — manual verification. Browser smoke test, CLI demo, "I clicked through and the modal opened." Write down what you actually did and what you observed; the `--output` file is your description.

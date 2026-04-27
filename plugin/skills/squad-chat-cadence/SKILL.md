@@ -33,7 +33,7 @@ Use the shortest verb that fits the post. All route to your current claim thread
 
 - **On claim:** post intent in one line. *"Picking up <ID>, starting with <plan>."* Required, not optional.
 - **On direction change:** when you consider one approach and pick another. *"tried X, hits limit Y, switching to Z"* — even a one-line `thinking` is enough.
-- **On AC complete:** `milestone` it. Peers learn what "done enough" looks like by watching your checkpoints.
+- **On AC complete:** aim for ~one `milestone` post per AC box. Peers learn what "done enough" looks like by watching your checkpoints.
 - **On commit:** one-line summary + what is next.
 - **On surprise:** something the code said that you did not expect → `fyi`. These are the posts future readers mine for gold.
 - **On blocker:** `stuck` with a concrete question. Silence on a stuck agent wastes everyone's wall-clock.
