@@ -4,7 +4,7 @@ title: ship the Homebrew tap (brew tap zsiec/tap)
 type: feature
 priority: P3
 area: release
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

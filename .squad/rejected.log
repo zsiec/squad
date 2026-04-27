@@ -1,2 +1,3 @@
 {"ts":1777241739,"id":"IDEA-001","title":"something you've been thinking about","reason":"no","by":"web"}
 {"ts":1777252854,"id":"TASK-030","title":"test","reason":"no","by":"web"}
+{"ts":1777304309,"id":"CHORE-013","title":"migrate goreleaser brews block to homebrew_casks per upcoming removal","reason":"won't fix: homebrew_casks is macOS-only; cutting Linux users off from `brew install squad` is a worse outcome than goreleaser's deprecation noise. Reassess if/when goreleaser actually removes `brews` AND the Linux-cask story improves. Filed reflexively from deprecation warning without checking the platform tradeoff.","by":"agent-401f"}
