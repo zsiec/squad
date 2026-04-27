@@ -1,0 +1,16 @@
+=== RUN   TestMCP_IntakeOpen_ThenTurnThenStatus_Roundtrip
+--- PASS: TestMCP_IntakeOpen_ThenTurnThenStatus_Roundtrip (0.05s)
+=== RUN   TestMCP_IntakeOpen_ResumeReturnsResumedTrue
+--- PASS: TestMCP_IntakeOpen_ResumeReturnsResumedTrue (0.04s)
+=== RUN   TestMCP_IntakeStatus_NotFoundMapsToNotFoundCode
+--- PASS: TestMCP_IntakeStatus_NotFoundMapsToNotFoundCode (0.04s)
+=== RUN   TestMCP_IntakeTurn_InvalidParamsOnEmptyContent
+--- PASS: TestMCP_IntakeTurn_InvalidParamsOnEmptyContent (0.04s)
+=== RUN   TestMCP_IntakeCommit_SlugConflictMapsToConflictCode
+--- PASS: TestMCP_IntakeCommit_SlugConflictMapsToConflictCode (0.04s)
+=== RUN   TestMCP_IntakeCommit_IncompleteBundleMapsToInvalidParams
+--- PASS: TestMCP_IntakeCommit_IncompleteBundleMapsToInvalidParams (0.04s)
+=== RUN   TestMCP_NoIntakeCancel
+--- PASS: TestMCP_NoIntakeCancel (0.04s)
+PASS
+ok  	github.com/zsiec/squad/cmd/squad	0.668s
