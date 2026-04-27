@@ -164,11 +164,14 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 		}
 	}
 
+	binaryPath, _ := os.Executable()
 	s := server.New(db, repoID, server.Config{
 		Host: bind, Port: port,
 		SquadDir: squadDir, RepoID: repoID,
 		LearningsRoot: repoRoot,
 		Token:         token,
+		Version:       versionString,
+		BinaryPath:    binaryPath,
 	})
 	// Derive a default acting identity for the daemon. SPA sessions hit
 	// /api/whoami at boot to populate X-Squad-Agent for subsequent

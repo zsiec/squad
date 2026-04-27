@@ -21,6 +21,8 @@ type Config struct {
 	SquadDir         string
 	RepoID           string
 	LearningsRoot    string
+	Version          string
+	BinaryPath       string
 	pingInterval     time.Duration
 	lagFlushInterval time.Duration
 }
@@ -30,6 +32,7 @@ type Server struct {
 	chat         *chat.Chat
 	cfg          Config
 	callerAgent  string
+	startedAt    time.Time
 	rlMu         sync.Mutex
 	rl           map[string][]time.Time
 	pump         *messagesPump
@@ -58,7 +61,7 @@ func New(db *sql.DB, repoID string, cfg Config) *Server {
 		cfg.lagFlushInterval = time.Second
 	}
 	c := chat.New(db, repoID)
-	s := &Server{db: db, chat: c, cfg: cfg}
+	s := &Server{db: db, chat: c, cfg: cfg, startedAt: time.Now()}
 	s.pump = newMessagesPump(db, repoID, c.Bus())
 	s.pump.start()
 	s.claimsPump = newClaimsPump(db, repoID, c.Bus())
@@ -97,6 +100,7 @@ func (s *Server) WithCallerAgent(id string) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+	mux.HandleFunc("GET /api/version", s.handleVersion)
 	mux.HandleFunc("GET /api/items", s.handleItemsList)
 	mux.HandleFunc("POST /api/items", s.handleItemsCreate)
 	mux.HandleFunc("GET /api/inbox", s.handleInbox)
