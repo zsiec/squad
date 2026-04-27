@@ -20,7 +20,7 @@ builds:
 archives:
   - id: squad
     name_template: "squad_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format: tar.gz
+    formats: [tar.gz]
     files:
       - LICENSE
       - README.md

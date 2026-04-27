@@ -20,17 +20,24 @@ blocked-by: []
 ---
 
 ## Problem
-What is wrong / what doesn't exist. 1–3 sentences.
+
+`.goreleaser.yaml`'s `archives:` block uses the deprecated single-value `format:` field. Goreleaser v2 emits `DEPRECATED: archives.format should not be used anymore` on every check / snapshot / release run, and the field is being phased out in favor of `formats:` (list).
 
 ## Context
-Why this matters. Where in the codebase it lives. What's been tried.
+
+The current archives entry sets `format: tar.gz`. The replacement is `formats: [tar.gz]` — a list, so multiple archive formats can be produced from one entry if ever needed. The list-of-one form preserves today's behavior verbatim.
+
+This is the second of three pre-existing goreleaser deprecation cleanups (sibling to CHORE-011 / `snapshot.name_template`). The third was CHORE-013 (`brews → homebrew_casks`) which was rejected — homebrew_casks is macOS-only and would cut Linux users off.
 
 ## Acceptance criteria
-- [ ] Specific, testable thing 1
-- [ ] Specific, testable thing 2
+
+- [ ] `.goreleaser.yaml`'s `archives[]` entry uses `formats: [tar.gz]` instead of `format: tar.gz`. The `name_template:` and `files:` fields are unchanged.
+- [ ] `goreleaser check` no longer emits a deprecation warning naming `archives.format`.
+- [ ] `goreleaser release --snapshot --clean --skip=publish` succeeds and produces the four expected `.tar.gz` archives (linux/{amd64,arm64}, darwin/{amd64,arm64}) per the matrix in `CLAUDE.md`.
 
 ## Notes
-Optional design notes. Trade-offs considered. Pointers to related items.
+
+Trivially mechanical — single field rename + value-to-list conversion. No code path or contents change; only the goreleaser schema shape.
 
 ## Resolution
 (Filled in when status → done.)
