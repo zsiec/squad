@@ -4,7 +4,7 @@ title: squad doctor drift findings emit learning_propose
 type: feature
 priority: P2
 area: internal/hygiene
-status: open
+status: done
 estimate: 3h
 risk: low
 evidence_required: [test]
