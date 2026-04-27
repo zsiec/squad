@@ -29,10 +29,10 @@ var TemplateACPlaceholders = []string{
 	"Specific, testable thing 2",
 }
 
-// stubTemplate uses %s for the title placeholder; we feed yaml-quoted output
-// (`"foo: bar"` etc.) so titles containing colons, newlines, leading dashes,
-// or other YAML-special characters can't poison the frontmatter.
-var stubTemplate = `---
+// frontmatterTemplate uses %s for the title placeholder; we feed yaml-quoted
+// output (`"foo: bar"` etc.) so titles containing colons, newlines, leading
+// dashes, or other YAML-special characters can't poison the frontmatter.
+var frontmatterTemplate = `---
 id: %s
 title: %s
 type: %s
@@ -53,23 +53,14 @@ relates-to: []
 blocked-by: []%s
 ---
 
-## Problem
-What is wrong / what doesn't exist. 1–3 sentences.
-
-## Context
-Why this matters. Where in the codebase it lives. What's been tried.
-
-## Acceptance criteria
-- [ ] ` + TemplateACPlaceholders[0] + `
-- [ ] ` + TemplateACPlaceholders[1] + `
-
-## Notes
-Optional design notes. Trade-offs considered. Pointers to related items.
-
-## Resolution
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
 `
+
+const (
+	problemPlaceholder    = "What is wrong / what doesn't exist. 1–3 sentences."
+	contextPlaceholder    = "Why this matters. Where in the codebase it lives. What's been tried."
+	notesPlaceholder      = "Optional design notes. Trade-offs considered. Pointers to related items."
+	resolutionPlaceholder = "(Filled in when status → done.)\nWhat changed, file references, anything a future maintainer needs to know."
+)
 
 // Options carries the optional knobs `squad new` exposes via flags or config.
 // Empty fields fall through to the built-in defaults (P2 / 1h / low / <fill-in>).
@@ -80,6 +71,17 @@ type Options struct {
 	Area       string
 	Ready      bool
 	CapturedBy string
+	// Body content — populated by the intake commit path so the bundle
+	// the agent typed during the interview lands in the file. Empty fields
+	// fall through to the built-in placeholders so `squad new` with no
+	// flags keeps emitting today's stub.
+	Intent     string
+	Acceptance []string
+	Notes      string
+	// RefinementHistory is appended as a `## Refinement history` section
+	// after `## Notes`. Used by the intake refine path so the original
+	// item's body isn't lost when supersede archives the old file.
+	RefinementHistory string
 	// Hierarchy linkage — populated when an item is created as part of a
 	// spec/epic bundle. Empty values are omitted from the frontmatter so
 	// item-only items stay clean. ParentSpec and Epic are emitted as
@@ -123,12 +125,13 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 			acceptedBy = opts.CapturedBy
 			acceptedAt = nowUnix
 		}
-		body := fmt.Sprintf(stubTemplate,
+		frontmatter := fmt.Sprintf(frontmatterTemplate,
 			id, yamlInline(title), t, priority, area, status, estimate, risk,
 			defaultEvidenceForType(prefix), now, now,
 			yamlInline(opts.CapturedBy), nowUnix, yamlInline(acceptedBy), acceptedAt,
 			hierarchyFrontmatter(opts),
 		)
+		body := frontmatter + renderBody(opts)
 		path = filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
@@ -160,6 +163,49 @@ func hierarchyFrontmatter(opts Options) string {
 		b.WriteString(yamlInline(opts.IntakeSessionID))
 	}
 	return b.String()
+}
+
+// renderBody returns the markdown body following the frontmatter. Each
+// section falls back to its placeholder text when the matching Options
+// field is empty, so `squad new` with no body fields keeps emitting the
+// same stub it always has. Intent fills both ## Problem and ## Context
+// because the intake interview captures a single "why" answer and the
+// downstream working agent reads either heading first.
+func renderBody(opts Options) string {
+	var b strings.Builder
+	b.WriteString("## Problem\n")
+	b.WriteString(bodyOrPlaceholder(opts.Intent, problemPlaceholder))
+	b.WriteString("\n## Context\n")
+	b.WriteString(bodyOrPlaceholder(opts.Intent, contextPlaceholder))
+	b.WriteString("\n## Acceptance criteria\n")
+	if len(opts.Acceptance) > 0 {
+		for _, ac := range opts.Acceptance {
+			fmt.Fprintf(&b, "- [ ] %s\n", strings.TrimSpace(ac))
+		}
+	} else {
+		for _, ph := range TemplateACPlaceholders {
+			fmt.Fprintf(&b, "- [ ] %s\n", ph)
+		}
+	}
+	b.WriteString("\n## Notes\n")
+	b.WriteString(bodyOrPlaceholder(opts.Notes, notesPlaceholder))
+	if strings.TrimSpace(opts.RefinementHistory) != "" {
+		b.WriteString("\n## Refinement history\n")
+		b.WriteString(strings.TrimRight(opts.RefinementHistory, "\n"))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n## Resolution\n")
+	b.WriteString(resolutionPlaceholder)
+	b.WriteString("\n")
+	return b.String()
+}
+
+func bodyOrPlaceholder(text, placeholder string) string {
+	t := strings.TrimSpace(text)
+	if t == "" {
+		return placeholder + "\n"
+	}
+	return t + "\n"
 }
 
 func defaultEvidenceForType(prefix string) string {

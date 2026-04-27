@@ -121,6 +121,37 @@ func TestCommit_ItemOnlyHappyPath(t *testing.T) {
 	}
 }
 
+func TestCommit_ItemOnlyRendersBundleIntoBody(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := setupSquadDir(t)
+	sess := openSessionForCommit(t, db, squadDir, "agent-1")
+
+	bundle := Bundle{Items: []ItemDraft{{
+		Title:      "render bundle into body",
+		Intent:     "Test intent",
+		Acceptance: []string{"Specific bullet"},
+		Area:       "core",
+	}}}
+	res, err := Commit(ctx, db, squadDir, sess.ID, "agent-1", bundle, false)
+	if err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	body, err := os.ReadFile(res.Paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	bs := string(body)
+	for _, want := range []string{"Test intent", "Specific bullet"} {
+		if !strings.Contains(bs, want) {
+			t.Errorf("body missing %q in:\n%s", want, bs)
+		}
+	}
+	if strings.Contains(bs, "Specific, testable thing 1") {
+		t.Errorf("body still contains template placeholder:\n%s", bs)
+	}
+}
+
 func TestCommit_ReadyFlagPromotesStatus(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
@@ -339,6 +370,44 @@ func TestCommit_RefineArchivesOriginalAndRecordsHistory(t *testing.T) {
 	}
 	if hist != 1 {
 		t.Errorf("claim_history rows for FEAT-100/superseded=%d want 1", hist)
+	}
+}
+
+func TestCommit_RefinePreservesOriginalBodyInRefinementHistory(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := setupSquadDir(t)
+
+	origBody := "## Problem\nold problem prose worth keeping\n\n## Notes\nold note\n"
+	_ = seedCapturedItem(t, db, squadDir, "FEAT-200", "rotate keys", origBody)
+	sess := openRefineSession(t, db, squadDir, "agent-1", "FEAT-200")
+
+	bundle := Bundle{Items: []ItemDraft{{
+		Title: "rotate keys cleanly", Intent: "online rotation",
+		Acceptance: []string{"keys rotate"}, Area: "auth",
+	}}}
+	res, err := Commit(ctx, db, squadDir, sess.ID, "agent-1", bundle, false)
+	if err != nil {
+		t.Fatalf("refine commit: %v", err)
+	}
+	body, err := os.ReadFile(res.Paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	bs := string(body)
+	if !strings.Contains(bs, "## Refinement history") {
+		t.Errorf("new item missing ## Refinement history section:\n%s", bs)
+	}
+	if !strings.Contains(bs, "Refined from FEAT-200") {
+		t.Errorf("new item missing FEAT-200 attribution:\n%s", bs)
+	}
+	if !strings.Contains(bs, "old problem prose worth keeping") {
+		t.Errorf("original body content not preserved:\n%s", bs)
+	}
+	// Demoted heading: original `## Problem` should appear as `### Problem`
+	// inside refinement history so it nests under the section.
+	if !strings.Contains(bs, "### Problem") {
+		t.Errorf("original ## headings not demoted to ###:\n%s", bs)
 	}
 }
 

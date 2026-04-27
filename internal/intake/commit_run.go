@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/zsiec/squad/internal/items"
@@ -89,8 +91,6 @@ func commitImpl(
 		return CommitResult{}, fmt.Errorf("intake commit: marshal bundle: %w", err)
 	}
 
-	itemOpts := items.Options{Ready: ready, CapturedBy: agentID}
-
 	var (
 		paths []string
 		ids   []string
@@ -101,12 +101,30 @@ func commitImpl(
 		}
 	}
 
+	var refineHistory string
+	if sess.Mode == ModeRefine {
+		rh, err := captureRefineHistory(squadDir, sess.RefineItemID)
+		if err != nil {
+			return CommitResult{}, err
+		}
+		refineHistory = rh
+	}
+
 	for _, it := range bundle.Items {
 		prefix, ok := itemPrefixFor[it.Kind]
 		if !ok {
 			prefix = "FEAT"
 		}
-		path, werr := write(squadDir, prefix, it.Title, itemOpts)
+		opts := items.Options{
+			Ready:             ready,
+			CapturedBy:        agentID,
+			Area:              it.Area,
+			Estimate:          it.Effort,
+			Intent:            it.Intent,
+			Acceptance:        it.Acceptance,
+			RefinementHistory: refineHistory,
+		}
+		path, werr := write(squadDir, prefix, it.Title, opts)
 		if werr != nil {
 			cleanup()
 			return CommitResult{}, fmt.Errorf("intake commit: write item file: %w", werr)
@@ -197,6 +215,32 @@ func commitImpl(
 }
 
 type archiveMove struct{ from, to string }
+
+// captureRefineHistory reads the original refine-mode item, returns its
+// body wrapped as a `### Round 1 — YYYY-MM-DD` block ready for inclusion
+// under the new item's `## Refinement history` section. ##/### headings
+// in the source body are demoted by one level so the document hierarchy
+// stays clean. Returns "" when the source has an empty body.
+func captureRefineHistory(squadDir, itemID string) (string, error) {
+	path, _, ferr := items.FindByID(squadDir, itemID)
+	if ferr != nil {
+		return "", fmt.Errorf("intake commit (refine): capture history: %w", ferr)
+	}
+	parsed, perr := items.Parse(path)
+	if perr != nil {
+		return "", fmt.Errorf("intake commit (refine): parse %s for history: %w", path, perr)
+	}
+	body := strings.TrimSpace(parsed.Body)
+	if body == "" {
+		return "", nil
+	}
+	body = mdHeadingRe.ReplaceAllString(body, "$1# ")
+	today := time.Now().UTC().Format("2006-01-02")
+	return fmt.Sprintf("### Round 1 — %s\n*Refined from %s during intake interview.*\n\n%s",
+		today, itemID, body), nil
+}
+
+var mdHeadingRe = regexp.MustCompile(`(?m)^(#{1,5})\s`)
 
 // supersedeOriginal performs the in-tx refine-mode work: re-verify the
 // original item is still captured (file is the source of truth, matching

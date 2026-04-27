@@ -84,18 +84,20 @@ func commitSpecEpicItems(
 		epicPaths[e.Title] = ep
 	}
 
-	itemOpts := items.Options{
-		Ready:           ready,
-		CapturedBy:      agentID,
-		ParentSpec:      specSlug,
-		IntakeSessionID: sessionID,
-	}
-
 	itemPaths := make([]string, 0, len(bundle.Items))
 	itemEpicSlugs := make([]string, 0, len(bundle.Items))
 	for _, it := range bundle.Items {
-		opts := itemOpts
-		opts.Epic = epicSlugByTitle[it.Epic]
+		opts := items.Options{
+			Ready:           ready,
+			CapturedBy:      agentID,
+			ParentSpec:      specSlug,
+			IntakeSessionID: sessionID,
+			Epic:            epicSlugByTitle[it.Epic],
+			Area:            it.Area,
+			Estimate:        it.Effort,
+			Intent:          it.Intent,
+			Acceptance:      it.Acceptance,
+		}
 		prefix, ok := itemPrefixFor[it.Kind]
 		if !ok {
 			prefix = "FEAT"
