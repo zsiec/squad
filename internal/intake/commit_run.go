@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -242,39 +241,4 @@ func supersedeOriginal(
 	}
 
 	return archiveMove{from: origPath, to: archivePath}, nil
-}
-
-func loadSession(ctx context.Context, db *sql.DB, sessionID string) (Session, error) {
-	var (
-		s           Session
-		refineItem  sql.NullString
-		shape       sql.NullString
-		createdAt   int64
-		updatedAt   int64
-		committedAt sql.NullInt64
-	)
-	err := db.QueryRowContext(ctx, `
-		SELECT id, repo_id, agent_id, mode, refine_item_id, idea_seed, status, shape,
-		       created_at, updated_at, committed_at
-		FROM intake_sessions WHERE id=?
-	`, sessionID).Scan(
-		&s.ID, &s.RepoID, &s.AgentID, &s.Mode,
-		&refineItem, &s.IdeaSeed, &s.Status, &shape,
-		&createdAt, &updatedAt, &committedAt,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Session{}, ErrIntakeNotFound
-	}
-	if err != nil {
-		return Session{}, err
-	}
-	s.RefineItemID = refineItem.String
-	s.Shape = shape.String
-	s.CreatedAt = time.Unix(createdAt, 0).UTC()
-	s.UpdatedAt = time.Unix(updatedAt, 0).UTC()
-	if committedAt.Valid {
-		t := time.Unix(committedAt.Int64, 0).UTC()
-		s.CommittedAt = &t
-	}
-	return s, nil
 }
