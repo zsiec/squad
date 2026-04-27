@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/skills	0.195s

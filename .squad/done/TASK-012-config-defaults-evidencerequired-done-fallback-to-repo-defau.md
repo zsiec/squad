@@ -4,11 +4,11 @@ title: config Defaults.EvidenceRequired + Done() fallback to repo default
 type: task
 priority: P1
 area: cli
-status: open
+status: done
 estimate: 1h
 risk: medium
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-bbf6
 captured_at: 1777245990
 accepted_by: agent-bbf6

@@ -4,11 +4,11 @@ title: session_start hook leaves agents in repo_id=_unscoped — invisible to sq
 type: bug
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26
-updated: "2026-04-26"
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777246479
 accepted_by: web

@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/cmd/squad	(cached)
+ok  	github.com/zsiec/squad/internal/items	(cached)

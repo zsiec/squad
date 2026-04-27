@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/config	1.363s
+ok  	github.com/zsiec/squad/cmd/squad	48.584s

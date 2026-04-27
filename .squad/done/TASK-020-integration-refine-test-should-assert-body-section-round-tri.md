@@ -4,11 +4,11 @@ title: integration_refine_test should assert body-section round-trip (Reviewer f
 type: task
 priority: P3
 area: server
-status: open
+status: done
 estimate: 15m
 risk: low
 created: 2026-04-26
-updated: "2026-04-26"
+updated: "2026-04-27"
 captured_by: agent-1f3f
 captured_at: 1777246940
 accepted_by: web

@@ -4,11 +4,11 @@ title: 'error-swallowing patterns: chat/post.go LastInsertId and store/migrate.g
 type: chore
 priority: P3
 area: internal
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
-updated: "2026-04-26"
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777241487
 accepted_by: web

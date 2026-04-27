@@ -1,6 +1,6 @@
 ---
 spec: inbox-refinement
-status: open
+status: done
 parallelism: |
   Foundation (FEAT-PARSER) blocks all server + CLI work. Server endpoints
   can land in any order once the parser exists. CLI verbs can land in

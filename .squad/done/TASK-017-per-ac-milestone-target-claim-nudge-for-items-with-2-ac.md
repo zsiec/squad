@@ -4,11 +4,11 @@ title: per-AC milestone-target claim nudge for items with >=2 AC
 type: task
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 45m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777245995
 accepted_by: agent-bbf6

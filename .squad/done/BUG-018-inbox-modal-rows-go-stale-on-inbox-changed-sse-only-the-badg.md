@@ -4,11 +4,11 @@ title: inbox modal rows go stale on inbox_changed SSE — only the badge updates
 type: bug
 priority: P3
 area: web-ui
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
-updated: "2026-04-26"
+updated: "2026-04-27"
 captured_by: agent-1f3f
 captured_at: 1777246939
 accepted_by: web

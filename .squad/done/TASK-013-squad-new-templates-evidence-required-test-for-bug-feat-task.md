@@ -4,11 +4,11 @@ title: squad new templates evidence_required:[test] for bug/feat/task
 type: task
 priority: P2
 area: items
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-bbf6
 captured_at: 1777245991
 accepted_by: agent-bbf6

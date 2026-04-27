@@ -4,11 +4,11 @@ title: second-opinion claim nudge for P0/P1 and risk:high items
 type: task
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 45m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777245994
 accepted_by: agent-bbf6

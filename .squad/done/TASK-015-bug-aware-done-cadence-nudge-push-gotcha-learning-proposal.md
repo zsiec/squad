@@ -4,11 +4,11 @@ title: bug-aware done cadence nudge — push gotcha learning proposal
 type: task
 priority: P2
 area: cli
-status: open
+status: done
 estimate: 30m
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-26"
 captured_by: agent-bbf6
 captured_at: 1777245993
 accepted_by: agent-bbf6
