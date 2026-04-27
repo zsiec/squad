@@ -4,7 +4,7 @@ title: default_worktree_per_claim true in squad init scaffold
 type: chore
 priority: P2
 area: cmd/squad
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: []
