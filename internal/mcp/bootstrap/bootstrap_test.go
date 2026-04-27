@@ -34,7 +34,7 @@ func TestSeamsCallable(t *testing.T) {
 		t.Fatalf("Probe stub returned %v, want nil", err)
 	}
 
-	if err := Welcome(ctx); err != nil {
+	if err := Welcome(ctx, opts); err != nil {
 		t.Fatalf("Welcome stub returned %v, want nil", err)
 	}
 }

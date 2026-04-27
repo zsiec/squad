@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/zsiec/squad/internal/mcp/bootstrap"
 )
 
 // ProtocolVersion advertised in the initialize handshake. Bump when the spec
@@ -219,10 +221,14 @@ func (s *Server) callTool(ctx context.Context, base rpcResponse, raw json.RawMes
 		base.Error = &rpcError{Code: errInternal, Message: err.Error()}
 		return base
 	}
+	content := []map[string]any{
+		{"type": "text", "text": toText(result)},
+	}
+	if banner := bootstrap.ConsumeBanner(); banner != "" {
+		content = append([]map[string]any{{"type": "text", "text": banner}}, content...)
+	}
 	base.Result = map[string]any{
-		"content": []map[string]any{
-			{"type": "text", "text": toText(result)},
-		},
+		"content":           content,
 		"isError":           false,
 		"structuredContent": result,
 	}
