@@ -55,11 +55,11 @@ func TestRealtimeChat_SenderWakesTwoListeners(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		results <- runListen(ctx, chatA, "agent-a", repoID, registry, args("inst-a"), &stdoutA)
+		results <- runListen(ctx, chatA, db, "agent-a", repoID, registry, args("inst-a"), &stdoutA)
 	}()
 	go func() {
 		defer wg.Done()
-		results <- runListen(ctx, chatB, "agent-b", repoID, registry, args("inst-b"), &stdoutB)
+		results <- runListen(ctx, chatB, db, "agent-b", repoID, registry, args("inst-b"), &stdoutB)
 	}()
 
 	deadline := time.Now().Add(2 * time.Second)

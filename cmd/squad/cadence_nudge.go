@@ -131,8 +131,21 @@ func timeBoxNudgeText(claimAge, sinceLastMilestone time.Duration) string {
 // nudged_120m_at) so they vanish naturally when the claim closes — no
 // separate cancellation path needed.
 func maybePrintTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID string, now time.Time, w io.Writer) {
+	if text := consumeTimeBoxNudge(ctx, db, repoID, agentID, now); text != "" {
+		fmt.Fprintln(w, text)
+	}
+}
+
+// consumeTimeBoxNudge returns the time-box nudge body and stamps the
+// matching dedupe marker (nudged_90m_at or nudged_120m_at) when the
+// calling agent's held claim has crossed a threshold. Returns "" when
+// silenced, when the agent holds no claim, or when no threshold has
+// fired. Used by both the tick-driven `maybePrintTimeBoxNudge` and the
+// async `squad listen` path; stamping the marker is what keeps the two
+// paths from double-firing.
+func consumeTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID string, now time.Time) string {
 	if cadenceNudgesSilenced() {
-		return
+		return ""
 	}
 	var (
 		itemID     string
@@ -145,11 +158,11 @@ func maybePrintTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID str
 		FROM claims WHERE repo_id=? AND agent_id=? LIMIT 1
 	`, repoID, agentID).Scan(&itemID, &claimedAt, &nudged90m, &nudged120m)
 	if errors.Is(err, sql.ErrNoRows) {
-		return
+		return ""
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warn: time-box nudge claim lookup: %v\n", err)
-		return
+		return ""
 	}
 	claimAge := now.Sub(time.Unix(claimedAt, 0))
 
@@ -161,12 +174,11 @@ func maybePrintTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID str
 	if claimAge >= timeBoxThreshold120m && !nudged120m.Valid {
 		text := timeBoxNudgeText(claimAge, lastMilestoneSilence(ctx, db, repoID, agentID, claimedAt, now))
 		if text != "" {
-			fmt.Fprintln(w, text)
 			_, _ = db.ExecContext(ctx,
 				`UPDATE claims SET nudged_120m_at=? WHERE repo_id=? AND agent_id=? AND item_id=?`,
 				now.Unix(), repoID, agentID, itemID)
 		}
-		return
+		return text
 	}
 	// Gate on claimAge < 120m: once the hard cap has been served, the 90m
 	// slot is moot. Without this guard, a claim that crosses 90m → 120m
@@ -179,12 +191,13 @@ func maybePrintTimeBoxNudge(ctx context.Context, db *sql.DB, repoID, agentID str
 		silence := lastMilestoneSilence(ctx, db, repoID, agentID, claimedAt, now)
 		text := timeBoxNudgeText(claimAge, silence)
 		if text != "" {
-			fmt.Fprintln(w, text)
 			_, _ = db.ExecContext(ctx,
 				`UPDATE claims SET nudged_90m_at=? WHERE repo_id=? AND agent_id=? AND item_id=?`,
 				now.Unix(), repoID, agentID, itemID)
 		}
+		return text
 	}
+	return ""
 }
 
 // lastMilestoneSilence returns how long ago the agent's most recent

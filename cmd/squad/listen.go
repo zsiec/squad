@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -35,7 +37,7 @@ func newListenCmd() *cobra.Command {
 			defer bc.Close()
 			a.Instance = resolveInstance(a.Instance)
 			registry := notify.NewRegistry(bc.db)
-			os.Exit(runListen(ctx, bc.chat, bc.agentID, bc.repoID, registry, a, cmd.OutOrStdout()))
+			os.Exit(runListen(ctx, bc.chat, bc.db, bc.agentID, bc.repoID, registry, a, cmd.OutOrStdout()))
 			return nil
 		},
 	}
@@ -46,7 +48,7 @@ func newListenCmd() *cobra.Command {
 	return cmd
 }
 
-func runListen(ctx context.Context, c *chat.Chat, agentID, repoID string,
+func runListen(ctx context.Context, c *chat.Chat, db *sql.DB, agentID, repoID string,
 	registry *notify.Registry, a listenArgs, stdout io.Writer) int {
 
 	bind := a.BindAddr
@@ -81,14 +83,36 @@ func runListen(ctx context.Context, c *chat.Chat, agentID, repoID string,
 		return true
 	}
 
-	if pollMailbox() {
+	// pollTimeBox emits the time-box nudge envelope when the held claim has
+	// crossed an unfired 90m or 120m threshold. consumeTimeBoxNudge stamps
+	// the dedupe marker on emit, so a subsequent `squad tick` against the
+	// same threshold becomes a no-op. This is the truly-async half of the
+	// 2h time-box: the tick path only fires on Bash boundaries; the listener
+	// fires whenever its fallback interval re-checks the mailbox.
+	pollTimeBox := func() bool {
+		if db == nil {
+			return false
+		}
+		text := consumeTimeBoxNudge(wakeCtx, db, repoID, agentID, time.Now())
+		if text == "" {
+			return false
+		}
+		out, _ := json.Marshal(struct {
+			Decision string `json:"decision"`
+			Reason   string `json:"reason"`
+		}{Decision: "block", Reason: text})
+		fmt.Fprintln(stdout, string(out))
+		return true
+	}
+
+	if pollMailbox() || pollTimeBox() {
 		return 2
 	}
 
 	wakeCh := make(chan struct{}, 1)
 	go func() {
 		_, _ = l.WaitLoop(wakeCtx, a.FallbackInt, func() {
-			if pollMailbox() {
+			if pollMailbox() || pollTimeBox() {
 				select {
 				case wakeCh <- struct{}{}:
 				default:
@@ -103,7 +127,7 @@ func runListen(ctx context.Context, c *chat.Chat, agentID, repoID string,
 
 	select {
 	case <-wakeCh:
-		if pollMailbox() {
+		if pollMailbox() || pollTimeBox() {
 			return 2
 		}
 		return 0

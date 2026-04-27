@@ -39,7 +39,7 @@ func TestE2E_ListenAndMailbox_BinaryFlow(t *testing.T) {
 	a := listenArgs{Instance: "e2e-1", FallbackInt: 50 * time.Millisecond, MaxLifetime: 3 * time.Second}
 
 	doneCh := make(chan int, 1)
-	go func() { doneCh <- runListen(ctx, f.chat, f.agentID, f.repoID, registry, a, &stdout) }()
+	go func() { doneCh <- runListen(ctx, f.chat, f.db, f.agentID, f.repoID, registry, a, &stdout) }()
 
 	deadline := time.Now().Add(time.Second)
 	var port int
