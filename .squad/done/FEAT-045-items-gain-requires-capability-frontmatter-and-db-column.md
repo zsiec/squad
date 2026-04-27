@@ -4,7 +4,7 @@ title: items gain requires_capability frontmatter and DB column
 type: feature
 priority: P2
 area: internal/store
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]
@@ -77,5 +77,35 @@ separate items keeps each migration small and reviewable.
 
 ## Resolution
 
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+- `internal/store/migrations/010_items_requires_capability.sql`:
+  `ALTER TABLE items ADD COLUMN requires_capability TEXT NOT NULL DEFAULT '[]'`.
+  The default makes existing rows valid without a backfill.
+- `internal/store/migrate.go`: `bootstrapLegacyVersions` gains a v10 marker
+  probe following the v5–v9 pattern — stamps the version when the column is
+  already present so the migration doesn't try to ALTER it twice.
+- `internal/items/items.go`: `Item` gains `RequiresCapability []string` with
+  yaml tag `requires_capability` (snake_case matching the modern field
+  neighborhood — `evidence_required`, `intake_session_id`, etc.). Absent
+  key parses as nil slice; tests pin the empty-slice case.
+- `internal/items/persist.go`: `persistUpsert` threads
+  `requires_capability` through INSERT and DO UPDATE SET; uses the same
+  json.Marshal + nil-coercion-to-`"[]"` pattern as `conflicts_with` so the
+  column is always valid JSON for downstream `json_each` use. Out of strict
+  AC scope but the item's Notes section explicitly anchors FEAT-047 on
+  reading from the column — leaving it out would have meant the column
+  always reads `[]` regardless of frontmatter.
+- Tests: `TestParse_RequiresCapability` (inline list parse),
+  `TestParse_RequiresCapabilityAbsentDefaultsEmpty` (legacy round-trip),
+  `TestMigrate_AppliesItemsRequiresCapability` (fresh-DB migration creates
+  the column with the right shape and stamps v10), and
+  `TestMigrate_BootstrapStampsRequiresCapabilityV10` (pre-existing-column
+  legacy bootstrap stamps v10 even when migration_versions got dropped).
+  Extended `TestPersist_PreservesR3Fields` to round-trip the field through
+  SQL — caught a class of bug where someone could later add the column
+  to the INSERT but forget the DO UPDATE SET clause (or vice versa).
+- Updated three pre-existing version-count assertions from 9→10
+  (`TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns`,
+  `TestMigrate_BootstrapPreservesWorktreeAndSeedsAllVersions`,
+  `TestMigrate_IntakeInterviewIdempotent_From008`). Reviewer noted this
+  is a pattern that will repeat at v11/v12 — worth parameterizing later;
+  three call sites isn't enough yet.
