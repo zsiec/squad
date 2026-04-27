@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zsiec/squad/internal/claims"
 )
 
 func postWithAgent(t *testing.T, s *Server, path, agent string) *httptest.ResponseRecorder {
@@ -86,11 +88,7 @@ Auth test is flaky.
 		t.Fatalf("status=%q want captured", status)
 	}
 
-	var holder string
-	err = s.db.QueryRowContext(context.Background(),
-		`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
-		testRepoID, "FEAT-900",
-	).Scan(&holder)
+	holder, err := claims.HolderOf(context.Background(), s.db, testRepoID, "FEAT-900")
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("claim row should be gone, got holder=%q err=%v", holder, err)
 	}

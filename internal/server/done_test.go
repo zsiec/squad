@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/claims"
 )
 
 func writeItem(t *testing.T, dir, name, body string) string {
@@ -65,10 +67,7 @@ updated: 2026-04-25
 	}
 
 	// claim row removed
-	var holder string
-	err := db.QueryRowContext(context.Background(),
-		`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
-		testRepoID, "BUG-200").Scan(&holder)
+	holder, err := claims.HolderOf(context.Background(), db, testRepoID, "BUG-200")
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("claim should be gone, got holder=%q err=%v", holder, err)
 	}
@@ -137,10 +136,7 @@ evidence_required: [test]
 	}
 
 	// Claim should still exist (we did NOT close)
-	var holder string
-	if err := db.QueryRowContext(context.Background(),
-		`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
-		testRepoID, "FEAT-300").Scan(&holder); err != nil {
+	if _, err := claims.HolderOf(context.Background(), db, testRepoID, "FEAT-300"); err != nil {
 		t.Fatalf("claim should still exist: %v", err)
 	}
 }

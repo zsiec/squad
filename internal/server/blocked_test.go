@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/zsiec/squad/internal/claims"
 )
 
 func TestBlocked_PostHappyPath(t *testing.T) {
@@ -53,10 +55,7 @@ updated: 2026-04-25
 	}
 
 	// claim removed
-	var holder string
-	err := db.QueryRowContext(context.Background(),
-		`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
-		testRepoID, "BUG-400").Scan(&holder)
+	holder, err := claims.HolderOf(context.Background(), db, testRepoID, "BUG-400")
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("claim should be gone, got holder=%q err=%v", holder, err)
 	}

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/zsiec/squad/internal/claims"
 )
 
 func TestRelease_PostHappyPath(t *testing.T) {
@@ -29,10 +31,7 @@ func TestRelease_PostHappyPath(t *testing.T) {
 	}
 
 	// claim row gone
-	var holder string
-	err := db.QueryRowContext(context.Background(),
-		`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
-		testRepoID, "BUG-100").Scan(&holder)
+	holder, err := claims.HolderOf(context.Background(), db, testRepoID, "BUG-100")
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("claim row should be gone, got holder=%q err=%v", holder, err)
 	}

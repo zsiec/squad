@@ -154,12 +154,7 @@ func currentHEADBranch(repoRoot string) string {
 }
 
 func lookupClaimHolderDB(ctx context.Context, db *sql.DB, repoID, itemID string) string {
-	var agent string
-	if err := db.QueryRowContext(ctx,
-		`SELECT agent_id FROM claims WHERE item_id = ? AND repo_id = ?`,
-		itemID, repoID).Scan(&agent); err != nil {
-		return ""
-	}
+	agent, _ := claims.HolderOf(ctx, db, repoID, itemID)
 	return agent
 }
 

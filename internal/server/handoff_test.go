@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/zsiec/squad/internal/claims"
 )
 
 func TestHandoff_PostHappyPath(t *testing.T) {
@@ -31,10 +33,7 @@ func TestHandoff_PostHappyPath(t *testing.T) {
 	}
 
 	// claim should be released by reassign
-	var holder string
-	err := db.QueryRowContext(context.Background(),
-		`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
-		testRepoID, "BUG-500").Scan(&holder)
+	holder, err := claims.HolderOf(context.Background(), db, testRepoID, "BUG-500")
 	if !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("claim should be released after reassign, got holder=%q err=%v", holder, err)
 	}

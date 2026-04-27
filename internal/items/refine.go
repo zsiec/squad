@@ -71,6 +71,8 @@ func Recapture(ctx context.Context, db *sql.DB, repoID, itemID, agentID string) 
 			return fmt.Errorf("%w (status=%q)", ErrWrongStatusForRecapture, status)
 		}
 
+		// Inline (rather than internal/claims.HolderOf) because claims
+		// imports items — calling claims from here would close the cycle.
 		var holder string
 		err = tx.QueryRowContext(ctx,
 			`SELECT agent_id FROM claims WHERE repo_id=? AND item_id=?`,
