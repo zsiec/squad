@@ -4,7 +4,7 @@ title: touch path normalization mismatch between hook and squad touch CLI
 type: bug
 priority: P2
 area: internal/touch
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/touch	3.329s
