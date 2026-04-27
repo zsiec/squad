@@ -4,7 +4,7 @@ title: migration bootstrap only seeds v1-4 markers; v5-8 are accidentally idempo
 type: chore
 priority: P3
 area: internal/store
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: []
