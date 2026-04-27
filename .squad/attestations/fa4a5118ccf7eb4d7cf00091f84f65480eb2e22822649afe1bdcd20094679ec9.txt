@@ -1,0 +1,8 @@
+=== RUN   TestCommit_SpecEpicItems_HappyPath_AllLinkagesPresent
+--- PASS: TestCommit_SpecEpicItems_HappyPath_AllLinkagesPresent (0.02s)
+=== RUN   TestCommit_SpecEpicItems_SpecSlugConflict_RollsBackEverything
+--- PASS: TestCommit_SpecEpicItems_SpecSlugConflict_RollsBackEverything (0.01s)
+=== RUN   TestCommit_SpecEpicItems_EpicSlugConflict_NoSpecWritten
+--- PASS: TestCommit_SpecEpicItems_EpicSlugConflict_NoSpecWritten (0.01s)
+PASS
+ok  	github.com/zsiec/squad/internal/intake	(cached)

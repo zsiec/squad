@@ -1,0 +1,8 @@
+=== RUN   TestMCP_RealBootstrap_InstallPathHitOnCleanHome
+--- PASS: TestMCP_RealBootstrap_InstallPathHitOnCleanHome (0.05s)
+=== RUN   TestMCP_BootstrapHookStagesBannerInToolsCall
+--- PASS: TestMCP_BootstrapHookStagesBannerInToolsCall (0.04s)
+=== RUN   TestMCP_BootstrapHookConsumedOnceAcrossTools
+--- PASS: TestMCP_BootstrapHookConsumedOnceAcrossTools (0.04s)
+PASS
+ok  	github.com/zsiec/squad/cmd/squad	0.545s

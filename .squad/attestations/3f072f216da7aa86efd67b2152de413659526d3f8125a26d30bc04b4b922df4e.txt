@@ -1,0 +1,16 @@
+=== RUN   TestCommit_ItemOnlyHappyPath
+--- PASS: TestCommit_ItemOnlyHappyPath (0.01s)
+=== RUN   TestCommit_ReadyFlagPromotesStatus
+--- PASS: TestCommit_ReadyFlagPromotesStatus (0.01s)
+=== RUN   TestCommit_FailureRollsBackFilesAndRows
+--- PASS: TestCommit_FailureRollsBackFilesAndRows (0.01s)
+=== RUN   TestCommit_AlreadyCommittedRejected
+--- PASS: TestCommit_AlreadyCommittedRejected (0.01s)
+=== RUN   TestCommit_ForeignAgentRejected
+--- PASS: TestCommit_ForeignAgentRejected (0.01s)
+=== RUN   TestCommit_UnknownSessionReturnsNotFound
+--- PASS: TestCommit_UnknownSessionReturnsNotFound (0.01s)
+=== RUN   TestCommit_RejectsSpecEpicShapeForNow
+--- PASS: TestCommit_RejectsSpecEpicShapeForNow (0.01s)
+PASS
+ok  	github.com/zsiec/squad/internal/intake	0.435s

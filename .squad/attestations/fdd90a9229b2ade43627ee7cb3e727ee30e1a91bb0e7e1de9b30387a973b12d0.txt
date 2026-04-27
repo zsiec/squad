@@ -1,0 +1,20 @@
+=== RUN   TestSession_OpenNewIsFresh
+--- PASS: TestSession_OpenNewIsFresh (0.01s)
+=== RUN   TestSession_OpenTwiceFromSameAgentResumes
+--- PASS: TestSession_OpenTwiceFromSameAgentResumes (0.01s)
+=== RUN   TestSession_OpenFromDifferentAgentInSameRepoCreatesNew
+--- PASS: TestSession_OpenFromDifferentAgentInSameRepoCreatesNew (0.01s)
+=== RUN   TestSession_OpenFromSameAgentDifferentRepoCreatesNew
+--- PASS: TestSession_OpenFromSameAgentDifferentRepoCreatesNew (0.01s)
+=== RUN   TestSession_CancelMarksClosed
+--- PASS: TestSession_CancelMarksClosed (0.01s)
+=== RUN   TestSession_CancelByOtherAgentRejected
+--- PASS: TestSession_CancelByOtherAgentRejected (0.01s)
+=== RUN   TestSession_CancelAlreadyCancelledRejected
+--- PASS: TestSession_CancelAlreadyCancelledRejected (0.01s)
+=== RUN   TestSession_CancelUnknownIDReturnsNotFound
+--- PASS: TestSession_CancelUnknownIDReturnsNotFound (0.01s)
+=== RUN   TestSession_RejectsUnknownMode
+--- PASS: TestSession_RejectsUnknownMode (0.01s)
+PASS
+ok  	github.com/zsiec/squad/internal/intake	0.340s

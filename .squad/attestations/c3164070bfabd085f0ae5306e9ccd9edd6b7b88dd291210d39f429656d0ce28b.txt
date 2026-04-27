@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/intake	0.241s

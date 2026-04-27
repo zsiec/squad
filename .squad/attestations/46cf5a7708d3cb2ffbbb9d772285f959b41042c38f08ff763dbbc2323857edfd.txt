@@ -1,0 +1,6 @@
+=== RUN   TestSeamsCallable
+--- PASS: TestSeamsCallable (0.00s)
+=== RUN   TestBannerSetConsume
+--- PASS: TestBannerSetConsume (0.00s)
+PASS
+ok  	github.com/zsiec/squad/internal/mcp/bootstrap	(cached)

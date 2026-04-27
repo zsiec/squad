@@ -1,0 +1,4 @@
+# github.com/zsiec/squad/internal/items
+internal/items/new.go:121:4: undefined: hierarchyFrontmatter
+FAIL	github.com/zsiec/squad/internal/intake [build failed]
+FAIL

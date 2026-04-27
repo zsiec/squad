@@ -1,0 +1,20 @@
+=== RUN   TestIntake_E2E_FullFlow
+--- PASS: TestIntake_E2E_FullFlow (0.08s)
+=== RUN   TestIntake_E2E_ReadyFlagBypassesInbox
+--- PASS: TestIntake_E2E_ReadyFlagBypassesInbox (0.06s)
+=== RUN   TestIntakeNew_PrintsSessionIDAndBriefing
+--- PASS: TestIntakeNew_PrintsSessionIDAndBriefing (0.01s)
+=== RUN   TestIntakeNew_ResumesExisting
+--- PASS: TestIntakeNew_ResumesExisting (0.02s)
+=== RUN   TestIntakeList_EmptyAndAfterOpen
+--- PASS: TestIntakeList_EmptyAndAfterOpen (0.02s)
+=== RUN   TestIntakeStatus_PrintsTranscriptAndStillRequired
+--- PASS: TestIntakeStatus_PrintsTranscriptAndStillRequired (0.02s)
+=== RUN   TestIntakeRefine_OpensSessionAndPrintsSnapshot
+--- PASS: TestIntakeRefine_OpensSessionAndPrintsSnapshot (0.02s)
+=== RUN   TestIntakeCancel_MarksClosed
+--- PASS: TestIntakeCancel_MarksClosed (0.02s)
+=== RUN   TestIntakeCommit_E2E_ItemOnly
+--- PASS: TestIntakeCommit_E2E_ItemOnly (0.01s)
+PASS
+ok  	github.com/zsiec/squad/cmd/squad	0.715s

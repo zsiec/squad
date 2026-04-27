@@ -1,0 +1,5 @@
+=== RUN   TestEnsure_UnsupportedPlatform_SetsBannerReturnsNil
+squad: dashboard auto-install not supported on this platform; run "squad serve" manually for the UI
+--- PASS: TestEnsure_UnsupportedPlatform_SetsBannerReturnsNil (0.00s)
+PASS
+ok  	github.com/zsiec/squad/internal/mcp/bootstrap	0.238s

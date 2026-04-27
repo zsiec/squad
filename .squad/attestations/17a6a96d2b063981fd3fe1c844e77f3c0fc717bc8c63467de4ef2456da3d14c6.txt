@@ -1,0 +1,16 @@
+=== RUN   TestServer_Version_Loopback
+--- PASS: TestServer_Version_Loopback (0.01s)
+=== RUN   TestServer_Version_IPv6Loopback
+--- PASS: TestServer_Version_IPv6Loopback (0.01s)
+=== RUN   TestServer_Version_RejectsNonLoopback
+=== RUN   TestServer_Version_RejectsNonLoopback/192.168.1.5:9000
+=== RUN   TestServer_Version_RejectsNonLoopback/10.0.0.1:1234
+=== RUN   TestServer_Version_RejectsNonLoopback/203.0.113.7:443
+=== RUN   TestServer_Version_RejectsNonLoopback/[2001:db8::1]:8080
+--- PASS: TestServer_Version_RejectsNonLoopback (0.01s)
+    --- PASS: TestServer_Version_RejectsNonLoopback/192.168.1.5:9000 (0.00s)
+    --- PASS: TestServer_Version_RejectsNonLoopback/10.0.0.1:1234 (0.00s)
+    --- PASS: TestServer_Version_RejectsNonLoopback/203.0.113.7:443 (0.00s)
+    --- PASS: TestServer_Version_RejectsNonLoopback/[2001:db8::1]:8080 (0.00s)
+PASS
+ok  	github.com/zsiec/squad/internal/server	0.351s

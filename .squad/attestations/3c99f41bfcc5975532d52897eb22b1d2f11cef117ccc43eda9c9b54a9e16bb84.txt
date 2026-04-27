@@ -1,0 +1,74 @@
+=== RUN   TestMigrate_AppliesNewMigrationsInOrder
+--- PASS: TestMigrate_AppliesNewMigrationsInOrder (0.00s)
+=== RUN   TestMigrate_SkipsAlreadyApplied
+--- PASS: TestMigrate_SkipsAlreadyApplied (0.00s)
+=== RUN   TestMigrate_FailsCleanlyOnBadMigration
+--- PASS: TestMigrate_FailsCleanlyOnBadMigration (0.00s)
+=== RUN   TestMigrate_SortsByVersionNotByName
+--- PASS: TestMigrate_SortsByVersionNotByName (0.00s)
+=== RUN   TestMigrate_RejectsDuplicateVersionNumbers
+--- PASS: TestMigrate_RejectsDuplicateVersionNumbers (0.00s)
+=== RUN   TestMigrate_BootstrapsLegacyDB
+--- PASS: TestMigrate_BootstrapsLegacyDB (0.02s)
+=== RUN   TestMigrate_AppliesIntakeProvenance
+--- PASS: TestMigrate_AppliesIntakeProvenance (0.01s)
+=== RUN   TestMigrate_AppliesAgentEvents
+--- PASS: TestMigrate_AppliesAgentEvents (0.01s)
+=== RUN   TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns
+--- PASS: TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns (0.02s)
+=== RUN   TestMigrate_AppliesIntakeInterview
+--- PASS: TestMigrate_AppliesIntakeInterview (0.01s)
+=== RUN   TestMigrate_IntakeInterviewIdempotent_From008
+--- PASS: TestMigrate_IntakeInterviewIdempotent_From008 (0.01s)
+=== RUN   TestHome_HonorsEnvOverride
+--- PASS: TestHome_HonorsEnvOverride (0.00s)
+=== RUN   TestHome_DefaultsToHomeDotSquad
+--- PASS: TestHome_DefaultsToHomeDotSquad (0.00s)
+=== RUN   TestEnsureHome_CreatesSubdirs
+--- PASS: TestEnsureHome_CreatesSubdirs (0.00s)
+=== RUN   TestDBPath_UsesHome
+--- PASS: TestDBPath_UsesHome (0.00s)
+=== RUN   TestWithTxRetry_RetriesOnBusy
+--- PASS: TestWithTxRetry_RetriesOnBusy (0.03s)
+=== RUN   TestWithTxRetry_DoesNotRetryNonBusy
+--- PASS: TestWithTxRetry_DoesNotRetryNonBusy (0.01s)
+=== RUN   TestWithTxRetry_RespectsContextCancel
+--- PASS: TestWithTxRetry_RespectsContextCancel (0.01s)
+=== RUN   TestWithTxRetry_ExhaustsAndReturnsLastBusy
+--- PASS: TestWithTxRetry_ExhaustsAndReturnsLastBusy (0.17s)
+=== RUN   TestWithTxRetry_HonoursTotalDeadlineRoughly
+--- PASS: TestWithTxRetry_HonoursTotalDeadlineRoughly (0.17s)
+=== RUN   TestOpen_AppliesSchemaIdempotently
+--- PASS: TestOpen_AppliesSchemaIdempotently (0.01s)
+=== RUN   TestOpen_RepoIdColumnPresent
+--- PASS: TestOpen_RepoIdColumnPresent (0.01s)
+=== RUN   TestBeginImmediate_CommitsWrite
+--- PASS: TestBeginImmediate_CommitsWrite (0.01s)
+=== RUN   TestSchema_NotifyEndpointsTableExists
+--- PASS: TestSchema_NotifyEndpointsTableExists (0.01s)
+=== RUN   TestSchema_NotifyEndpoints_PrimaryKeyOnInstanceKind
+--- PASS: TestSchema_NotifyEndpoints_PrimaryKeyOnInstanceKind (0.01s)
+=== RUN   TestSchema_ItemsHasR3Columns
+--- PASS: TestSchema_ItemsHasR3Columns (0.01s)
+=== RUN   TestSchema_AttestationsTable
+--- PASS: TestSchema_AttestationsTable (0.01s)
+=== RUN   TestSchema_SpecsAndEpicsTablesExist
+--- PASS: TestSchema_SpecsAndEpicsTablesExist (0.01s)
+=== RUN   TestOpen_UpgradesPreR3Schema
+--- PASS: TestOpen_UpgradesPreR3Schema (0.01s)
+PASS
+ok  	github.com/zsiec/squad/internal/store	0.967s
+=== RUN   TestChecklist_EmbeddedDefaultParses
+--- PASS: TestChecklist_EmbeddedDefaultParses (0.00s)
+=== RUN   TestChecklist_PerRepoOverrideTakesPrecedence
+--- PASS: TestChecklist_PerRepoOverrideTakesPrecedence (0.00s)
+=== RUN   TestChecklist_OverrideMissing_FallsBackToEmbedded
+--- PASS: TestChecklist_OverrideMissing_FallsBackToEmbedded (0.00s)
+=== RUN   TestChecklist_MissingRequiredDetected_ItemOnly
+--- PASS: TestChecklist_MissingRequiredDetected_ItemOnly (0.00s)
+=== RUN   TestChecklist_MissingRequiredDetected_SpecEpicItems
+--- PASS: TestChecklist_MissingRequiredDetected_SpecEpicItems (0.00s)
+=== RUN   TestChecklist_UnknownShape_ReturnsNil
+--- PASS: TestChecklist_UnknownShape_ReturnsNil (0.00s)
+PASS
+ok  	github.com/zsiec/squad/internal/intake	0.580s
