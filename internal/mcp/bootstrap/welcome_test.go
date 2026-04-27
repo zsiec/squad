@@ -117,9 +117,9 @@ func TestWelcome_OpenerFails_StillWritesSentinelNoError(t *testing.T) {
 	}
 }
 
-func TestWelcome_SentinelWriteFails_NoError(t *testing.T) {
+func TestWelcome_SentinelWriteFails_ReturnsErrorAndDoesNotOpen(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("SQUAD_NO_BROWSER", "1")
+	t.Setenv("SQUAD_NO_BROWSER", "")
 
 	// HomeDir does not exist as a directory — make it a file so MkdirAll/WriteFile fails.
 	bogus := filepath.Join(tmp, "not-a-dir")
@@ -127,10 +127,36 @@ func TestWelcome_SentinelWriteFails_NoError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	opener := func(url string) error { return nil }
+	var calls atomic.Int32
+	opener := func(url string) error { calls.Add(1); return nil }
 	opts := newWelcomeOpts(bogus, opener)
 
-	if err := Welcome(context.Background(), opts); err != nil {
-		t.Fatalf("Welcome should not return error on sentinel write failure: %v", err)
+	err := Welcome(context.Background(), opts)
+	if err == nil {
+		t.Fatal("Welcome should return error when sentinel write fails")
+	}
+	if got := calls.Load(); got != 0 {
+		t.Errorf("opener invoked %d times; must not run when sentinel write fails", got)
+	}
+}
+
+func TestWelcome_AtomicWrite_NoLingeringTempFile(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_NO_BROWSER", "1")
+	opener := func(url string) error { return nil }
+
+	if err := Welcome(context.Background(), newWelcomeOpts(tmp, opener)); err != nil {
+		t.Fatalf("Welcome: %v", err)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(tmp, ".squad"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() == ".welcomed" {
+			continue
+		}
+		t.Errorf("unexpected leftover file in .squad/: %s (atomic write should not leak temp files)", e.Name())
 	}
 }
