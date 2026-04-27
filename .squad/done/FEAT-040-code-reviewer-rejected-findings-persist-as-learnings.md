@@ -4,7 +4,7 @@ title: code-reviewer rejected findings persist as learnings
 type: feature
 priority: P2
 area: internal/learning
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]
