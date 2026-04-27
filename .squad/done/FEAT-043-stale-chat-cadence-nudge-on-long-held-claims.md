@@ -4,7 +4,7 @@ title: stale chat cadence nudge on long-held claims
 type: feature
 priority: P2
 area: cmd/squad
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]
