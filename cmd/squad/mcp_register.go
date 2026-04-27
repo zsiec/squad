@@ -217,6 +217,34 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 	})
 
 	srv.Register(mcp.Tool{
+		Name:        "squad_recapture",
+		Description: "Send a needs-refinement item back to the inbox after editing in response to reviewer feedback.",
+		InputSchema: json.RawMessage(schemaRecapture),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				ItemID  string `json:"item_id"`
+				AgentID string `json:"agent_id"`
+			}
+			if err := json.Unmarshal(raw, &args); err != nil {
+				return nil, err
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			agent, err := resolveAgentID(args.AgentID)
+			if err != nil {
+				return nil, err
+			}
+			return Recapture(ctx, RecaptureArgs{
+				DB:      db,
+				RepoID:  repoID,
+				AgentID: agent,
+				ItemID:  args.ItemID,
+			})
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_done",
 		Description: "Mark an item done: release claim, rewrite frontmatter, move to .squad/done/.",
 		InputSchema: json.RawMessage(schemaDone),
@@ -483,6 +511,30 @@ func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot strin
 				window = time.Duration(*args.WindowSeconds) * time.Second
 			}
 			return Stats(ctx, StatsArgs{DB: db, RepoID: repoID, Window: window})
+		},
+	})
+
+	srv.Register(mcp.Tool{
+		Name:        "squad_analyze",
+		Description: "Decompose an epic's items into a parallel-stream graph: streams (grouped item ids + file globs), dependency edges, parallelism factor.",
+		InputSchema: json.RawMessage(schemaAnalyze),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				EpicName string `json:"epic_name"`
+				AgentID  string `json:"agent_id"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			return Analyze(ctx, AnalyzeArgs{
+				SquadDir: filepath.Join(repoRoot, ".squad"),
+				EpicName: args.EpicName,
+			})
 		},
 	})
 

@@ -178,6 +178,29 @@ const schemaStats = `{
   "additionalProperties": false
 }`
 
+const schemaRefine = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["item_id", "comments"],
+  "properties": {
+    "item_id":  {"type": "string", "description": "Item identifier of an accepted item to send back for refinement."},
+    "comments": {"type": "string", "minLength": 1, "description": "Reviewer feedback recorded under ## Reviewer feedback in the item body."},
+    "agent_id": {"type": "string"}
+  },
+  "additionalProperties": false
+}`
+
+const schemaAnalyze = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["epic_name"],
+  "properties": {
+    "epic_name": {"type": "string", "minLength": 1, "description": "Epic name (matches the file under .squad/epics/<name>.md, no extension)."},
+    "agent_id":  {"type": "string"}
+  },
+  "additionalProperties": false
+}`
+
 const schemaListItems = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

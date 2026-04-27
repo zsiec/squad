@@ -18,6 +18,24 @@ import (
 	"github.com/zsiec/squad/internal/store"
 )
 
+type RefineArgs struct {
+	DB       *sql.DB `json:"-"`
+	RepoID   string  `json:"repo_id"`
+	ItemID   string  `json:"item_id"`
+	Comments string  `json:"comments"`
+}
+
+type RefineResult struct {
+	ItemID string `json:"item_id"`
+}
+
+func Refine(ctx context.Context, args RefineArgs) (*RefineResult, error) {
+	if err := items.Refine(ctx, args.DB, args.RepoID, args.ItemID, args.Comments); err != nil {
+		return nil, err
+	}
+	return &RefineResult{ItemID: args.ItemID}, nil
+}
+
 func newRefineCmd() *cobra.Command {
 	var comments string
 	cmd := &cobra.Command{
@@ -68,7 +86,7 @@ func runRefineMark(ctx context.Context, ids []string, comments string, stdout, s
 
 	anyFailed := false
 	for _, id := range ids {
-		err := items.Refine(ctx, db, repoID, id, comments)
+		_, err := Refine(ctx, RefineArgs{DB: db, RepoID: repoID, ItemID: id, Comments: comments})
 		if err == nil {
 			fmt.Fprintf(stdout, "refined %s\n", id)
 			continue

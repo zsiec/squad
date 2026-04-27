@@ -49,7 +49,7 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_touch", "squad_untouch", "squad_touches_list_others",
 		"squad_pr_link", "squad_pr_close",
 		"squad_doctor", "squad_stats",
-		"squad_ready",
+		"squad_ready", "squad_refine", "squad_analyze",
 	}
 	have := map[string]bool{}
 	for _, tt := range toolsResp.Result.Tools {
@@ -895,5 +895,294 @@ func TestMCPSquadReady_DoRFailDoesNotPromote(t *testing.T) {
 	}
 	if parsed.Status != "captured" {
 		t.Errorf("file frontmatter status=%q want captured (no promotion)", parsed.Status)
+	}
+}
+
+const mcpRefineItemCaptured = `---
+id: FEAT-501
+title: needs polish
+type: feature
+priority: P1
+area: auth
+status: captured
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Acceptance criteria
+- [ ] does the thing
+`
+
+func TestMCP_RefineRoundTrip(t *testing.T) {
+	env := newTestEnv(t)
+	if err := os.WriteFile(filepath.Join(env.ItemsDir, "FEAT-501.md"), []byte(mcpRefineItemCaptured), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mcpPersistFixture(t, env, "FEAT-501.md")
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_refine","arguments":{"item_id":"FEAT-501","comments":"please tighten AC"}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				ItemID string `json:"item_id"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error: %+v", resp.Error)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	if resp.Result.StructuredContent.ItemID != "FEAT-501" {
+		t.Errorf("item_id=%q want FEAT-501", resp.Result.StructuredContent.ItemID)
+	}
+
+	body, err := os.ReadFile(filepath.Join(env.ItemsDir, "FEAT-501.md"))
+	if err != nil {
+		t.Fatalf("read item: %v", err)
+	}
+	if !strings.Contains(string(body), "## Reviewer feedback") {
+		t.Errorf("file missing Reviewer feedback section:\n%s", body)
+	}
+	if !strings.Contains(string(body), "please tighten AC") {
+		t.Errorf("file missing comments body:\n%s", body)
+	}
+}
+
+func TestMCP_RefineEmptyCommentsRejects(t *testing.T) {
+	env := newTestEnv(t)
+	captured := strings.Replace(mcpRefineItemCaptured, "FEAT-501", "FEAT-502", 1)
+	if err := os.WriteFile(filepath.Join(env.ItemsDir, "FEAT-502.md"), []byte(captured), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mcpPersistFixture(t, env, "FEAT-502.md")
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_refine","arguments":{"item_id":"FEAT-502","comments":"   "}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	var resp struct {
+		Result struct {
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error == nil && !resp.Result.IsError {
+		t.Errorf("expected an error response for empty comments; got success: %s", lines[1])
+	}
+}
+
+func TestMCP_RefineUnknownItemErrors(t *testing.T) {
+	env := newTestEnv(t)
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_refine","arguments":{"item_id":"GHOST-999","comments":"x"}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	var resp struct {
+		Result struct {
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error == nil && !resp.Result.IsError {
+		t.Errorf("expected error for unknown item; got success: %s", lines[1])
+	}
+}
+
+// TestMCP_RecaptureRoundTrip exercises the squad_recapture tool against a
+// needs-refinement item the caller currently holds. The tool runs the same
+// items.Recapture transaction the cobra path runs: status flips to
+// captured, the Reviewer feedback section migrates into Refinement
+// history, and the claim row is released.
+func TestMCP_RecaptureRoundTrip(t *testing.T) {
+	env := newTestEnv(t)
+
+	const body = `---
+id: FEAT-901
+title: Recapture me
+type: feature
+priority: P2
+status: needs-refinement
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Reviewer feedback
+tighten the AC
+
+## Problem
+
+something
+`
+	itemPath := filepath.Join(env.ItemsDir, "FEAT-901-recapture-me.md")
+	if err := os.WriteFile(itemPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.DB.Exec(
+		`INSERT INTO items (repo_id, item_id, status, type, priority, title, area, path, updated_at, ac_total, ac_checked) VALUES (?, ?, 'needs-refinement', 'feature', 'P2', 'Recapture me', '', ?, 0, 0, 0)`,
+		env.RepoID, "FEAT-901", itemPath); err != nil {
+		t.Fatalf("seed items row: %v", err)
+	}
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "FEAT-901", env.AgentID, 1700000000, 1700000000); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_recapture","arguments":{"item_id":"FEAT-901"}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				ItemID  string `json:"item_id"`
+				AgentID string `json:"agent_id"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code int `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error: %+v\nraw: %s", resp.Error, lines[1])
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	if resp.Result.StructuredContent.ItemID != "FEAT-901" {
+		t.Errorf("item_id = %q; want FEAT-901", resp.Result.StructuredContent.ItemID)
+	}
+
+	raw, err := os.ReadFile(itemPath)
+	if err != nil {
+		t.Fatalf("read item after recapture: %v", err)
+	}
+	got := string(raw)
+	if !strings.Contains(got, "status: captured") {
+		t.Errorf("status not flipped to captured:\n%s", got)
+	}
+	if strings.Contains(got, "## Reviewer feedback") {
+		t.Errorf("Reviewer feedback section should have been removed from body:\n%s", got)
+	}
+	if !strings.Contains(got, "## Refinement history") {
+		t.Errorf("Refinement history section missing:\n%s", got)
+	}
+	if !strings.Contains(got, "### Round 1") {
+		t.Errorf("expected `### Round 1` header in refinement history; got:\n%s", got)
+	}
+
+	var n int
+	_ = env.DB.QueryRow(
+		`SELECT COUNT(*) FROM claims WHERE repo_id=? AND item_id=?`,
+		env.RepoID, "FEAT-901").Scan(&n)
+	if n != 0 {
+		t.Errorf("claim row should be deleted post-recapture; count=%d", n)
+	}
+}
+
+// TestMCP_RecaptureNoClaim verifies the no-claim error path returns a
+// JSON-RPC error rather than silently no-op-ing.
+func TestMCP_RecaptureNoClaim(t *testing.T) {
+	env := newTestEnv(t)
+
+	const body = `---
+id: FEAT-902
+title: Recapture without claim
+type: feature
+priority: P2
+status: needs-refinement
+created: 2026-04-26
+updated: 2026-04-26
+---
+
+## Reviewer feedback
+something
+
+## Problem
+
+x
+`
+	itemPath := filepath.Join(env.ItemsDir, "FEAT-902-x.md")
+	if err := os.WriteFile(itemPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.DB.Exec(
+		`INSERT INTO items (repo_id, item_id, status, type, priority, title, area, path, updated_at, ac_total, ac_checked) VALUES (?, ?, 'needs-refinement', 'feature', 'P2', 'x', '', ?, 0, 0, 0)`,
+		env.RepoID, "FEAT-902", itemPath); err != nil {
+		t.Fatalf("seed items: %v", err)
+	}
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_recapture","arguments":{"item_id":"FEAT-902"}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Error == nil {
+		t.Fatalf("expected JSON-RPC error for no-claim recapture; got: %s", lines[1])
+	}
+	if !strings.Contains(strings.ToLower(resp.Error.Message), "claim") {
+		t.Errorf("error message should mention claim, got: %q", resp.Error.Message)
 	}
 }
