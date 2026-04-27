@@ -41,13 +41,16 @@ changelog:
 
 brews:
   - name: squad
+    directory: Formula
     repository:
       owner: zsiec
       name: homebrew-tap
-      branch: main
+      branch: "release-{{ .Version }}"
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
       pull_request:
         enabled: true
+        base:
+          branch: main
     homepage: "https://github.com/zsiec/squad"
     description: "Project-management framework for software work done with AI coding agents"
     license: "MIT"
