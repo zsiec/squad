@@ -42,6 +42,9 @@ type Item struct {
 	AcceptedBy string `yaml:"accepted_by"`
 	AcceptedAt int64  `yaml:"accepted_at"`
 
+	AutoRefinedBy string `yaml:"auto_refined_by"`
+	AutoRefinedAt int64  `yaml:"auto_refined_at"`
+
 	ParentSpec string `yaml:"parent_spec"`
 	ParentEpic string `yaml:"parent_epic"`
 
