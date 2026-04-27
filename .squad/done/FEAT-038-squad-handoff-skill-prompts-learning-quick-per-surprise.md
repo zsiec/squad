@@ -4,7 +4,7 @@ title: squad-handoff skill prompts learning_quick per surprise
 type: feature
 priority: P2
 area: plugin/skills
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]
