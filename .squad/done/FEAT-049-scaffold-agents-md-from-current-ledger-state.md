@@ -4,7 +4,7 @@ title: scaffold AGENTS.md from current ledger state
 type: feature
 priority: P2
 area: internal/scaffold
-status: open
+status: done
 estimate: 3h
 risk: low
 evidence_required: [test]

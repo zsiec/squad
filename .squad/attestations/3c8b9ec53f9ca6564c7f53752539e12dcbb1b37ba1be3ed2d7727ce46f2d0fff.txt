@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/scaffold	1.308s
+ok  	github.com/zsiec/squad/cmd/squad	2.803s
