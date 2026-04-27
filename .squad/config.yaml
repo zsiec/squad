@@ -27,6 +27,7 @@ defaults:
 # Set to a large number (e.g. 100) to effectively disable.
 agent:
   claim_concurrency: 1
+  default_worktree_per_claim: true
 
 # Verification gates. `squad done` runs these and refuses to move the item
 # until they pass. Pass `--skip-verify` to override locally.

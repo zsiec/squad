@@ -24,4 +24,5 @@ docs/plans/
 # squad's own state when dogfooding
 .squad/db-snapshot/
 .squad/backups/
+.squad/worktrees/
 .claude/
