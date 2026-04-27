@@ -55,7 +55,7 @@ func runGo(cmd *cobra.Command) error {
 	if err := ensureRegistered(out, errOut); err != nil {
 		return err
 	}
-	if err := ensureClaim(out); err != nil {
+	if err := ensureClaim(out, errOut); err != nil {
 		return err
 	}
 	return flushMailbox(out)
@@ -73,7 +73,7 @@ func flushMailbox(out io.Writer) error {
 	return nil
 }
 
-func ensureClaim(out io.Writer) error {
+func ensureClaim(out, errOut io.Writer) error {
 	bc, err := bootClaimContext(context.Background())
 	if err != nil {
 		return err
@@ -101,15 +101,27 @@ func ensureClaim(out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	useWorktree := worktreeDefault()
 	for _, it := range ready {
 		if _, taken := claimedSet[it.ID]; taken {
 			continue
 		}
-		err := bc.store.Claim(context.Background(), it.ID, bc.agentID,
-			"squad go auto-claim", nil, false,
-			claims.ClaimWithPreflight(bc.itemsDir, bc.doneDir))
+		res, err := Claim(context.Background(), ClaimArgs{
+			DB:       bc.db,
+			RepoID:   bc.repoID,
+			AgentID:  bc.agentID,
+			ItemID:   it.ID,
+			Intent:   "squad go auto-claim",
+			ItemsDir: bc.itemsDir,
+			DoneDir:  bc.doneDir,
+			Worktree: useWorktree,
+			RepoRoot: root,
+		})
 		if err == nil {
 			fmt.Fprintf(out, "claimed %s: %s\n", it.ID, it.Title)
+			if res.WorktreePath != "" {
+				printWorktreeNudge(errOut, res.WorktreePath)
+			}
 			return printItemAC(out, bc.itemsDir, it.ID)
 		}
 		if errors.Is(err, claims.ErrClaimTaken) {

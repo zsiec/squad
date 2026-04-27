@@ -164,7 +164,7 @@ func TestGoCmd_UpgradesUnscopedAgentFromHookRegistration(t *testing.T) {
 	// drive the upgrade ahead of squad go — we want to assert that
 	// `squad go` itself performs the upgrade.
 	t.Setenv("SQUAD_NO_HYGIENE", "1")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	initCmd := newInitCmd()
 	initCmd.SetArgs([]string{"--yes", "--dir", repoDir})
@@ -259,7 +259,7 @@ func TestGoCmd_ClaimsTopReadyItem(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-go-claim-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	first := newInitCmd()
 	first.SetArgs([]string{"--yes", "--dir", repoDir})
@@ -309,7 +309,7 @@ func TestGoCmd_NoReadyItemsIsNotAnError(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-go-claim-2")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	first := newInitCmd()
 	first.SetArgs([]string{"--yes", "--dir", repoDir})
@@ -339,7 +339,7 @@ func TestGoCmd_PrintsAcceptanceCriteria(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-go-ac-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	first := newInitCmd()
 	first.SetArgs([]string{"--yes", "--dir", repoDir})
@@ -390,7 +390,7 @@ func TestGoCmd_FlushesMailboxAtEnd(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-go-flush-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	first := newInitCmd()
 	first.SetArgs([]string{"--yes", "--dir", repoDir})
@@ -457,7 +457,7 @@ func TestGoCmd_IdempotentTwoRunsOneClaim(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-go-idem")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	first := newInitCmd()
 	first.SetArgs([]string{"--yes", "--dir", repoDir})
@@ -504,7 +504,7 @@ func TestGoCmd_IdentityStableAcrossRuns(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "stable-session-id")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 
 	first := newInitCmd()
 	first.SetArgs([]string{"--yes", "--dir", repoDir})
