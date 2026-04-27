@@ -7,6 +7,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/zsiec/squad/internal/store"
@@ -24,9 +27,11 @@ const MaxPathLen = 4096
 // Tracker writes/reads against the touches table. Construction takes
 // *sql.DB + repoID directly (no store wrapper exists in Phase 1).
 type Tracker struct {
-	db     *sql.DB
-	repoID string
-	now    func() time.Time
+	db         *sql.DB
+	repoID     string
+	now        func() time.Time
+	rootOnce   sync.Once
+	cachedRoot string
 }
 
 func New(db *sql.DB, repoID string) *Tracker {
@@ -39,6 +44,53 @@ func NewWithClock(db *sql.DB, repoID string, clock func() time.Time) *Tracker {
 
 func (t *Tracker) nowUnix() int64 { return t.now().Unix() }
 
+// repoRoot returns the cached repo root, querying the repos table on
+// first call. Returns "" when no repos row exists for repoID — callers
+// fall back to leaving the path unchanged.
+func (t *Tracker) repoRoot() string {
+	t.rootOnce.Do(func() {
+		_ = t.db.QueryRow(
+			`SELECT COALESCE(root_path, '') FROM repos WHERE id = ?`, t.repoID,
+		).Scan(&t.cachedRoot)
+	})
+	return t.cachedRoot
+}
+
+// normalizePath canonicalises every path the touches table sees. The
+// pre-edit-touch hook records absolute paths (Claude Code emits
+// tool_input.file_path absolute) while squad touch / squad claim
+// --touches=... pass repo-relative paths; without this, the same
+// logical file produces two distinct rows. Behaviour:
+//
+//   - empty path: unchanged.
+//   - relative path: filepath.Clean.
+//   - absolute path inside the repo root: filepath.Rel + Clean.
+//   - absolute path outside the repo root (vendored deps, /usr/...,
+//     symlinked tooling): kept absolute via Clean — the only sensible
+//     identity when no repo-relative form exists.
+//   - repo root unknown (no repos row): kept verbatim via Clean — better
+//     than coercing to relative against "".
+func (t *Tracker) normalizePath(p string) string {
+	if p == "" {
+		return p
+	}
+	if !filepath.IsAbs(p) {
+		return filepath.Clean(p)
+	}
+	root := t.repoRoot()
+	if root == "" {
+		return filepath.Clean(p)
+	}
+	rel, err := filepath.Rel(root, p)
+	if err != nil {
+		return filepath.Clean(p)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return filepath.Clean(p)
+	}
+	return filepath.Clean(rel)
+}
+
 // Add inserts a touch row for (agentID, path) within the tracker's repo.
 // Returns the agent IDs that already hold this path open (excluding agentID).
 func (t *Tracker) Add(ctx context.Context, agentID, itemID, path string) (conflicts []string, err error) {
@@ -48,6 +100,7 @@ func (t *Tracker) Add(ctx context.Context, agentID, itemID, path string) (confli
 	if len(path) > MaxPathLen {
 		return nil, ErrPathTooLong
 	}
+	path = t.normalizePath(path)
 	err = store.WithTxRetry(ctx, t.db, func(tx *sql.Tx) error {
 		conflicts = conflicts[:0]
 		rows, err := tx.QueryContext(ctx, `
@@ -96,6 +149,7 @@ func (t *Tracker) EnsureActive(ctx context.Context, agentID, itemID, path string
 	if len(path) > MaxPathLen {
 		return nil, ErrPathTooLong
 	}
+	path = t.normalizePath(path)
 	err = store.WithTxRetry(ctx, t.db, func(tx *sql.Tx) error {
 		conflicts = conflicts[:0]
 		rows, err := tx.QueryContext(ctx, `
@@ -148,6 +202,7 @@ func (t *Tracker) Release(ctx context.Context, agentID, path string) error {
 	if path == "" {
 		return ErrEmptyPath
 	}
+	path = t.normalizePath(path)
 	_, err := t.db.ExecContext(ctx, `
 		UPDATE touches SET released_at = ?
 		WHERE repo_id = ? AND agent_id = ? AND path = ? AND released_at IS NULL
@@ -248,6 +303,7 @@ func (t *Tracker) Conflicts(ctx context.Context, agentID, path string) ([]string
 	if path == "" {
 		return nil, ErrEmptyPath
 	}
+	path = t.normalizePath(path)
 	rows, err := t.db.QueryContext(ctx, `
 		SELECT DISTINCT agent_id FROM touches
 		WHERE path = ? AND repo_id = ? AND released_at IS NULL AND agent_id != ?

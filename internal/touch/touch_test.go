@@ -49,6 +49,94 @@ func TestAdd_InsertsRow_NoConflicts(t *testing.T) {
 	}
 }
 
+// registerRepo seeds the repos row that touch.normalizePath consults
+// when stripping repo-root prefixes off absolute paths.
+func registerRepo(t *testing.T, db *sql.DB, repoID, rootPath string) {
+	t.Helper()
+	if _, err := db.Exec(
+		`INSERT INTO repos (id, root_path, remote_url, name, created_at) VALUES (?, ?, '', ?, 0)`,
+		repoID, rootPath, repoID,
+	); err != nil {
+		t.Fatalf("register repo: %v", err)
+	}
+}
+
+// TestAdd_AbsoluteAndRelativePathsCollide is the regression for the
+// path-normalization bug — the pre-edit-touch hook records absolute
+// paths (Claude Code emits tool_input.file_path absolute) while squad
+// touch and squad claim --touches=... pass repo-relative paths. The
+// touches table treated them as distinct rows; this test pins that
+// they collide on the conflict query.
+func TestAdd_AbsoluteAndRelativePathsCollide(t *testing.T) {
+	tr, db := newTestTracker(t)
+	root := t.TempDir()
+	registerRepo(t, db, "repo-test", root)
+	ctx := context.Background()
+	registerAgent(t, db, "repo-test", "agent-hook", "Hook", tr.nowUnix())
+	registerAgent(t, db, "repo-test", "agent-cli", "CLI", tr.nowUnix())
+
+	abs := filepath.Join(root, "internal/foo/bar.go")
+	if _, err := tr.Add(ctx, "agent-hook", "", abs); err != nil {
+		t.Fatalf("Add abs: %v", err)
+	}
+
+	conflicts, err := tr.Add(ctx, "agent-cli", "", "internal/foo/bar.go")
+	if err != nil {
+		t.Fatalf("Add rel: %v", err)
+	}
+	if len(conflicts) != 1 || conflicts[0] != "agent-hook" {
+		t.Fatalf("conflicts=%v want [agent-hook] — abs+rel writes must collide", conflicts)
+	}
+
+	others, err := tr.Conflicts(ctx, "agent-cli", "internal/foo/bar.go")
+	if err != nil {
+		t.Fatalf("Conflicts rel: %v", err)
+	}
+	if len(others) != 1 || others[0] != "agent-hook" {
+		t.Errorf("Conflicts rel→abs match failed: %v", others)
+	}
+
+	// `./internal/foo/bar.go` is the same logical file; filepath.Clean
+	// drops the `./` prefix so it must collide too. Cheap insurance
+	// against Clean's semantics drifting.
+	dot, err := tr.Conflicts(ctx, "agent-cli", "./internal/foo/bar.go")
+	if err != nil {
+		t.Fatalf("Conflicts ./rel: %v", err)
+	}
+	if len(dot) != 1 || dot[0] != "agent-hook" {
+		t.Errorf("`./` prefix should collapse to the canonical relative; got %v", dot)
+	}
+
+	if err := tr.Release(ctx, "agent-hook", abs); err != nil {
+		t.Fatalf("Release abs: %v", err)
+	}
+	stillThere, _ := tr.Conflicts(ctx, "agent-cli", "internal/foo/bar.go")
+	if len(stillThere) != 0 {
+		t.Errorf("Release abs should clear the rel-form conflict; got %v", stillThere)
+	}
+}
+
+// TestNormalizePath_OutsideRepoStaysAbsolute covers the fallback
+// branch — a vendored dep or system path outside the repo root cannot
+// be expressed as a clean relative form, so it stays absolute.
+func TestNormalizePath_OutsideRepoStaysAbsolute(t *testing.T) {
+	tr, db := newTestTracker(t)
+	root := t.TempDir()
+	registerRepo(t, db, "repo-test", root)
+	ctx := context.Background()
+	registerAgent(t, db, "repo-test", "agent-a", "A", tr.nowUnix())
+
+	outside := "/usr/local/share/external.go"
+	if _, err := tr.Add(ctx, "agent-a", "", outside); err != nil {
+		t.Fatal(err)
+	}
+	var stored string
+	_ = db.QueryRow(`SELECT path FROM touches WHERE agent_id='agent-a' LIMIT 1`).Scan(&stored)
+	if stored != outside {
+		t.Errorf("path outside repo should stay absolute; stored=%q want %q", stored, outside)
+	}
+}
+
 func TestAdd_RejectsOversizedPath(t *testing.T) {
 	tr, db := newTestTracker(t)
 	registerAgent(t, db, "repo-test", "agent-a", "A", tr.nowUnix())
