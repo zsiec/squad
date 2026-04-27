@@ -4,11 +4,11 @@ title: dogfood walkthrough verifying new flow lights up the ledger
 type: task
 priority: P1
 area: dogfood
-status: open
+status: done
 estimate: 1h
 risk: low
 created: 2026-04-26
-updated: 2026-04-26
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777245998
 accepted_by: agent-bbf6

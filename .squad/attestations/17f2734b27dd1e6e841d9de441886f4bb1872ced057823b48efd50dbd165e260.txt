@@ -1,0 +1,2 @@
+ok  	github.com/zsiec/squad/internal/worktree	0.321s
+ok  	github.com/zsiec/squad/cmd/squad	1.342s

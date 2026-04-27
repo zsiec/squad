@@ -4,7 +4,7 @@ title: squad worktree — provision an isolated git worktree per claim, clean on
 type: feature
 priority: P1
 area: cli
-status: open
+status: done
 estimate: 6h
 risk: high
 evidence_required: [test]
