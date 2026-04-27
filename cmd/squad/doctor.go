@@ -3,19 +3,119 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/hygiene"
+	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
+	"github.com/zsiec/squad/internal/learning"
 	"github.com/zsiec/squad/internal/store"
 )
+
+// doctorLearningDebounceDays is the per-(repo, code) debounce window
+// for auto-emitted doctor learnings. The same drift class shouldn't
+// produce a fresh proposal on every nightly sweep — once a week is
+// already aggressive given the proposed-queue triage cost.
+const doctorLearningDebounceDays = 7
+
+// proposeDoctorLearnings emits at most one proposed gotcha learning
+// per finding code for the current repo, debounced to once per
+// doctorLearningDebounceDays. Failures are best-effort with a stderr
+// warning so the sweep itself isn't aborted by a learning-write hiccup.
+// When findings is empty, returns immediately without DB or fs work.
+func proposeDoctorLearnings(ctx context.Context, repoRoot string, findings []hygiene.Finding) {
+	if len(findings) == 0 {
+		return
+	}
+	existing, err := learning.Walk(repoRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warn: doctor learnings: walk learnings: %v\n", err)
+		return
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -doctorLearningDebounceDays)
+	emittedRecently := map[string]bool{}
+	for _, l := range existing {
+		if !hasTag(l.Tags, "doctor-finding") {
+			continue
+		}
+		t, err := time.Parse("2006-01-02", l.Created)
+		if err != nil || !t.After(cutoff) {
+			continue
+		}
+		for _, tg := range l.Tags {
+			if code, ok := strings.CutPrefix(tg, "doctor-code-"); ok {
+				emittedRecently[code] = true
+			}
+		}
+	}
+
+	byCode := map[string][]hygiene.Finding{}
+	codeOrder := []string{}
+	for _, f := range findings {
+		if _, seen := byCode[f.Code]; !seen {
+			codeOrder = append(codeOrder, f.Code)
+		}
+		byCode[f.Code] = append(byCode[f.Code], f)
+	}
+	agentID, _ := identity.AgentID()
+	date := time.Now().UTC().Format("2006-01-02")
+	for _, code := range codeOrder {
+		slugCode := strings.ReplaceAll(code, "_", "-")
+		if emittedRecently[slugCode] {
+			continue
+		}
+		group := byCode[code]
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "`squad doctor` found %d %s finding(s):\n\n", len(group), code)
+		for _, f := range group {
+			sb.WriteString("- " + f.Message + "\n")
+			if f.Fix != "" {
+				sb.WriteString("  fix: " + f.Fix + "\n")
+			}
+		}
+		_, perr := LearningPropose(ctx, LearningProposeArgs{
+			RepoRoot:     repoRoot,
+			Kind:         "gotcha",
+			Slug:         "doctor-" + slugCode + "-" + date,
+			// No colon in the title — stubBody emits frontmatter as
+			// unquoted YAML scalars, and "key: value: extra" is not a
+			// valid plain scalar. An unparseable artifact silently breaks
+			// the debounce check (learning.Walk skips it, emittedRecently
+			// stays empty, every sweep re-emits a new file with the same
+			// or different slug).
+			Title:        "doctor finding " + code,
+			Area:         "hygiene",
+			Looks:        sb.String(),
+			Tags:         []string{"doctor-finding", "doctor-code-" + slugCode},
+			RelatedItems: []string{},
+			CreatedBy:    agentID,
+		})
+		if perr != nil {
+			var sce *SlugCollisionError
+			if !errors.As(perr, &sce) {
+				fmt.Fprintf(os.Stderr, "warn: doctor learnings: propose %s: %v\n", code, perr)
+			}
+		}
+	}
+}
+
+func hasTag(tags []string, want string) bool {
+	for _, t := range tags {
+		if t == want {
+			return true
+		}
+	}
+	return false
+}
 
 // checkWorktreeOrphans scans <squadDir>/worktrees/ for directories that have
 // no matching active claim row. Each unmatched directory becomes a finding
@@ -189,6 +289,7 @@ func (a itemsHygieneAdapter) Broken(ctx context.Context) ([]hygiene.BrokenRef, e
 
 func newDoctorCmd() *cobra.Command {
 	var strict bool
+	var noLearnings bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose stale claims, ghost agents, orphan touches, broken refs, and DB integrity",
@@ -200,9 +301,10 @@ func newDoctorCmd() *cobra.Command {
 			}
 			defer bc.Close()
 			squadDir := filepath.Dir(bc.itemsDir)
+			repoRoot := filepath.Dir(squadDir)
 			adapter := itemsHygieneAdapter{squadDir: squadDir}
 			sw := hygiene.New(bc.db, bc.repoID, adapter)
-			if cfg, err := config.Load(filepath.Dir(squadDir)); err == nil && cfg.Hygiene.StaleClaimMinutes > 0 {
+			if cfg, err := config.Load(repoRoot); err == nil && cfg.Hygiene.StaleClaimMinutes > 0 {
 				sw = sw.WithStaleSeconds(int64(cfg.Hygiene.StaleClaimMinutes) * 60)
 			}
 			findings, err := sw.Sweep(ctx)
@@ -213,6 +315,9 @@ func newDoctorCmd() *cobra.Command {
 			findings = append(findings, intakeFindings...)
 			findings = append(findings, checkWorktreeOrphans(ctx, bc.db, bc.repoID, squadDir)...)
 			hookFindings := checkHookDrift(cmd.OutOrStdout())
+			if !noLearnings {
+				proposeDoctorLearnings(ctx, repoRoot, findings)
+			}
 			totalFindings := len(findings) + len(hookFindings)
 			if totalFindings == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "doctor: all clear")
@@ -235,6 +340,8 @@ func newDoctorCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&strict, "strict", false,
 		"exit non-zero if any findings exist; use this in CI to fail the job")
+	cmd.Flags().BoolVar(&noLearnings, "no-learnings", false,
+		"skip the auto-emit of proposed gotcha learnings per finding kind (CI/scripted audits)")
 	return cmd
 }
 
