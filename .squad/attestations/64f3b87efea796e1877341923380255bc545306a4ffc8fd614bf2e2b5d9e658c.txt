@@ -1,0 +1,4 @@
+# github.com/zsiec/squad/internal/server
+internal/server/agent_events.go:8:2: "sort" imported and not used
+FAIL	github.com/zsiec/squad/cmd/squad [build failed]
+FAIL

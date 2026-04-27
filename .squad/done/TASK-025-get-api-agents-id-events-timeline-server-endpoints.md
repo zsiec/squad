@@ -4,12 +4,12 @@ title: GET /api/agents/:id/events + /timeline server endpoints
 type: task
 priority: P1
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777251706
 accepted_by: agent-bbf6

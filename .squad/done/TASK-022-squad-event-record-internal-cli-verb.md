@@ -4,12 +4,12 @@ title: squad event record internal CLI verb
 type: task
 priority: P1
 area: cli
-status: open
+status: done
 estimate: 45m
 risk: medium
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-bbf6
 captured_at: 1777251703
 accepted_by: agent-bbf6
