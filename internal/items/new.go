@@ -41,7 +41,7 @@ accepted_by: %s
 accepted_at: %d
 references: []
 relates-to: []
-blocked-by: []
+blocked-by: []%s
 ---
 
 ## Problem
@@ -71,6 +71,14 @@ type Options struct {
 	Area       string
 	Ready      bool
 	CapturedBy string
+	// Hierarchy linkage — populated when an item is created as part of a
+	// spec/epic bundle. Empty values are omitted from the frontmatter so
+	// item-only items stay clean. ParentSpec and Epic are emitted as
+	// `parent_spec:` and `epic:` to match the keys items.Item / persist
+	// already read; IntakeSessionID is emitted as `intake_session_id:`.
+	ParentSpec      string
+	Epic            string
+	IntakeSessionID string
 }
 
 func New(squadDir, prefix, title string) (string, error) {
@@ -110,6 +118,7 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 			id, yamlInline(title), t, priority, area, status, estimate, risk,
 			defaultEvidenceForType(prefix), now, now,
 			yamlInline(opts.CapturedBy), nowUnix, yamlInline(acceptedBy), acceptedAt,
+			hierarchyFrontmatter(opts),
 		)
 		path = filepath.Join(squadDir, "items", id+"-"+kebab(title)+".md")
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -121,6 +130,27 @@ func NewWithOptions(squadDir, prefix, title string, opts Options) (string, error
 		return "", err
 	}
 	return path, nil
+}
+
+// hierarchyFrontmatter returns the optional `parent_spec:`, `epic:`, and
+// `intake_session_id:` lines (each with leading newline) when the matching
+// option is set. Empty string when none are set so item-only items keep
+// the same frontmatter shape they had before this option existed.
+func hierarchyFrontmatter(opts Options) string {
+	var b strings.Builder
+	if opts.ParentSpec != "" {
+		b.WriteString("\nparent_spec: ")
+		b.WriteString(yamlInline(opts.ParentSpec))
+	}
+	if opts.Epic != "" {
+		b.WriteString("\nepic: ")
+		b.WriteString(yamlInline(opts.Epic))
+	}
+	if opts.IntakeSessionID != "" {
+		b.WriteString("\nintake_session_id: ")
+		b.WriteString(yamlInline(opts.IntakeSessionID))
+	}
+	return b.String()
 }
 
 func defaultEvidenceForType(prefix string) string {

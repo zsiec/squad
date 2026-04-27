@@ -78,8 +78,11 @@ func commitImpl(
 	if err != nil {
 		return CommitResult{}, err
 	}
+	if shape == ShapeSpecEpicItems {
+		return commitSpecEpicItems(ctx, db, squadDir, sessionID, agentID, bundle, ready, write)
+	}
 	if shape != ShapeItemOnly {
-		return CommitResult{}, fmt.Errorf("intake commit: shape %q not yet supported (item_only only)", shape)
+		return CommitResult{}, fmt.Errorf("intake commit: shape %q not supported", shape)
 	}
 
 	bundleJSON, err := json.Marshal(bundle)
