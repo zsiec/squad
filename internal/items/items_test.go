@@ -282,6 +282,60 @@ body
 	}
 }
 
+func TestParse_RequiresCapability(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "FEAT-001.md")
+	body := `---
+id: FEAT-001
+title: needs go and sql
+type: feature
+priority: P2
+area: core
+status: open
+estimate: 1h
+risk: low
+requires_capability: [go, sql]
+---
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	want := []string{"go", "sql"}
+	if !reflect.DeepEqual(it.RequiresCapability, want) {
+		t.Errorf("RequiresCapability=%v want %v", it.RequiresCapability, want)
+	}
+}
+
+func TestParse_RequiresCapabilityAbsentDefaultsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "FEAT-001.md")
+	body := `---
+id: FEAT-001
+title: legacy item without the key
+type: feature
+priority: P2
+area: core
+status: open
+estimate: 1h
+risk: low
+---
+`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(it.RequiresCapability) != 0 {
+		t.Errorf("want empty slice when key absent, got %v", it.RequiresCapability)
+	}
+}
+
 func TestParse_EvidenceRequired_Empty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "FEAT-002.md")

@@ -204,6 +204,12 @@ func bootstrapLegacyVersions(ctx context.Context, db *sql.DB) error {
 	if hasIntakeSessionID > 0 {
 		legacy = append(legacy, legacyRow{9, "intake_interview"})
 	}
+	var hasRequiresCapability int
+	_ = db.QueryRowContext(ctx,
+		`SELECT count(*) FROM pragma_table_info('items') WHERE name='requires_capability'`).Scan(&hasRequiresCapability)
+	if hasRequiresCapability > 0 {
+		legacy = append(legacy, legacyRow{10, "items_requires_capability"})
+	}
 	nowTS := time.Now().Unix()
 	for _, l := range legacy {
 		if _, err := db.ExecContext(ctx,

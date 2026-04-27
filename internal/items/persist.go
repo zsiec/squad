@@ -18,9 +18,9 @@ import (
 const persistUpsert = `
 INSERT INTO items (repo_id, item_id, title, type, priority, area, status, estimate,
                    risk, not_before, ac_total, ac_checked, archived, path, updated_at,
-                   epic_id, parallel, conflicts_with,
+                   epic_id, parallel, conflicts_with, requires_capability,
                    captured_by, captured_at, accepted_by, accepted_at, parent_spec)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(repo_id, item_id) DO UPDATE SET
   title=excluded.title, type=excluded.type, priority=excluded.priority,
   area=excluded.area, status=excluded.status, estimate=excluded.estimate,
@@ -28,6 +28,7 @@ ON CONFLICT(repo_id, item_id) DO UPDATE SET
   ac_checked=excluded.ac_checked, archived=excluded.archived, path=excluded.path,
   updated_at=excluded.updated_at, epic_id=excluded.epic_id,
   parallel=excluded.parallel, conflicts_with=excluded.conflicts_with,
+  requires_capability=excluded.requires_capability,
   captured_by=excluded.captured_by, captured_at=excluded.captured_at,
   accepted_by=excluded.accepted_by, accepted_at=excluded.accepted_at,
   parent_spec=excluded.parent_spec
@@ -55,6 +56,13 @@ func PersistOne(ctx context.Context, tx *sql.Tx, repoID string, it Item, archive
 	// json.Marshal returns "null" for a nil slice; coerce to "[]" so json_each works on the column.
 	if len(it.ConflictsWith) == 0 {
 		confJSON = []byte("[]")
+	}
+	capJSON, err := json.Marshal(it.RequiresCapability)
+	if err != nil {
+		return err
+	}
+	if len(it.RequiresCapability) == 0 {
+		capJSON = []byte("[]")
 	}
 	var epic sql.NullString
 	if it.Epic != "" {
@@ -85,7 +93,7 @@ func PersistOne(ctx context.Context, tx *sql.Tx, repoID string, it Item, archive
 		repoID, it.ID, it.Title, it.Type, it.Priority, it.Area, status,
 		it.Estimate, it.Risk, it.NotBefore, it.ACTotal, it.ACChecked,
 		archivedFlag, it.Path, ts,
-		epic, parallel, string(confJSON),
+		epic, parallel, string(confJSON), string(capJSON),
 		capBy, capAt, accBy, accAt, parentSpec,
 	)
 	return err

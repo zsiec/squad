@@ -125,7 +125,8 @@ func TestPersist_PreservesR3Fields(t *testing.T) {
 	it := Item{
 		ID: "FEAT-004", Title: "with epic", Status: "open", Path: "/p",
 		Epic: "auth-rework", Parallel: true,
-		ConflictsWith: []string{"a.go", "b.go"},
+		ConflictsWith:      []string{"a.go", "b.go"},
+		RequiresCapability: []string{"go", "sql"},
 	}
 	if err := Persist(ctx, db, "repo-1", it, false); err != nil {
 		t.Fatalf("persist: %v", err)
@@ -134,14 +135,16 @@ func TestPersist_PreservesR3Fields(t *testing.T) {
 		epic    string
 		par     int
 		confRaw string
+		capRaw  string
 	)
 	if err := db.QueryRow(
-		`SELECT epic_id, parallel, conflicts_with FROM items WHERE item_id=?`,
-		"FEAT-004").Scan(&epic, &par, &confRaw); err != nil {
+		`SELECT epic_id, parallel, conflicts_with, requires_capability FROM items WHERE item_id=?`,
+		"FEAT-004").Scan(&epic, &par, &confRaw, &capRaw); err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if epic != "auth-rework" || par != 1 || confRaw != `["a.go","b.go"]` {
-		t.Errorf("got epic=%q parallel=%d conflicts=%q", epic, par, confRaw)
+	if epic != "auth-rework" || par != 1 || confRaw != `["a.go","b.go"]` ||
+		capRaw != `["go","sql"]` {
+		t.Errorf("got epic=%q parallel=%d conflicts=%q caps=%q", epic, par, confRaw, capRaw)
 	}
 }
 
