@@ -97,6 +97,16 @@ function toTimelineRow(p, sseKind) {
     return p;
   }
   if (sseKind === 'message') {
+    if (p.kind === 'progress') {
+      return {
+        kind: 'progress',
+        source: 'progress',
+        agent_id: p.agent_id,
+        ts: Math.floor(Date.now() / 1000),
+        item_id: p.thread || '',
+        body: p.body || '',
+      };
+    }
     return {
       kind: 'chat',
       source: 'chat',
@@ -109,6 +119,16 @@ function toTimelineRow(p, sseKind) {
   }
   if (sseKind === 'item_changed') {
     // claimsPump kinds: "claimed" | "released" | "reassigned" | "done" | "blocked"
+    if (p.kind === 'blocked') {
+      return {
+        kind: 'blocked',
+        source: 'blocked',
+        agent_id: p.agent_id,
+        ts: p.released_at || p.claimed_at || Math.floor(Date.now() / 1000),
+        item_id: p.item_id || '',
+        outcome: p.outcome || '',
+      };
+    }
     let kind = 'claim';
     if (p.kind === 'released') kind = 'release';
     else if (p.kind === 'done') kind = 'done';

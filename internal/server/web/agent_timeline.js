@@ -5,6 +5,8 @@ const FILTER_KEY = 'squad.timeline.filters';
 const CHIPS = [
   { id: 'chat',           label: 'chat'   },
   { id: 'claim',          label: 'claim'  },
+  { id: 'progress',       label: 'progress' },
+  { id: 'blocked',        label: 'blocked'  },
   { id: 'commit',         label: 'commit' },
   { id: 'attestation',    label: 'attest' },
   { id: 'pre_tool',       label: 'pre'    },
@@ -42,6 +44,8 @@ function classify(row) {
   if (kind === 'claim')       return ['claim', null];
   if (kind === 'release')     return ['claim', null];
   if (kind === 'done')        return ['claim', null];
+  if (kind === 'progress')    return ['progress', null];
+  if (kind === 'blocked')     return ['blocked', null];
   if (kind === 'commit')      return ['commit', null];
   if (kind === 'attestation') return ['attestation', null];
   if (kind === 'event') {
@@ -86,6 +90,18 @@ function renderRow(row, primary, secondary) {
         <span class="tl-body">${escapeHtml(row.item_id || '')}${detail}${row.intent ? ' — ' + escapeHtml(row.intent) : ''}</span>
       </div>`;
     }
+    case 'progress':
+      return `<div class="tl-row" ${dataAttrs}>
+        <span class="tl-time">${escapeHtml(ts)}</span>
+        <span class="tl-badge tl-progress">progress</span>
+        <span class="tl-body">${escapeHtml(row.item_id ? row.item_id + ' — ' : '')}${escapeHtml(trunc(row.body || '', 280))}</span>
+      </div>`;
+    case 'blocked':
+      return `<div class="tl-row" ${dataAttrs}>
+        <span class="tl-time">${escapeHtml(ts)}</span>
+        <span class="tl-badge tl-blocked">blocked</span>
+        <span class="tl-body">${escapeHtml(row.item_id || '')}${row.outcome ? ' — ' + escapeHtml(row.outcome) : ''}</span>
+      </div>`;
     case 'commit':
       return `<div class="tl-row" ${dataAttrs}>
         <span class="tl-time">${escapeHtml(ts)}</span>

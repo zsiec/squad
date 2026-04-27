@@ -2852,3 +2852,7 @@ a.agent-detail-claim:hover {
   margin-left: auto;
 }
 .tl-session:focus { outline: none; border-color: var(--accent-dim); }
+
+/* TASK-037: first-class progress + blocked timeline kinds */
+.tl-badge.tl-progress { color: var(--accent-2, #9cf); }
+.tl-badge.tl-blocked  { color: var(--danger, #c44); }
