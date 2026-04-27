@@ -6,17 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/zsiec/squad/internal/api"
 )
 
-type InboxEntry struct {
-	ID         string `json:"id"`
-	Title      string `json:"title"`
-	CapturedBy string `json:"captured_by,omitempty"`
-	CapturedAt int64  `json:"captured_at,omitempty"`
-	ParentSpec string `json:"parent_spec,omitempty"`
-	DoRPass    bool   `json:"dor_pass"`
-	Path       string `json:"path"`
-}
+// InboxEntry is the wire shape for GET /api/inbox; aliased to the shared
+// declaration so a field added server-side is observable here at compile
+// time without a parallel struct edit.
+type InboxEntry = api.InboxEntry
 
 type InboxOpts struct{}
 

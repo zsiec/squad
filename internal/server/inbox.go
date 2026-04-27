@@ -3,18 +3,9 @@ package server
 import (
 	"net/http"
 
+	"github.com/zsiec/squad/internal/api"
 	"github.com/zsiec/squad/internal/items"
 )
-
-type inboxEntry struct {
-	ID         string `json:"id"`
-	Title      string `json:"title"`
-	CapturedBy string `json:"captured_by,omitempty"`
-	CapturedAt int64  `json:"captured_at,omitempty"`
-	ParentSpec string `json:"parent_spec,omitempty"`
-	DoRPass    bool   `json:"dor_pass"`
-	Path       string `json:"path"`
-}
 
 func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.db.QueryContext(r.Context(),
@@ -28,9 +19,9 @@ func (s *Server) handleInbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	out := make([]inboxEntry, 0)
+	out := make([]api.InboxEntry, 0)
 	for rows.Next() {
-		var e inboxEntry
+		var e api.InboxEntry
 		if err := rows.Scan(&e.ID, &e.Title, &e.CapturedBy, &e.CapturedAt, &e.ParentSpec, &e.Path); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
