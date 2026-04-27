@@ -20,10 +20,19 @@ var typeByPrefix = map[string]string{
 	"BET":   "bet",
 }
 
+// TemplateACPlaceholders are the literal AC checkbox labels emitted by
+// `squad new` into the stub template. The Definition of Ready rule
+// `template-not-placeholder` consults this list, so the two stay in sync
+// if the template ever changes.
+var TemplateACPlaceholders = []string{
+	"Specific, testable thing 1",
+	"Specific, testable thing 2",
+}
+
 // stubTemplate uses %s for the title placeholder; we feed yaml-quoted output
 // (`"foo: bar"` etc.) so titles containing colons, newlines, leading dashes,
 // or other YAML-special characters can't poison the frontmatter.
-const stubTemplate = `---
+var stubTemplate = `---
 id: %s
 title: %s
 type: %s
@@ -51,8 +60,8 @@ What is wrong / what doesn't exist. 1–3 sentences.
 Why this matters. Where in the codebase it lives. What's been tried.
 
 ## Acceptance criteria
-- [ ] Specific, testable thing 1
-- [ ] Specific, testable thing 2
+- [ ] ` + TemplateACPlaceholders[0] + `
+- [ ] ` + TemplateACPlaceholders[1] + `
 
 ## Notes
 Optional design notes. Trade-offs considered. Pointers to related items.

@@ -1,6 +1,10 @@
 package items
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestDoRCheck(t *testing.T) {
 	cases := []struct {
@@ -60,6 +64,30 @@ func TestDoRCheck(t *testing.T) {
 			Item{Title: "fix it", Area: "<fill-in>",
 				Body: "no AC heading at all"},
 			3},
+		{"AC is the unmodified squad-new template placeholders",
+			Item{Title: "investigate the flaky auth test we have", Area: "auth",
+				Body: "## Acceptance criteria\n- [ ] Specific, testable thing 1\n- [ ] Specific, testable thing 2\n"},
+			1},
+		{"AC has one placeholder swapped for a real criterion",
+			Item{Title: "investigate the flaky auth test we have", Area: "auth",
+				Body: "## Acceptance criteria\n- [ ] Specific, testable thing 1\n- [ ] real criterion that means something\n"},
+			0},
+		{"AC has only one placeholder remaining (other deleted)",
+			Item{Title: "investigate the flaky auth test we have", Area: "auth",
+				Body: "## Acceptance criteria\n- [ ] Specific, testable thing 2\n"},
+			1},
+		{"AC has placeholders AND template prose in Problem/Context — only AC counts",
+			Item{Title: "investigate the flaky auth test we have", Area: "auth",
+				Body: "## Problem\nWhat is wrong / what doesn't exist. 1–3 sentences.\n\n## Context\nWhy this matters.\n\n## Acceptance criteria\n- [ ] real, testable thing\n"},
+			0},
+		{"AC has near-miss text — exact match required",
+			Item{Title: "investigate the flaky auth test we have", Area: "auth",
+				Body: "## Acceptance criteria\n- [ ] Specific testable thing 1\n- [ ] Specific testable thing 2\n"},
+			0},
+		{"AC placeholders with checked boxes still trip the rule",
+			Item{Title: "investigate the flaky auth test we have", Area: "auth",
+				Body: "## Acceptance criteria\n- [x] Specific, testable thing 1\n- [ ] Specific, testable thing 2\n"},
+			1},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -68,5 +96,34 @@ func TestDoRCheck(t *testing.T) {
 				t.Fatalf("got %d violations, want %d: %+v", len(got), c.wantViolations, got)
 			}
 		})
+	}
+}
+
+// A freshly-created `squad new` item must trip the template-not-placeholder
+// rule end-to-end: this proves the rule's sentinel list and the stub template
+// are sourced from the same constants and cannot drift.
+func TestDoRCheck_FreshSquadNewItemFailsTemplateRule(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := NewWithOptions(dir, "BUG", "investigate the flaky auth test we have", Options{Area: "auth"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	violations := DoRCheck(it)
+	var found bool
+	for _, v := range violations {
+		if v.Rule == "template-not-placeholder" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected template-not-placeholder violation on fresh squad-new body; got %+v", violations)
 	}
 }

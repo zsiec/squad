@@ -89,6 +89,9 @@ func TestIntake_E2E_FullFlow(t *testing.T) {
 		t.Fatalf("item file missing default AC checkbox:\n%s", body)
 	}
 	body = bytes.Replace(body, []byte("area: <fill-in>"), []byte("area: auth"), 1)
+	body = bytes.Replace(body,
+		[]byte("- [ ] Specific, testable thing 1\n- [ ] Specific, testable thing 2\n"),
+		[]byte("- [ ] real, testable acceptance criterion\n"), 1)
 	if err := os.WriteFile(itemPath, body, 0o644); err != nil {
 		t.Fatalf("write item: %v", err)
 	}
