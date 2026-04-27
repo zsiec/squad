@@ -182,6 +182,9 @@ func intakeErrToToolError(err error) error {
 		return &mcp.ToolError{Code: mcp.CodeInvalidRequest, Err: err}
 	case errors.Is(err, intake.ErrIntakeAlreadyClosed):
 		return &mcp.ToolError{Code: mcp.CodeInvalidRequest, Err: err}
+	case errors.Is(err, intake.ErrIntakeItemNotRefinable),
+		errors.Is(err, intake.ErrIntakeRefineItemMismatch):
+		return &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}
 	}
 	var slug *intake.IntakeSlugConflict
 	if errors.As(err, &slug) {

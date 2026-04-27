@@ -2,11 +2,45 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/zsiec/squad/internal/intake"
 	"github.com/zsiec/squad/internal/mcp"
 )
+
+// TestIntakeErrToToolError_RefineSentinels covers the two refine-mode
+// typed sentinels that previously fell through to CodeInternal. Both
+// signal user-input problems (bad refine_item_id, mismatched resume id)
+// and must surface as CodeInvalidParams. The wrapped form mirrors the
+// fmt.Errorf("%w: ...") shape produced by commit_run.go and session.go.
+func TestIntakeErrToToolError_RefineSentinels(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{"bare ErrIntakeItemNotRefinable", intake.ErrIntakeItemNotRefinable},
+		{"wrapped ErrIntakeItemNotRefinable",
+			fmt.Errorf("%w: %s is %q", intake.ErrIntakeItemNotRefinable, "BUG-099", "done")},
+		{"bare ErrIntakeRefineItemMismatch", intake.ErrIntakeRefineItemMismatch},
+		{"wrapped ErrIntakeRefineItemMismatch",
+			fmt.Errorf("%w: session targets %s", intake.ErrIntakeRefineItemMismatch, "FEAT-001")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := intakeErrToToolError(tc.err)
+			var te *mcp.ToolError
+			if !errors.As(got, &te) {
+				t.Fatalf("intakeErrToToolError(%v) = %T (%v); want *mcp.ToolError", tc.err, got, got)
+			}
+			if te.Code != mcp.CodeInvalidParams {
+				t.Errorf("Code = %d; want %d (CodeInvalidParams)", te.Code, mcp.CodeInvalidParams)
+			}
+		})
+	}
+}
 
 // TestMCP_IntakeOpen_ThenTurnThenStatus_Roundtrip drives the happy
 // path: open a fresh new-mode session, append one turn, status returns
