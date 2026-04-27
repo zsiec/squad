@@ -18,6 +18,7 @@ type Learning struct {
 	State        State    `yaml:"state"`
 	Evidence     []string `yaml:"evidence"`
 	RelatedItems []string `yaml:"related_items"`
+	Tags         []string `yaml:"tags,omitempty"`
 
 	Body string `yaml:"-"`
 	Path string `yaml:"-"`

@@ -53,6 +53,13 @@ type LearningProposeArgs struct {
 	// template after auto-drafting.
 	Looks string `json:"looks,omitempty"`
 
+	// RelatedItems and Tags emit `related_items:` and `tags:` lists in
+	// the frontmatter. Empty slices render as `[]` for related_items and
+	// omit tags entirely (omitempty in the schema). Used by the auto-
+	// learning pipeline that fires on blocking review attestations.
+	RelatedItems []string `json:"related_items,omitempty"`
+	Tags         []string `json:"tags,omitempty"`
+
 	Now func() time.Time `json:"-"`
 }
 
@@ -91,7 +98,7 @@ func LearningPropose(_ context.Context, args LearningProposeArgs) (*LearningProp
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, args.Via, args.Looks, clock())
+	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, args.Via, args.Looks, args.RelatedItems, args.Tags, clock())
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return nil, err
 	}
@@ -155,7 +162,7 @@ func validSlug(s string) bool {
 	return true
 }
 
-func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, via, looks string, now time.Time) string {
+func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, via, looks string, relatedItems, tags []string, now time.Time) string {
 	if len(paths) == 0 {
 		paths = []string{"internal/" + area + "/**"}
 	}
@@ -167,8 +174,23 @@ func stubBody(k learning.Kind, slug, title, area, agent, session string, paths [
 	for _, p := range paths {
 		fmt.Fprintf(&sb, "  - %s\n", p)
 	}
-	fmt.Fprintf(&sb, "created: %s\ncreated_by: %s\nsession: %s\nstate: proposed\nevidence: []\nrelated_items: []\n---\n\n",
+	fmt.Fprintf(&sb, "created: %s\ncreated_by: %s\nsession: %s\nstate: proposed\nevidence: []\n",
 		now.UTC().Format("2006-01-02"), agent, session)
+	if len(relatedItems) == 0 {
+		sb.WriteString("related_items: []\n")
+	} else {
+		sb.WriteString("related_items:\n")
+		for _, ri := range relatedItems {
+			fmt.Fprintf(&sb, "  - %s\n", ri)
+		}
+	}
+	if len(tags) > 0 {
+		sb.WriteString("tags:\n")
+		for _, tg := range tags {
+			fmt.Fprintf(&sb, "  - %s\n", tg)
+		}
+	}
+	sb.WriteString("---\n\n")
 	if via != "" {
 		fmt.Fprintf(&sb, "> captured via squad learning %s\n\n", via)
 	}

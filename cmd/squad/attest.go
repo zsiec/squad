@@ -71,6 +71,16 @@ func Attest(ctx context.Context, args AttestArgs) (*AttestResult, error) {
 		if err != nil {
 			return nil, err
 		}
+		if rec.ExitCode != 0 && args.RepoRoot != "" {
+			// A blocking review's narrative is the highest-signal observation
+			// in the system. Auto-file it as a proposed gotcha so future
+			// reviewers can find the pattern. Failure to file does not
+			// abort the attestation itself, but it does surface to stderr
+			// so genuine fs/permission errors don't vanish silently.
+			if perr := proposeReviewRejectionLearning(ctx, L, args.RepoRoot, args.ItemID, rec, args.FindingsFile); perr != nil {
+				fmt.Fprintf(os.Stderr, "warn: auto-learning from blocking review failed: %v\n", perr)
+			}
+		}
 		return recordToResult(rec), nil
 	}
 
@@ -213,6 +223,83 @@ func recordReviewAttestation(ctx context.Context, L *attest.Ledger, a recordRevi
 	}
 	rec.ID = id
 	return rec, nil
+}
+
+// proposeReviewRejectionLearning auto-files a proposed gotcha learning
+// when a review attestation lands with a non-zero exit. The rejection
+// narrative (everything after the first `---` separator in the findings
+// body) becomes the `## Looks like` section. If the same item already
+// has a prior blocking review, the new learning is tagged
+// `second-round` so triage can prioritize patterns biting twice.
+func proposeReviewRejectionLearning(ctx context.Context, L *attest.Ledger, repoRoot, itemID string, rec attest.Record, findingsFile string) error {
+	body, err := os.ReadFile(findingsFile)
+	if err != nil {
+		return err
+	}
+	narrative := extractRejectionNarrative(body)
+	if narrative == "" {
+		return nil
+	}
+	priorBlocking, err := countPriorBlockingReviews(ctx, L, itemID, rec.ID)
+	if err != nil {
+		return err
+	}
+	tags := []string{"review-rejection"}
+	if priorBlocking > 0 {
+		tags = append(tags, "second-round")
+	}
+	hashSlug := rec.OutputHash
+	if len(hashSlug) > 12 {
+		hashSlug = hashSlug[:12]
+	}
+	baseSlug := "review-rejection-" + hashSlug
+	args := LearningProposeArgs{
+		RepoRoot:     repoRoot,
+		Kind:         "gotcha",
+		Slug:         baseSlug,
+		Title:        "review rejection captured from blocking findings",
+		Area:         "review",
+		Looks:        narrative,
+		RelatedItems: []string{itemID},
+		Tags:         tags,
+		CreatedBy:    rec.AgentID,
+	}
+	for n := 1; n <= 9; n++ {
+		if n > 1 {
+			args.Slug = fmt.Sprintf("%s-%d", baseSlug, n)
+		}
+		if _, perr := LearningPropose(ctx, args); perr == nil {
+			return nil
+		} else {
+			var sce *SlugCollisionError
+			if !errors.As(perr, &sce) {
+				return perr
+			}
+		}
+	}
+	return fmt.Errorf("review rejection slug %q exhausted suffix range", baseSlug)
+}
+
+func extractRejectionNarrative(body []byte) string {
+	parts := strings.SplitN(string(body), "\n---\n", 2)
+	if len(parts) < 2 {
+		return strings.TrimSpace(string(body))
+	}
+	return strings.TrimSpace(parts[1])
+}
+
+func countPriorBlockingReviews(ctx context.Context, L *attest.Ledger, itemID string, excludeID int64) (int, error) {
+	all, err := L.ListForItem(ctx, itemID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, r := range all {
+		if r.ID != excludeID && r.Kind == attest.KindReview && r.ExitCode != 0 {
+			n++
+		}
+	}
+	return n, nil
 }
 
 func parseReviewExit(body []byte) int {
