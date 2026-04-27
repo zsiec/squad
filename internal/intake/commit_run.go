@@ -7,10 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/zsiec/squad/internal/items"
 )
+
+const refineSupersededOutcome = "intake_refine_superseded"
 
 // CommitResult is what Commit returns on success.
 type CommitResult struct {
@@ -140,6 +143,16 @@ func commitImpl(
 		ids = append(ids, parsed.ID)
 	}
 
+	var pendingMove *archiveMove
+	if sess.Mode == ModeRefine {
+		mv, err := supersedeOriginal(ctx, tx, squadDir, sess, now)
+		if err != nil {
+			rollback()
+			return CommitResult{}, err
+		}
+		pendingMove = &mv
+	}
+
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE intake_sessions
 		SET status='committed', shape=?, bundle_json=?, committed_at=?, updated_at=?
@@ -158,7 +171,74 @@ func commitImpl(
 		return CommitResult{}, fmt.Errorf("intake commit: tx commit: %w", err)
 	}
 
+	// File moves happen post-commit on purpose: the DB row is already
+	// authoritative for "the original is superseded", so a rename failure
+	// here leaves the row pointing at the archive path while the file is
+	// still at the original path. squad doctor can detect the mismatch via
+	// the path column; the alternative ordering (rename before commit)
+	// trades that for a worse case where a tx.Commit failure leaves the
+	// file moved with no row update to match it.
+	if pendingMove != nil {
+		if err := os.MkdirAll(filepath.Dir(pendingMove.to), 0o755); err != nil {
+			return CommitResult{Shape: shape, ItemIDs: ids, Paths: paths},
+				fmt.Errorf("intake commit (refine): db committed but mkdir %s failed: %w (run squad doctor)",
+					filepath.Dir(pendingMove.to), err)
+		}
+		if err := os.Rename(pendingMove.from, pendingMove.to); err != nil {
+			return CommitResult{Shape: shape, ItemIDs: ids, Paths: paths},
+				fmt.Errorf("intake commit (refine): db committed but archive rename %s -> %s failed: %w (run squad doctor)",
+					pendingMove.from, pendingMove.to, err)
+		}
+	}
+
 	return CommitResult{Shape: shape, ItemIDs: ids, Paths: paths}, nil
+}
+
+type archiveMove struct{ from, to string }
+
+// supersedeOriginal performs the in-tx refine-mode work: re-verify the
+// original item is still captured (file is the source of truth, matching
+// items.Promote's pattern), update its row to done+archived with the
+// archive path, and record a claim_history line. The actual file move
+// happens after tx.Commit succeeds; this function returns the planned
+// move so the caller can execute it.
+func supersedeOriginal(
+	ctx context.Context,
+	tx *sql.Tx,
+	squadDir string,
+	sess Session,
+	now int64,
+) (archiveMove, error) {
+	origPath, _, ferr := items.FindByID(squadDir, sess.RefineItemID)
+	if ferr != nil {
+		return archiveMove{}, fmt.Errorf("intake commit (refine): %w", ferr)
+	}
+	origItem, perr := items.Parse(origPath)
+	if perr != nil {
+		return archiveMove{}, fmt.Errorf("intake commit (refine): parse %s: %w", origPath, perr)
+	}
+	if origItem.Status != "captured" {
+		return archiveMove{}, fmt.Errorf("%w: %s is %q", ErrIntakeItemNotRefinable, sess.RefineItemID, origItem.Status)
+	}
+
+	archivePath := filepath.Join(squadDir, "items", ".archive", filepath.Base(origPath))
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE items SET status='done', archived=1, path=? WHERE repo_id=? AND item_id=?`,
+		archivePath, sess.RepoID, sess.RefineItemID,
+	); err != nil {
+		return archiveMove{}, fmt.Errorf("intake commit (refine): mark original superseded: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO claim_history (repo_id, item_id, agent_id, claimed_at, released_at, outcome)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		sess.RepoID, sess.RefineItemID, sess.AgentID, now, now, refineSupersededOutcome,
+	); err != nil {
+		return archiveMove{}, fmt.Errorf("intake commit (refine): record claim_history: %w", err)
+	}
+
+	return archiveMove{from: origPath, to: archivePath}, nil
 }
 
 func loadSession(ctx context.Context, db *sql.DB, sessionID string) (Session, error) {

@@ -237,6 +237,181 @@ func TestCommit_UnknownSessionReturnsNotFound(t *testing.T) {
 	}
 }
 
+// seedCapturedItem writes a captured-shaped item file at
+// <squadDir>/items/<id>-<slug>.md and inserts the matching items row.
+// Returns the absolute file path.
+func seedCapturedItem(t *testing.T, db *sql.DB, squadDir, id, title, body string) string {
+	t.Helper()
+	path := filepath.Join(squadDir, "items", id+"-rotate-keys.md")
+	frontmatter := "---\n" +
+		"id: " + id + "\n" +
+		"title: " + title + "\n" +
+		"type: feature\n" +
+		"priority: P2\n" +
+		"area: auth\n" +
+		"status: captured\n" +
+		"estimate: 1h\n" +
+		"risk: low\n" +
+		"created: 2026-04-26\n" +
+		"updated: 2026-04-26\n" +
+		"captured_by: agent-1\n" +
+		"captured_at: 1714150000\n" +
+		"---\n\n"
+	if err := os.WriteFile(path, []byte(frontmatter+body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := items.Parse(path)
+	if err != nil {
+		t.Fatalf("parse seeded: %v", err)
+	}
+	if err := items.Persist(context.Background(), db, testRepoID, parsed, false); err != nil {
+		t.Fatalf("persist seeded: %v", err)
+	}
+	return path
+}
+
+func openRefineSession(t *testing.T, db *sql.DB, squadDir, agentID, refineItemID string) Session {
+	t.Helper()
+	s, _, _, err := Open(context.Background(), db, OpenParams{
+		RepoID: testRepoID, AgentID: agentID, Mode: ModeRefine,
+		IdeaSeed: "follow-up", RefineItemID: refineItemID, SquadDir: squadDir,
+	})
+	if err != nil {
+		t.Fatalf("open refine: %v", err)
+	}
+	return s
+}
+
+func TestCommit_RefineArchivesOriginalAndRecordsHistory(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := setupSquadDir(t)
+
+	origPath := seedCapturedItem(t, db, squadDir, "FEAT-100", "rotate keys",
+		"## Problem\nold problem\n")
+	sess := openRefineSession(t, db, squadDir, "agent-1", "FEAT-100")
+
+	bundle := Bundle{Items: []ItemDraft{{
+		Title: "rotate keys cleanly", Intent: "online rotation",
+		Acceptance: []string{"keys rotate", "no downtime"}, Area: "auth",
+	}}}
+	res, err := Commit(ctx, db, squadDir, sess.ID, "agent-1", bundle, false)
+	if err != nil {
+		t.Fatalf("refine commit: %v", err)
+	}
+	if len(res.Paths) != 1 {
+		t.Fatalf("paths=%v want 1", res.Paths)
+	}
+
+	if _, statErr := os.Stat(origPath); !os.IsNotExist(statErr) {
+		t.Errorf("original file still at %s; expected move", origPath)
+	}
+	archivePath := filepath.Join(squadDir, "items", ".archive", "FEAT-100-rotate-keys.md")
+	if _, err := os.Stat(archivePath); err != nil {
+		t.Errorf("archived file missing at %s: %v", archivePath, err)
+	}
+
+	var status string
+	var archived int
+	var path string
+	if err := db.QueryRow(
+		`SELECT status, archived, path FROM items WHERE repo_id=? AND item_id=?`,
+		testRepoID, "FEAT-100",
+	).Scan(&status, &archived, &path); err != nil {
+		t.Fatalf("scan original row: %v", err)
+	}
+	if status != "done" {
+		t.Errorf("original status=%q want done", status)
+	}
+	if archived != 1 {
+		t.Errorf("original archived=%d want 1", archived)
+	}
+	if path != archivePath {
+		t.Errorf("original path=%q want %q", path, archivePath)
+	}
+
+	var hist int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM claim_history WHERE repo_id=? AND item_id=? AND outcome=?`,
+		testRepoID, "FEAT-100", refineSupersededOutcome,
+	).Scan(&hist); err != nil {
+		t.Fatalf("count claim_history: %v", err)
+	}
+	if hist != 1 {
+		t.Errorf("claim_history rows for FEAT-100/superseded=%d want 1", hist)
+	}
+}
+
+func TestCommit_RefineMultiItemBundleRejected(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := setupSquadDir(t)
+	origPath := seedCapturedItem(t, db, squadDir, "FEAT-101", "rotate keys", "## Problem\n")
+	sess := openRefineSession(t, db, squadDir, "agent-1", "FEAT-101")
+
+	bundle := Bundle{Items: []ItemDraft{
+		{Title: "a", Intent: "x", Acceptance: []string{"ok"}, Area: "core"},
+		{Title: "b", Intent: "x", Acceptance: []string{"ok"}, Area: "core"},
+	}}
+	_, err := Commit(ctx, db, squadDir, sess.ID, "agent-1", bundle, false)
+	if err == nil {
+		t.Fatal("want error for multi-item refine bundle")
+	}
+	var shapeErr *IntakeShapeInvalid
+	if !errors.As(err, &shapeErr) {
+		t.Errorf("multi-item refine: err=%T %v, want *IntakeShapeInvalid", err, err)
+	}
+
+	if _, statErr := os.Stat(origPath); statErr != nil {
+		t.Errorf("original moved despite rejection: %v", statErr)
+	}
+	archivePath := filepath.Join(squadDir, "items", ".archive", "FEAT-101-rotate-keys.md")
+	if _, statErr := os.Stat(archivePath); !os.IsNotExist(statErr) {
+		t.Errorf("archive populated despite rejection: %v", statErr)
+	}
+
+	var hist int
+	_ = db.QueryRow(`SELECT count(*) FROM claim_history WHERE item_id=?`, "FEAT-101").Scan(&hist)
+	if hist != 0 {
+		t.Errorf("claim_history written despite rejection: %d", hist)
+	}
+}
+
+func TestCommit_RefineRejectsIfOriginalNoLongerCaptured(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+	squadDir := setupSquadDir(t)
+	origPath := seedCapturedItem(t, db, squadDir, "FEAT-102", "rotate keys", "## Problem\n")
+	sess := openRefineSession(t, db, squadDir, "agent-1", "FEAT-102")
+
+	mutated := strings.Replace(string(mustRead(t, origPath)),
+		"status: captured", "status: open", 1)
+	if err := os.WriteFile(origPath, []byte(mutated), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	bundle := Bundle{Items: []ItemDraft{{
+		Title: "x", Intent: "y", Acceptance: []string{"ok"}, Area: "core",
+	}}}
+	_, err := Commit(ctx, db, squadDir, sess.ID, "agent-1", bundle, false)
+	if !errors.Is(err, ErrIntakeItemNotRefinable) {
+		t.Errorf("err=%v, want ErrIntakeItemNotRefinable", err)
+	}
+
+	if _, statErr := os.Stat(origPath); statErr != nil {
+		t.Errorf("original moved on rejection: %v", statErr)
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 func TestCommit_RejectsSpecEpicShapeForNow(t *testing.T) {
 	db := newTestDB(t)
 	ctx := context.Background()
