@@ -61,6 +61,7 @@ type DoneResult struct {
 	ClosedAt      int64         `json:"closed_at"`
 	ForceOverride bool          `json:"force_override,omitempty"`
 	BypassedKinds []attest.Kind `json:"bypassed_kinds,omitempty"`
+	Tips          []string      `json:"tips,omitempty"`
 }
 
 // Done releases the claim and rewrites the item file in done state. The

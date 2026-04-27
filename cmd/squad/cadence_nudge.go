@@ -6,35 +6,67 @@ import (
 	"os"
 )
 
-// printCadenceNudge writes a one-line reminder to w pointing the agent at
-// the right chat verb for the moment. Suppressed when the env var is set
-// truthy — scripts and CI runs don't want the noise.
+// cadenceNudgeText returns the one-line claim/done reminder pointing the
+// agent at the right chat verb for the moment, or "" when silenced or when
+// no copy applies. The string never carries a trailing newline — the print
+// wrappers add it; the MCP handlers carry the bare line into a JSON array.
 //
 // AGENTS.md tells agents to post on claim, on commit, on done, etc. The
 // nudge is the in-flow reminder so the rule reaches the agent without
 // requiring them to re-read the manual mid-loop.
+func cadenceNudgeText(kind, itemType string) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	switch kind {
+	case "claim":
+		return "  tip: `squad thinking <msg>` to share intent · silence with SQUAD_NO_CADENCE_NUDGES=1"
+	case "done":
+		switch itemType {
+		case "bug":
+			return "  tip: gotcha worth filing? `squad learning propose gotcha <slug>` · silence with SQUAD_NO_CADENCE_NUDGES=1"
+		case "feat", "feature", "task":
+			return "  tip: surprised by anything? `squad learning propose <kind> <slug>` · silence with SQUAD_NO_CADENCE_NUDGES=1"
+		}
+	}
+	return ""
+}
+
+// secondOpinionNudgeText returns the high-stakes-claim peer-check nudge,
+// or "" when silenced or when neither priority nor risk warrant it.
+// Redirecting at claim-time is much cheaper than at review.
+func secondOpinionNudgeText(priority, risk string) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	if priority != "P0" && priority != "P1" && risk != "high" {
+		return ""
+	}
+	return "  tip: high-stakes claim — consider `squad ask @<peer> \"sanity-check my approach?\"` before starting · silence with SQUAD_NO_CADENCE_NUDGES=1"
+}
+
+// milestoneTargetNudgeText returns the AC-target nudge naming the AC total
+// at claim-time so the agent has a concrete number to compare against while
+// working — chat-cadence says "milestone each AC" but the dogfood data
+// showed agents posting at most one milestone per item. Empty for 0 or 1
+// AC items where a per-AC target adds no signal.
+func milestoneTargetNudgeText(acTotal int) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	if acTotal < 2 {
+		return ""
+	}
+	return fmt.Sprintf("  tip: %d AC items — expect ~%d 'squad milestone' posts as you green each one · silence with SQUAD_NO_CADENCE_NUDGES=1", acTotal, acTotal)
+}
+
 func printCadenceNudge(w io.Writer, kind string) {
 	printCadenceNudgeFor(w, kind, "")
 }
 
-// printCadenceNudgeFor is the type-aware variant. For done events the copy
-// is tuned to the item type: bugs get a gotcha-specific learning prompt,
-// generic features/tasks get the catch-all, and overhead types (chore,
-// tech-debt, bet) stay silent — they rarely produce learnings worth filing.
 func printCadenceNudgeFor(w io.Writer, kind, itemType string) {
-	if cadenceNudgesSilenced() {
-		return
-	}
-	switch kind {
-	case "claim":
-		fmt.Fprintln(w, "  tip: `squad thinking <msg>` to share intent · silence with SQUAD_NO_CADENCE_NUDGES=1")
-	case "done":
-		switch itemType {
-		case "bug":
-			fmt.Fprintln(w, "  tip: gotcha worth filing? `squad learning propose gotcha <slug>` · silence with SQUAD_NO_CADENCE_NUDGES=1")
-		case "feat", "feature", "task":
-			fmt.Fprintln(w, "  tip: surprised by anything? `squad learning propose <kind> <slug>` · silence with SQUAD_NO_CADENCE_NUDGES=1")
-		}
+	if t := cadenceNudgeText(kind, itemType); t != "" {
+		fmt.Fprintln(w, t)
 	}
 }
 
@@ -43,30 +75,14 @@ func cadenceNudgesSilenced() bool {
 	return v == "1" || v == "true" || v == "TRUE"
 }
 
-// printSecondOpinionNudge writes a one-line stderr nudge suggesting a peer
-// sanity-check before work starts on a high-stakes claim — P0/P1 priority
-// or risk:high. Redirecting at claim-time is much cheaper than at review.
 func printSecondOpinionNudge(w io.Writer, priority, risk string) {
-	if cadenceNudgesSilenced() {
-		return
+	if t := secondOpinionNudgeText(priority, risk); t != "" {
+		fmt.Fprintln(w, t)
 	}
-	if priority != "P0" && priority != "P1" && risk != "high" {
-		return
-	}
-	fmt.Fprintln(w, "  tip: high-stakes claim — consider `squad ask @<peer> \"sanity-check my approach?\"` before starting · silence with SQUAD_NO_CADENCE_NUDGES=1")
 }
 
-// printMilestoneTargetNudge writes a one-line stderr nudge naming the AC
-// total at claim-time so the agent has a concrete number to compare against
-// while working — chat-cadence says "milestone each AC" but the dogfood data
-// showed agents posting at most one milestone per item. Silent for 0 or 1
-// AC items where a per-AC target adds no signal.
 func printMilestoneTargetNudge(w io.Writer, acTotal int) {
-	if cadenceNudgesSilenced() {
-		return
+	if t := milestoneTargetNudgeText(acTotal); t != "" {
+		fmt.Fprintln(w, t)
 	}
-	if acTotal < 2 {
-		return
-	}
-	fmt.Fprintf(w, "  tip: %d AC items — expect ~%d 'squad milestone' posts as you green each one · silence with SQUAD_NO_CADENCE_NUDGES=1\n", acTotal, acTotal)
 }

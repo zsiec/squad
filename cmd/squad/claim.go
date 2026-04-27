@@ -62,10 +62,11 @@ type ClaimArgs struct {
 }
 
 type ClaimResult struct {
-	ItemID    string `json:"item_id"`
-	AgentID   string `json:"agent_id"`
-	Intent    string `json:"intent,omitempty"`
-	ClaimedAt int64  `json:"claimed_at"`
+	ItemID    string   `json:"item_id"`
+	AgentID   string   `json:"agent_id"`
+	Intent    string   `json:"intent,omitempty"`
+	ClaimedAt int64    `json:"claimed_at"`
+	Tips      []string `json:"tips,omitempty"`
 }
 
 func Claim(ctx context.Context, args ClaimArgs) (*ClaimResult, error) {

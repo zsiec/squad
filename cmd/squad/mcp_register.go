@@ -10,6 +10,7 @@ import (
 
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/identity"
+	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/mcp"
 )
 
@@ -155,7 +156,7 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 			if err != nil {
 				return nil, err
 			}
-			return Claim(ctx, ClaimArgs{
+			res, err := Claim(ctx, ClaimArgs{
 				DB:             db,
 				RepoID:         repoID,
 				AgentID:        agent,
@@ -167,6 +168,23 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 				DoneDir:        doneDirOf(repoRoot),
 				ConcurrencyCap: claimConcurrencyCap(),
 			})
+			if err != nil {
+				return nil, err
+			}
+			if itemPath := findItemPath(itemsDirOf(repoRoot), args.ItemID); itemPath != "" {
+				if parsed, perr := items.Parse(itemPath); perr == nil {
+					if t := cadenceNudgeText("claim", ""); t != "" {
+						res.Tips = append(res.Tips, t)
+					}
+					if t := secondOpinionNudgeText(parsed.Priority, parsed.Risk); t != "" {
+						res.Tips = append(res.Tips, t)
+					}
+					if t := milestoneTargetNudgeText(items.CountAC(parsed.Body)); t != "" {
+						res.Tips = append(res.Tips, t)
+					}
+				}
+			}
+			return res, nil
 		},
 	})
 
@@ -219,7 +237,7 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 				return nil, err
 			}
 			cfg, _ := config.Load(repoRoot)
-			return Done(ctx, DoneArgs{
+			res, err := Done(ctx, DoneArgs{
 				DB: db, RepoID: repoID, AgentID: agent,
 				ItemID:                  args.ItemID,
 				Summary:                 args.Summary,
@@ -229,6 +247,17 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 				Force:                   args.Force,
 				DefaultEvidenceRequired: cfg.Defaults.EvidenceRequired,
 			})
+			if err != nil {
+				return nil, err
+			}
+			if donePath := findItemPath(doneDirOf(repoRoot), args.ItemID); donePath != "" {
+				if parsed, perr := items.Parse(donePath); perr == nil {
+					if t := cadenceNudgeText("done", parsed.Type); t != "" {
+						res.Tips = append(res.Tips, t)
+					}
+				}
+			}
+			return res, nil
 		},
 	})
 
