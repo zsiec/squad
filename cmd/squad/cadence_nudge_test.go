@@ -170,3 +170,51 @@ func TestPrintSecondOpinionNudge_RespectsSilence(t *testing.T) {
 		t.Fatalf("env=1 should suppress nudge even on P0+high, got %q", buf.String())
 	}
 }
+
+func TestPrintMilestoneTargetNudge_FiresWhenAtLeastTwo(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printMilestoneTargetNudge(&buf, 4)
+	got := buf.String()
+	if !strings.Contains(got, "4 AC") {
+		t.Fatalf("output should contain the AC total (4), got %q", got)
+	}
+	if !strings.Contains(got, "~4") {
+		t.Fatalf("output should mention ~4 milestone posts, got %q", got)
+	}
+	if !strings.Contains(got, "squad milestone") {
+		t.Fatalf("output should mention `squad milestone`, got %q", got)
+	}
+	if !strings.Contains(got, "SQUAD_NO_CADENCE_NUDGES") {
+		t.Fatalf("output should advertise the silence env var, got %q", got)
+	}
+}
+
+func TestPrintMilestoneTargetNudge_SilentForLowCounts(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	for _, total := range []int{0, 1} {
+		var buf bytes.Buffer
+		printMilestoneTargetNudge(&buf, total)
+		if buf.Len() != 0 {
+			t.Fatalf("acTotal=%d should be silent, got %q", total, buf.String())
+		}
+	}
+}
+
+func TestPrintMilestoneTargetNudge_NegativeCountSilent(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	var buf bytes.Buffer
+	printMilestoneTargetNudge(&buf, -1)
+	if buf.Len() != 0 {
+		t.Fatalf("negative acTotal should be silent, got %q", buf.String())
+	}
+}
+
+func TestPrintMilestoneTargetNudge_RespectsSilence(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "1")
+	var buf bytes.Buffer
+	printMilestoneTargetNudge(&buf, 4)
+	if buf.Len() != 0 {
+		t.Fatalf("env=1 should suppress, got %q", buf.String())
+	}
+}

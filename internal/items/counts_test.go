@@ -5,6 +5,30 @@ import (
 	"time"
 )
 
+func TestCountAC(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want int
+	}{
+		{"no header", "no AC heading at all", 0},
+		{"header no boxes", "## Acceptance criteria\nsome prose, no checkbox\n", 0},
+		{"single unchecked", "## Acceptance criteria\n- [ ] one\n", 1},
+		{"single checked", "## Acceptance criteria\n- [x] done\n", 1},
+		{"mixed checked/unchecked", "## Acceptance criteria\n- [ ] a\n- [x] b\n- [X] c\n- [ ] d\n", 4},
+		{"asterisk bullets", "## Acceptance criteria\n* [ ] a\n* [x] b\n", 2},
+		{"stops at next header", "## Acceptance criteria\n- [ ] a\n- [ ] b\n\n## Notes\n- [ ] not-counted\n", 2},
+		{"checkboxes before AC header ignored", "- [ ] preface\n## Acceptance criteria\n- [ ] a\n", 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := CountAC(tc.body); got != tc.want {
+				t.Fatalf("CountAC=%d want %d for body=%q", got, tc.want, tc.body)
+			}
+		})
+	}
+}
+
 func TestCounts_TalliesByCategory(t *testing.T) {
 	w, err := Walk("testdata/ready")
 	if err != nil {

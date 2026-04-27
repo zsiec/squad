@@ -55,3 +55,18 @@ func printSecondOpinionNudge(w io.Writer, priority, risk string) {
 	}
 	fmt.Fprintln(w, "  tip: high-stakes claim — consider `squad ask @<peer> \"sanity-check my approach?\"` before starting · silence with SQUAD_NO_CADENCE_NUDGES=1")
 }
+
+// printMilestoneTargetNudge writes a one-line stderr nudge naming the AC
+// total at claim-time so the agent has a concrete number to compare against
+// while working — chat-cadence says "milestone each AC" but the dogfood data
+// showed agents posting at most one milestone per item. Silent for 0 or 1
+// AC items where a per-AC target adds no signal.
+func printMilestoneTargetNudge(w io.Writer, acTotal int) {
+	if cadenceNudgesSilenced() {
+		return
+	}
+	if acTotal < 2 {
+		return
+	}
+	fmt.Fprintf(w, "  tip: %d AC items — expect ~%d 'squad milestone' posts as you green each one · silence with SQUAD_NO_CADENCE_NUDGES=1\n", acTotal, acTotal)
+}

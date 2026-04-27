@@ -6,6 +6,22 @@ package items
 
 import "time"
 
+// CountAC returns the number of acceptance-criteria checkbox lines (both
+// `- [ ]` and `- [x]`, asterisk bullets allowed) under the `## Acceptance
+// criteria` header. Returns 0 when the header is missing, when there are no
+// checkboxes between the header and the next H2, or when body is empty.
+func CountAC(body string) int {
+	hdr := dorACHeaderRe.FindStringIndex(body)
+	if hdr == nil {
+		return 0
+	}
+	rest := body[hdr[1]:]
+	if nxt := dorNextHdrRe.FindStringIndex(rest); nxt != nil {
+		rest = rest[:nxt[0]]
+	}
+	return len(dorCheckboxRe.FindAllStringIndex(rest, -1))
+}
+
 type CountReport struct {
 	InProgress int
 	Ready      int
