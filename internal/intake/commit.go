@@ -1,6 +1,12 @@
 package intake
 
 import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -70,6 +76,54 @@ type IntakeIncomplete struct {
 
 func (e *IntakeIncomplete) Error() string {
 	return "intake incomplete: missing or empty " + e.Field
+}
+
+// IntakeSlugConflict signals that a spec or epic slug is already taken
+// — either by an existing DB row or by a markdown file on disk. Either
+// source winning means the new artifact cannot be written without
+// overwriting prior work.
+type IntakeSlugConflict struct {
+	Kind string
+	Slug string
+}
+
+func (e *IntakeSlugConflict) Error() string {
+	return fmt.Sprintf("intake slug conflict: %s slug %q already exists", e.Kind, e.Slug)
+}
+
+// CheckSlugAvailable returns nil if no spec/epic with the given slug
+// exists for repoID — neither as a DB row nor as a markdown file under
+// squadDir. Returns *IntakeSlugConflict if either source already holds
+// the slug. kind must be "spec" or "epic"; any other value is a
+// programmer error and returns a generic error.
+func CheckSlugAvailable(ctx context.Context, db *sql.DB, repoID, squadDir, kind, slug string) error {
+	var table, dir string
+	switch kind {
+	case "spec":
+		table, dir = "specs", "specs"
+	case "epic":
+		table, dir = "epics", "epics"
+	default:
+		return fmt.Errorf("intake: unknown slug kind %q (want \"spec\" or \"epic\")", kind)
+	}
+
+	var n int
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE repo_id = ? AND name = ?`, table)
+	if err := db.QueryRowContext(ctx, query, repoID, slug).Scan(&n); err != nil {
+		return fmt.Errorf("intake: probe %s table: %w", table, err)
+	}
+	if n > 0 {
+		return &IntakeSlugConflict{Kind: kind, Slug: slug}
+	}
+
+	path := filepath.Join(squadDir, dir, slug+".md")
+	if _, err := os.Stat(path); err == nil {
+		return &IntakeSlugConflict{Kind: kind, Slug: slug}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("intake: stat %s: %w", path, err)
+	}
+
+	return nil
 }
 
 // Validate performs purely structural validation of bundle. It detects
