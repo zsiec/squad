@@ -4,7 +4,7 @@ title: replace deprecated goreleaser archives.format with archives.formats list
 type: chore
 priority: P2
 area: release
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: []
