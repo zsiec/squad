@@ -4,8 +4,7 @@ package tui
 import (
 	"bufio"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,7 +19,7 @@ import (
 
 // Run is the entry point invoked by cmd/squad/tui.go.
 func Run(ctx context.Context) error {
-	url, token, err := resolveServer(ctx)
+	url, err := resolveServer(ctx)
 	if err != nil {
 		return err
 	}
@@ -33,7 +32,7 @@ func Run(ctx context.Context) error {
 	if err != nil || agentID == "" {
 		return fmt.Errorf("could not determine agent identity: %w", err)
 	}
-	c := client.New(url, token).WithAgent(agentID)
+	c := client.New(url).WithAgent(agentID)
 	eventCh := c.SubscribeEvents(ctx)
 
 	scope := detectScope()
@@ -44,30 +43,29 @@ func Run(ctx context.Context) error {
 	return err
 }
 
-// resolveServer returns the URL + token the TUI should use. If the
-// token file is missing, prompt the user once to install squad serve
-// as a per-user background service, then re-read the token. The prompt
-// reads a single line from stdin; empty / Y / y are treated as yes.
-func resolveServer(_ context.Context) (string, string, error) {
+// resolveServer returns the URL the TUI should use. If the daemon plist /
+// unit file is missing, prompt the user once to install squad serve as a
+// per-user background service. The prompt reads a single line from stdin;
+// empty / Y / y are treated as yes.
+func resolveServer(_ context.Context) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", "", fmt.Errorf("home dir: %w", err)
+		return "", fmt.Errorf("home dir: %w", err)
 	}
-	tokenPath := filepath.Join(home, ".squad", "token")
-	if _, statErr := os.Stat(tokenPath); os.IsNotExist(statErr) {
-		if err := promptAndInstall(home, tokenPath); err != nil {
-			return "", "", err
+	mgr := daemon.New()
+	st, err := mgr.Status()
+	if errors.Is(err, daemon.ErrUnsupported) {
+		return "", fmt.Errorf("squad TUI: dashboard daemon not supported on this platform; run `squad serve` manually if you want the UI")
+	}
+	if err == nil && !st.Installed {
+		if err := promptAndInstall(home, mgr); err != nil {
+			return "", err
 		}
 	}
-	tokenBytes, err := os.ReadFile(tokenPath)
-	if err != nil {
-		return "", "", fmt.Errorf("read %s: %w", tokenPath, err)
-	}
-	token := strings.TrimSpace(string(tokenBytes))
-	return "http://127.0.0.1:7777", token, nil
+	return "http://127.0.0.1:7777", nil
 }
 
-func promptAndInstall(home, tokenPath string) error {
+func promptAndInstall(home string, mgr daemon.Manager) error {
 	fmt.Println("squad serve isn't running. Install it as a background service so the TUI can connect across reboots? [Y/n]")
 	reader := bufio.NewReader(os.Stdin)
 	line, _ := reader.ReadString('\n')
@@ -79,30 +77,13 @@ func promptAndInstall(home, tokenPath string) error {
 	if err != nil {
 		return fmt.Errorf("resolve squad binary: %w", err)
 	}
-	mgr := daemon.New()
-	token := newToken()
-	if err := os.MkdirAll(filepath.Dir(tokenPath), 0o755); err != nil {
-		return fmt.Errorf("mkdir squad home: %w", err)
-	}
-	if err := os.WriteFile(tokenPath, []byte(token), 0o600); err != nil {
-		return fmt.Errorf("write token: %w", err)
-	}
 	return mgr.Install(daemon.InstallOpts{
 		BinaryPath: binary,
 		Bind:       "127.0.0.1",
 		Port:       7777,
-		Token:      token,
 		LogDir:     filepath.Join(home, ".squad", "logs"),
 		HomeDir:    home,
 	})
-}
-
-func newToken() string {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		panic(fmt.Sprintf("crypto/rand: %v", err))
-	}
-	return hex.EncodeToString(b)
 }
 
 func detectScope() string {

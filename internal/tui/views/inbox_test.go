@@ -88,7 +88,7 @@ func TestInbox_InitFetchesAndPopulates(t *testing.T) {
 		{ID: "FEAT-003", Title: "third", CapturedBy: "carol", DoRPass: true, Path: "/p/FEAT-003.md"},
 	}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(InboxModel)
@@ -103,7 +103,7 @@ func TestInbox_InitFetchesAndPopulates(t *testing.T) {
 func TestInbox_AcceptKeyHitsAcceptEndpoint(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -122,7 +122,7 @@ func TestInbox_AcceptShowsDoRViolations(t *testing.T) {
 	f := newInboxFixture(t, entries)
 	f.acceptStatus = http.StatusUnprocessableEntity
 	f.acceptBody = `{"violations":[{"rule":"area-set","field":"area","message":"area is unset"},{"rule":"acceptance-criterion","field":"body","message":"no AC checkbox"}]}`
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -144,7 +144,7 @@ func TestInbox_AcceptShowsDoRViolations(t *testing.T) {
 func TestInbox_RejectKeyEntersRejectMode(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -161,7 +161,7 @@ func TestInbox_RejectKeyEntersRejectMode(t *testing.T) {
 func TestInbox_RejectModeEnterSubmits(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -191,7 +191,7 @@ func TestInbox_RejectModeEnterSubmits(t *testing.T) {
 func TestInbox_RejectModeEmptyEnterShowsErrorAndKeepsOpen(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -218,7 +218,7 @@ func TestInbox_RejectModeEmptyEnterShowsErrorAndKeepsOpen(t *testing.T) {
 func TestInbox_RejectModalRendersInView(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -233,7 +233,7 @@ func TestInbox_RejectModalRendersInView(t *testing.T) {
 func TestInbox_RejectModeEscCancels(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -249,7 +249,7 @@ func TestInbox_RejectModeEscCancels(t *testing.T) {
 func TestInbox_RefreshKeyRefetches(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -266,7 +266,7 @@ func TestInbox_RefreshKeyRefetches(t *testing.T) {
 func TestInbox_SSEInboxChangedRefetches(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -284,7 +284,7 @@ func TestInbox_SSEInboxChangedRefetches(t *testing.T) {
 func TestInbox_RefreshMsgRefetches(t *testing.T) {
 	entries := []client.InboxEntry{{ID: "FEAT-001", Title: "x", DoRPass: true, Path: "/p/FEAT-001.md"}}
 	f := newInboxFixture(t, entries)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)
@@ -296,7 +296,7 @@ func TestInbox_RefreshMsgRefetches(t *testing.T) {
 
 func TestInbox_AcceptOnEmptyNoOp(t *testing.T) {
 	f := newInboxFixture(t, nil)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewInbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(InboxModel)

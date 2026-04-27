@@ -32,7 +32,7 @@ func TestAgents_InitFetchesAndPopulates(t *testing.T) {
 		{AgentID: "agent-2", DisplayName: "bob", Status: "idle", LastTickAt: 1700000100},
 	}
 	srv := agentsFixture(t, agents)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewAgents(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(AgentsModel)
@@ -49,7 +49,7 @@ func TestAgents_EnterEmitsOpenSessionMsg(t *testing.T) {
 		{AgentID: "agent-1", DisplayName: "alice", Status: "active"},
 	}
 	srv := agentsFixture(t, agents)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewAgents(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(AgentsModel)
@@ -70,7 +70,7 @@ func TestAgents_EnterEmitsOpenSessionMsg(t *testing.T) {
 func TestAgents_SSEAgentStatusRefetches(t *testing.T) {
 	agents := []client.Agent{{AgentID: "agent-1", DisplayName: "alice", Status: "idle"}}
 	srv := agentsFixture(t, agents)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewAgents(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(AgentsModel)
@@ -87,7 +87,7 @@ func TestAgents_SSEAgentStatusRefetches(t *testing.T) {
 
 func TestAgents_RefreshMsgRefetches(t *testing.T) {
 	srv := agentsFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewAgents(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(AgentsModel)

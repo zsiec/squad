@@ -31,7 +31,7 @@ func TestLearnings_InitFetchesAndPopulates(t *testing.T) {
 		{Slug: "table-pattern", Kind: "pattern", State: "proposed", Area: "tui", Title: "Use shared table"},
 	}
 	srv := learningsFixture(t, learnings)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewLearnings(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(LearningsModel)
@@ -48,7 +48,7 @@ func TestLearnings_EnterEmitsJumpToFirstRelatedItem(t *testing.T) {
 		{Slug: "x", Kind: "gotcha", State: "approved", Related: []string{"BUG-42", "BUG-43"}},
 	}
 	srv := learningsFixture(t, learnings)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewLearnings(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(LearningsModel)
@@ -72,7 +72,7 @@ func TestLearnings_EnterNoOpWhenNoRelatedItems(t *testing.T) {
 		{Slug: "x", Kind: "gotcha", State: "approved", Related: nil},
 	}
 	srv := learningsFixture(t, learnings)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewLearnings(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(LearningsModel)
@@ -88,7 +88,7 @@ func TestLearnings_EnterNoOpWhenNoRelatedItems(t *testing.T) {
 
 func TestLearnings_SSELearningStateChangedRefetches(t *testing.T) {
 	srv := learningsFixture(t, []client.Learning{{Slug: "x", Kind: "gotcha", State: "proposed"}})
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewLearnings(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(LearningsModel)
@@ -105,7 +105,7 @@ func TestLearnings_SSELearningStateChangedRefetches(t *testing.T) {
 
 func TestLearnings_RefreshMsgRefetches(t *testing.T) {
 	srv := learningsFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewLearnings(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(LearningsModel)

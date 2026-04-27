@@ -59,7 +59,7 @@ func statsFixture(t *testing.T) *httptest.Server {
 
 func TestStats_InitFetchesAndRendersPanels(t *testing.T) {
 	srv := statsFixture(t)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewStats(c)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = updated.(StatsModel)
@@ -87,7 +87,7 @@ func TestStats_InitFetchesAndRendersPanels(t *testing.T) {
 
 func TestStats_TKeyTogglesBreakdown(t *testing.T) {
 	srv := statsFixture(t)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewStats(c)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = updated.(StatsModel)
@@ -119,7 +119,7 @@ func TestStats_WKeyCyclesWindow(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	defer srv.Close()
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewStats(c)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = updated.(StatsModel)
@@ -143,7 +143,7 @@ func TestStats_WKeyCyclesWindow(t *testing.T) {
 
 func TestStats_RefreshMsgRefetches(t *testing.T) {
 	srv := statsFixture(t)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewStats(c)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = updated.(StatsModel)

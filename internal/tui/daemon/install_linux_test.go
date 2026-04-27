@@ -64,7 +64,6 @@ func TestLinux_InstallWritesUnitAndCallsSystemctl(t *testing.T) {
 		BinaryPath: "/usr/local/bin/squad",
 		Bind:       "127.0.0.1",
 		Port:       7777,
-		Token:      "secret",
 		LogDir:     filepath.Join(tmp, ".squad/logs"),
 		HomeDir:    tmp,
 	})
@@ -81,7 +80,6 @@ func TestLinux_InstallWritesUnitAndCallsSystemctl(t *testing.T) {
 		"/usr/local/bin/squad",
 		"--bind 127.0.0.1",
 		"--port 7777",
-		"--token secret",
 		"Restart=on-failure",
 	} {
 		if !bytes.Contains(data, []byte(want)) {
@@ -166,7 +164,7 @@ func TestLinux_Install_GracefulWhenNoUserBus(t *testing.T) {
 	m := newWithExec(tmp, fe)
 	err := m.Install(InstallOpts{
 		BinaryPath: "/usr/local/bin/squad",
-		Bind:       "127.0.0.1", Port: 7777, Token: "tok",
+		Bind:       "127.0.0.1", Port: 7777,
 		LogDir:  filepath.Join(tmp, ".squad/logs"),
 		HomeDir: tmp,
 	})
@@ -207,7 +205,7 @@ func TestLinux_Install_CallsSystemctlWhenBusPresent(t *testing.T) {
 	m := newWithExec(tmp, fe)
 	if err := m.Install(InstallOpts{
 		BinaryPath: "/usr/local/bin/squad",
-		Bind:       "127.0.0.1", Port: 7777, Token: "tok",
+		Bind:       "127.0.0.1", Port: 7777,
 		LogDir:  filepath.Join(tmp, ".squad/logs"),
 		HomeDir: tmp,
 	}); err != nil {

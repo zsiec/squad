@@ -37,7 +37,7 @@ func TestMailbox_InitFiltersMentionsAndDirect(t *testing.T) {
 		{ID: 4, AgentID: "dave", Thread: "BUG-7", Body: "noise", Kind: "say"},
 	}
 	srv := mailboxFixture(t, "agent-me", msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewMailbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(MailboxModel)
@@ -61,7 +61,7 @@ func TestMailbox_EnterEmitsOpenMsg(t *testing.T) {
 		{ID: 1, AgentID: "alice", Thread: "BUG-7", Body: "@agent-me look", Kind: "say"},
 	}
 	srv := mailboxFixture(t, "agent-me", msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewMailbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(MailboxModel)
@@ -85,7 +85,7 @@ func TestMailbox_RKeyEmitsReplyMsg(t *testing.T) {
 		{ID: 1, AgentID: "alice", Thread: "BUG-7", Body: "@agent-me look", Kind: "say"},
 	}
 	srv := mailboxFixture(t, "agent-me", msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewMailbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(MailboxModel)
@@ -106,7 +106,7 @@ func TestMailbox_RKeyEmitsReplyMsg(t *testing.T) {
 
 func TestMailbox_SSEMessageRefetches(t *testing.T) {
 	srv := mailboxFixture(t, "agent-me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewMailbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(MailboxModel)
@@ -118,7 +118,7 @@ func TestMailbox_SSEMessageRefetches(t *testing.T) {
 
 func TestMailbox_RefreshMsgRefetches(t *testing.T) {
 	srv := mailboxFixture(t, "agent-me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewMailbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(MailboxModel)
@@ -133,7 +133,7 @@ func TestMailbox_NoMatchesShowsEmpty(t *testing.T) {
 		{ID: 1, AgentID: "alice", Thread: "global", Body: "no mentions here", Kind: "say"},
 	}
 	srv := mailboxFixture(t, "agent-me", msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewMailbox(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(MailboxModel)

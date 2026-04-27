@@ -23,8 +23,8 @@ func TestEnsure_UnsupportedPlatform_SetsBannerReturnsNil(t *testing.T) {
 	_ = ConsumeBanner()
 	// Pin probeBase to a refused port so a developer running a real
 	// dashboard on 127.0.0.1:7777 doesn't push this test through the
-	// restart branch (which then errors on the missing restart token)
-	// instead of the install branch where ErrUnsupported lives.
+	// restart branch (which would error on the unreachable POST) instead
+	// of the install branch where ErrUnsupported lives.
 	setProbeBase(t, "http://127.0.0.1:1")
 
 	opts := Options{

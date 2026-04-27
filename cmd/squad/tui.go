@@ -21,7 +21,6 @@ launch (launchd on darwin, systemctl --user on linux).`,
 		},
 	}
 	cmd.Flags().String("serve-url", "", "override serve URL (default: auto-detect)")
-	cmd.Flags().String("token-file", "", "override token file (default: ~/.squad/token)")
 	cmd.Flags().Bool("embedded", false, "run serve in-process (no daemon install)")
 	return cmd
 }

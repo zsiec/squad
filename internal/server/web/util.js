@@ -1,13 +1,4 @@
-// util.js — shared helpers, auth, fetch
-
-export const token =
-  new URLSearchParams(location.search).get('token') ||
-  localStorage.getItem('squad_token') ||
-  '';
-
-if (token) localStorage.setItem('squad_token', token);
-
-export const authHeader = token ? { Authorization: 'Bearer ' + token } : {};
+// util.js — shared helpers, fetch
 
 let cachedAgentId = '';
 export function setAgentHeader(id) { cachedAgentId = id || ''; }
@@ -16,7 +7,7 @@ export function agentHeader() {
 }
 
 export async function fetchJSON(path) {
-  const r = await fetch(path, { headers: { ...authHeader, ...agentHeader() } });
+  const r = await fetch(path, { headers: { ...agentHeader() } });
   if (!r.ok) throw new Error(path + ': ' + r.status);
   return r.json();
 }
@@ -24,7 +15,7 @@ export async function fetchJSON(path) {
 export async function postJSON(path, body) {
   const r = await fetch(path, {
     method: 'POST',
-    headers: { ...authHeader, ...agentHeader(), 'Content-Type': 'application/json' },
+    headers: { ...agentHeader(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!r.ok) {

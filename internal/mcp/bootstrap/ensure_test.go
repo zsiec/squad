@@ -5,8 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -69,14 +67,12 @@ type fakeDaemon struct {
 	pid        int
 	started    time.Time
 	restartHit atomic.Int32
-	restartTok atomic.Value // string
 }
 
 func newFakeDaemon(version, binaryPath string) *fakeDaemon {
 	d := &fakeDaemon{pid: 4321, started: time.Now().UTC()}
 	d.version.Store(version)
 	d.binaryPath.Store(binaryPath)
-	d.restartTok.Store("")
 	return d
 }
 
@@ -90,7 +86,6 @@ func (d *fakeDaemon) handler() http.Handler {
 	})
 	mux.HandleFunc("/api/_internal/restart", func(w http.ResponseWriter, r *http.Request) {
 		d.restartHit.Add(1)
-		d.restartTok.Store(r.Header.Get("X-Squad-Restart-Token"))
 		w.WriteHeader(http.StatusAccepted)
 	})
 	return mux
@@ -108,17 +103,6 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(b[i:])
-}
-
-func writeTokenFile(t *testing.T, home string, name, contents string) {
-	t.Helper()
-	dir := filepath.Join(home, ".squad")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0o600); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestEnsure_NoAutoDaemonEnv_ShortCircuits(t *testing.T) {
@@ -188,7 +172,6 @@ func TestEnsure_VersionMismatch_PostsRestartAndPolls(t *testing.T) {
 	mgr := &recordingMgr{}
 	opts := newEnsureOpts(t, mgr)
 	opts.Version = "1.0.0" // newer than daemon's 0.9.0
-	writeTokenFile(t, opts.HomeDir, "restart.token", "secret-restart-token")
 
 	// Background goroutine flips the daemon to the new version after the
 	// first /api/_internal/restart hit, simulating launchd relaunching it.
@@ -204,9 +187,6 @@ func TestEnsure_VersionMismatch_PostsRestartAndPolls(t *testing.T) {
 	}
 	if got := d.restartHit.Load(); got != 1 {
 		t.Errorf("restart endpoint hits=%d want 1", got)
-	}
-	if tok, _ := d.restartTok.Load().(string); tok != "secret-restart-token" {
-		t.Errorf("restart token sent=%q want %q", tok, "secret-restart-token")
 	}
 	if mgr.installCalls.Load() != 0 || mgr.reinstallCalls.Load() != 0 {
 		t.Errorf("expected no install/reinstall on version mismatch")

@@ -2,14 +2,11 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/zsiec/squad/internal/tui/daemon"
@@ -85,21 +82,10 @@ func ensureInstall(ctx context.Context, opts Options) error {
 	if probe, err := Probe(ctx); err == nil && probe.Present {
 		return nil
 	}
-	if err := writeBearerToken(opts.HomeDir); err != nil {
-		return logAndWrap("write daemon token", err)
-	}
-	if err := writeRestartTokenIfMissing(opts.HomeDir); err != nil {
-		return logAndWrap("write restart token", err)
-	}
-	tok, err := readBearerToken(opts.HomeDir)
-	if err != nil {
-		return logAndWrap("read daemon token", err)
-	}
 	installOpts := daemon.InstallOpts{
 		BinaryPath: opts.BinaryPath,
 		Bind:       opts.Bind,
 		Port:       opts.Port,
-		Token:      tok,
 		LogDir:     filepath.Join(opts.HomeDir, ".squad", "logs"),
 		HomeDir:    opts.HomeDir,
 	}
@@ -117,19 +103,12 @@ func ensureInstall(ctx context.Context, opts Options) error {
 }
 
 func ensureRestart(ctx context.Context, opts Options) error {
-	tokPath := filepath.Join(opts.HomeDir, ".squad", "restart.token")
-	tokBytes, err := os.ReadFile(tokPath)
-	if err != nil {
-		return logAndWrap("read restart token", err)
-	}
-	tok := strings.TrimSpace(string(tokBytes))
 	reqCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, probeBase+"/api/_internal/restart", nil)
 	if err != nil {
 		return logAndWrap("build restart request", err)
 	}
-	req.Header.Set("X-Squad-Restart-Token", tok)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return logAndWrap("post restart", err)
@@ -152,9 +131,6 @@ func ensureReinstall(ctx context.Context, opts Options) error {
 		Port:       opts.Port,
 		LogDir:     filepath.Join(opts.HomeDir, ".squad", "logs"),
 		HomeDir:    opts.HomeDir,
-	}
-	if tok, err := readBearerToken(opts.HomeDir); err == nil {
-		installOpts.Token = tok
 	}
 	if err := opts.Manager.Reinstall(installOpts); err != nil {
 		if handleUnsupported(err) {
@@ -212,48 +188,6 @@ func pollUntil(ctx context.Context, check func(context.Context) (bool, error)) e
 		case <-time.After(pollInterval):
 		}
 	}
-}
-
-func writeBearerToken(homeDir string) error {
-	p := filepath.Join(homeDir, ".squad", "token")
-	if _, err := os.Stat(p); err == nil {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(p, []byte(randomHex32()), 0o600)
-}
-
-func writeRestartTokenIfMissing(homeDir string) error {
-	p := filepath.Join(homeDir, ".squad", "restart.token")
-	if _, err := os.Stat(p); err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(p, []byte(randomHex32()), 0o600)
-}
-
-func readBearerToken(homeDir string) (string, error) {
-	b, err := os.ReadFile(filepath.Join(homeDir, ".squad", "token"))
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(b)), nil
-}
-
-func randomHex32() string {
-	var b [32]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		// crypto/rand failing means the host has no entropy source —
-		// shipping a zero token would silently pass empty-string gates.
-		panic(fmt.Sprintf("crypto/rand: %v", err))
-	}
-	return hex.EncodeToString(b[:])
 }
 
 func logAndWrap(stage string, err error) error {

@@ -44,7 +44,7 @@ func TestDoctor_StuckClaimFlagged(t *testing.T) {
 		{ItemID: "BUG-1", AgentID: "alice", ClaimedAt: now - int64(30*time.Hour.Seconds())},
 	}
 	srv := doctorFixture(t, claims, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctorWithClock(c, func() time.Time { return time.Unix(now, 0) })
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(DoctorModel)
@@ -60,7 +60,7 @@ func TestDoctor_FreshClaimNotFlagged(t *testing.T) {
 		{ItemID: "BUG-1", AgentID: "alice", ClaimedAt: now - int64(1*time.Hour.Seconds())},
 	}
 	srv := doctorFixture(t, claims, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctorWithClock(c, func() time.Time { return time.Unix(now, 0) })
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(DoctorModel)
@@ -79,7 +79,7 @@ func TestDoctor_VanishedAgentFlagged(t *testing.T) {
 		{AgentID: "alice", LastTickAt: now - int64(2*time.Hour.Seconds())},
 	}
 	srv := doctorFixture(t, claims, agents)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctorWithClock(c, func() time.Time { return time.Unix(now, 0) })
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(DoctorModel)
@@ -95,7 +95,7 @@ func TestDoctor_AgentWithoutClaimNotVanished(t *testing.T) {
 		{AgentID: "alice", LastTickAt: now - int64(2*time.Hour.Seconds())},
 	}
 	srv := doctorFixture(t, nil, agents)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctorWithClock(c, func() time.Time { return time.Unix(now, 0) })
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(DoctorModel)
@@ -111,7 +111,7 @@ func TestDoctor_EnterEmitsJumpMsg(t *testing.T) {
 		{ItemID: "BUG-1", AgentID: "alice", ClaimedAt: now - int64(30*time.Hour.Seconds())},
 	}
 	srv := doctorFixture(t, claims, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctorWithClock(c, func() time.Time { return time.Unix(now, 0) })
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(DoctorModel)
@@ -132,7 +132,7 @@ func TestDoctor_EnterEmitsJumpMsg(t *testing.T) {
 
 func TestDoctor_RefreshMsgRefetches(t *testing.T) {
 	srv := doctorFixture(t, nil, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctor(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(DoctorModel)
@@ -144,7 +144,7 @@ func TestDoctor_RefreshMsgRefetches(t *testing.T) {
 
 func TestDoctor_SSEItemChangedRefetches(t *testing.T) {
 	srv := doctorFixture(t, nil, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewDoctor(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(DoctorModel)

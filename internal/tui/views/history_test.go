@@ -31,7 +31,7 @@ func TestHistory_InitFetchesAndPopulates(t *testing.T) {
 		{ID: 2, TS: 1700000060, AgentID: "bob", Thread: "BUG-1", Kind: "handoff", Body: "passing this off"},
 	}
 	srv := historyFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewHistory(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(HistoryModel)
@@ -48,7 +48,7 @@ func TestHistory_EnterOnItemThreadEmitsJumpMsg(t *testing.T) {
 		{ID: 1, AgentID: "a", Thread: "BUG-7", Kind: "say", Body: "x"},
 	}
 	srv := historyFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewHistory(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(HistoryModel)
@@ -72,7 +72,7 @@ func TestHistory_EnterOnGlobalThread_NoOp(t *testing.T) {
 		{ID: 1, AgentID: "a", Thread: "global", Kind: "say", Body: "x"},
 	}
 	srv := historyFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewHistory(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(HistoryModel)
@@ -88,7 +88,7 @@ func TestHistory_EnterOnGlobalThread_NoOp(t *testing.T) {
 
 func TestHistory_SSEMessageRefetches(t *testing.T) {
 	srv := historyFixture(t, []client.Message{{ID: 1, AgentID: "a", Thread: "global", Kind: "say", Body: "x"}})
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewHistory(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(HistoryModel)
@@ -105,7 +105,7 @@ func TestHistory_SSEMessageRefetches(t *testing.T) {
 
 func TestHistory_SSEItemChangedRefetches(t *testing.T) {
 	srv := historyFixture(t, []client.Message{{ID: 1, AgentID: "a", Thread: "global", Kind: "say", Body: "x"}})
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewHistory(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(HistoryModel)
@@ -118,7 +118,7 @@ func TestHistory_SSEItemChangedRefetches(t *testing.T) {
 
 func TestHistory_RefreshMsgRefetches(t *testing.T) {
 	srv := historyFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewHistory(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(HistoryModel)

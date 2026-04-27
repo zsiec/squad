@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 )
 
 type Config struct {
-	Token            string
 	Host             string
 	Port             int
 	SquadDir         string
@@ -23,7 +21,6 @@ type Config struct {
 	LearningsRoot    string
 	Version          string
 	BinaryPath       string
-	RestartTokenPath string
 	pingInterval     time.Duration
 	lagFlushInterval time.Duration
 }
@@ -148,7 +145,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.Handle("GET /metrics", s.prometheusHandler())
 	mux.Handle("/", staticHandler())
-	return s.authMiddleware(mux)
+	return mux
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -160,26 +157,6 @@ func (s *Server) actingAgent(r *http.Request) string {
 		return h
 	}
 	return s.callerAgent
-}
-
-func (s *Server) authMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.Token == "" || r.URL.Path == "/api/_internal/restart" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if got == "" && r.Method == http.MethodGet {
-			if q := r.URL.Query().Get("token"); q != "" {
-				got = q
-			}
-		}
-		if got != s.cfg.Token {
-			writeErr(w, http.StatusUnauthorized, "unauthorized")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

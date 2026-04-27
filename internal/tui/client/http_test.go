@@ -8,52 +8,13 @@ import (
 	"testing"
 )
 
-func TestClient_GET_AddsBearerToken(t *testing.T) {
-	var gotAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "secret-token")
-	var got map[string]any
-	if err := c.GET(context.Background(), "/api/health", &got); err != nil {
-		t.Fatal(err)
-	}
-	if gotAuth != "Bearer secret-token" {
-		t.Fatalf("auth=%q", gotAuth)
-	}
-	if got["ok"] != true {
-		t.Fatalf("body=%v", got)
-	}
-}
-
-func TestClient_GET_NoTokenWhenEmpty(t *testing.T) {
-	var gotAuth string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "")
-	var got map[string]any
-	if err := c.GET(context.Background(), "/api/health", &got); err != nil {
-		t.Fatal(err)
-	}
-	if gotAuth != "" {
-		t.Fatalf("expected no auth header when token empty, got %q", gotAuth)
-	}
-}
-
 func TestClient_GET_ReturnsStatusErrOn404(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	var got map[string]any
 	err := c.GET(context.Background(), "/api/items/X", &got)
 	if err == nil {
@@ -79,7 +40,7 @@ func TestClient_GET_AddsAgentHeader(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "").WithAgent("agent-me")
+	c := New(srv.URL).WithAgent("agent-me")
 	var got map[string]any
 	if err := c.GET(context.Background(), "/api/health", &got); err != nil {
 		t.Fatal(err)
@@ -97,7 +58,7 @@ func TestClient_GET_NoAgentHeaderWhenNotSet(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	var got map[string]any
 	if err := c.GET(context.Background(), "/api/health", &got); err != nil {
 		t.Fatal(err)
@@ -117,7 +78,7 @@ func TestClient_POST_SendsJSONBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	var resp map[string]any
 	if err := c.POST(context.Background(), "/api/messages", map[string]any{"thread": "global", "body": "hi"}, &resp); err != nil {
 		t.Fatal(err)

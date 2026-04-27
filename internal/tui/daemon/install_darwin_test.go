@@ -41,7 +41,6 @@ func TestDarwin_InstallWritesPlistAndCallsLaunchctl(t *testing.T) {
 		BinaryPath: "/usr/local/bin/squad",
 		Bind:       "127.0.0.1",
 		Port:       7777,
-		Token:      "secret",
 		LogDir:     filepath.Join(tmp, ".squad/logs"),
 		HomeDir:    tmp,
 	})
@@ -59,7 +58,6 @@ func TestDarwin_InstallWritesPlistAndCallsLaunchctl(t *testing.T) {
 		"/usr/local/bin/squad",
 		"127.0.0.1",
 		"7777",
-		"secret",
 	} {
 		if !bytes.Contains(data, []byte(want)) {
 			t.Errorf("plist missing %q: %s", want, data)

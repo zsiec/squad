@@ -22,7 +22,7 @@ func daemonArtifactPath(home string) string {
 	}
 }
 
-func TestInstallPlugin_UninstallRemovesDaemonAndSentinelsPreservesDB(t *testing.T) {
+func TestInstallPlugin_UninstallRemovesDaemonPreservesWelcomedAndDB(t *testing.T) {
 	artifact := daemonArtifactPath("")
 	if artifact == "" {
 		t.Skipf("daemon Manager not implemented on %s", runtime.GOOS)
@@ -54,12 +54,8 @@ func TestInstallPlugin_UninstallRemovesDaemonAndSentinelsPreservesDB(t *testing.
 		t.Fatal(err)
 	}
 	welcomed := filepath.Join(squadHome, ".welcomed")
-	restartToken := filepath.Join(squadHome, "restart.token")
 	globalDB := filepath.Join(squadHome, "global.db")
 	if err := os.WriteFile(welcomed, []byte("ok"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(restartToken, []byte("token"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	dbBytes := []byte("SIMULATED-DB-CONTENT-DO-NOT-DELETE")
@@ -81,9 +77,6 @@ func TestInstallPlugin_UninstallRemovesDaemonAndSentinelsPreservesDB(t *testing.
 	if _, err := os.Stat(welcomed); err != nil {
 		t.Errorf(".welcomed must be preserved across uninstall (welcome state outlives plugin install): %v", err)
 	}
-	if _, err := os.Stat(restartToken); !os.IsNotExist(err) {
-		t.Errorf("restart.token should be gone, err=%v", err)
-	}
 	got, err := os.ReadFile(globalDB)
 	if err != nil {
 		t.Fatalf("global.db should be preserved: %v", err)
@@ -96,7 +89,7 @@ func TestInstallPlugin_UninstallRemovesDaemonAndSentinelsPreservesDB(t *testing.
 	}
 }
 
-func TestInstallPlugin_UninstallSentinelsAbsentIsNotAnError(t *testing.T) {
+func TestInstallPlugin_UninstallOnBareHomeIsNotAnError(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))
 	t.Setenv("HOME", tmp)

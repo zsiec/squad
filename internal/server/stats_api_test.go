@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-func TestStatsAPIRespectsToken(t *testing.T) {
+func TestStatsAPIReturnsSchema(t *testing.T) {
 	db := newTestDB(t)
-	s := New(db, "repo-1", Config{Token: "secret"})
+	s := New(db, "repo-1", Config{})
 	defer s.Close()
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
@@ -18,19 +18,9 @@ func TestStatsAPIRespectsToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("status: %d", resp.StatusCode)
-	}
-	req, _ := http.NewRequest("GET", srv.URL+"/api/stats", nil)
-	req.Header.Set("Authorization", "Bearer secret")
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("do: %v", err)
-	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("authorized: %d", resp.StatusCode)
+		t.Fatalf("status: %d", resp.StatusCode)
 	}
 	var got map[string]any
 	_ = json.NewDecoder(resp.Body).Decode(&got)

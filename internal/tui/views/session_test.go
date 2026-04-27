@@ -45,7 +45,7 @@ func TestSession_InitLoadsAndFiltersTranscript(t *testing.T) {
 		{ID: 3, AgentID: "bob", Thread: "global", Kind: "say", Body: "unrelated"}, // shouldn't show
 	}
 	srv, _ := sessionFixture(t, "me", msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(SessionModel)
@@ -63,7 +63,7 @@ func TestSession_InitLoadsAndFiltersTranscript(t *testing.T) {
 
 func TestSession_CtrlKCyclesKind(t *testing.T) {
 	srv, _ := sessionFixture(t, "me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)
@@ -84,7 +84,7 @@ func TestSession_CtrlKCyclesKind(t *testing.T) {
 
 func TestSession_EnterSendsMessage(t *testing.T) {
 	srv, postBody := sessionFixture(t, "me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)
@@ -130,7 +130,7 @@ func TestSession_EnterSendsMessage(t *testing.T) {
 
 func TestSession_EmptyEnterDoesNothing(t *testing.T) {
 	srv, postBody := sessionFixture(t, "me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)
@@ -145,7 +145,7 @@ func TestSession_EmptyEnterDoesNothing(t *testing.T) {
 
 func TestSession_EscWithEmptyComposerEmitsExit(t *testing.T) {
 	srv, _ := sessionFixture(t, "me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)
@@ -161,7 +161,7 @@ func TestSession_EscWithEmptyComposerEmitsExit(t *testing.T) {
 
 func TestSession_EscWithNonEmptyComposerClears(t *testing.T) {
 	srv, _ := sessionFixture(t, "me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)
@@ -188,7 +188,7 @@ func TestSession_SSEMessageAppendsIfQualified(t *testing.T) {
 		{ID: 1, AgentID: "target", Thread: "global", Kind: "say", Body: "first"},
 	}
 	srv, _ := sessionFixture(t, "me", msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)
@@ -206,7 +206,7 @@ func TestSession_SSEMessageAppendsIfQualified(t *testing.T) {
 
 func TestSession_SSEMessageIgnoredIfUnqualified(t *testing.T) {
 	srv, _ := sessionFixture(t, "me", nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSession(c, "target")
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SessionModel)

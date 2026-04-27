@@ -23,7 +23,7 @@ func newCapturingServer(t *testing.T, body string) (*httptest.Server, *string) {
 
 func TestItems_HitsCorrectURL(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[{"id":"BUG-100","title":"x","status":"open"}]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Items(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestItems_DecodesR3R4Fields(t *testing.T) {
 		_, _ = w.Write([]byte(body))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	items, err := c.Items(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func TestItems_DecodesR3R4Fields(t *testing.T) {
 
 func TestItems_AppendsStatusFilter(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.Items(context.Background(), &ItemListOpts{Status: "open"}); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestItems_AppendsStatusFilter(t *testing.T) {
 
 func TestItem_DetailHitsCorrectURL(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{"id":"BUG-100","title":"x","body_markdown":"# hi"}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Item(context.Background(), "BUG-100")
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestItem_DetailHitsCorrectURL(t *testing.T) {
 
 func TestAgents(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[{"agent_id":"a-1","display_name":"alice"}]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Agents(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestAgents(t *testing.T) {
 
 func TestSpecs(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[{"name":"s-1","title":"Spec One"}]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Specs(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +131,7 @@ func TestSpecs(t *testing.T) {
 
 func TestSpec(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{"name":"s-1","title":"Spec One","body_markdown":"# x"}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Spec(context.Background(), "s-1")
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +143,7 @@ func TestSpec(t *testing.T) {
 
 func TestEpics_FiltersBySpec(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.Epics(context.Background(), &EpicListOpts{Spec: "s-1"}); err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestEpics_FiltersBySpec(t *testing.T) {
 
 func TestEpic(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{"name":"e-1","spec":"s-1"}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Epic(context.Background(), "e-1")
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +166,7 @@ func TestEpic(t *testing.T) {
 
 func TestStats_PassesWindow(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{"schema_version":1}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.Stats(context.Background(), 86400); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestStats_PassesWindow(t *testing.T) {
 
 func TestLearnings_AppliesFilters(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.Learnings(context.Background(), &LearningListOpts{State: "approved", Kind: "gotcha", Area: "server"}); err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestLearnings_AppliesFilters(t *testing.T) {
 
 func TestLearning(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{"slug":"x","title":"X","body_markdown":"y"}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Learning(context.Background(), "x")
 	if err != nil {
 		t.Fatal(err)
@@ -202,7 +202,7 @@ func TestLearning(t *testing.T) {
 
 func TestAttestations(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.Attestations(context.Background(), "BUG-100"); err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestAttestations(t *testing.T) {
 
 func TestMessages_AppliesFilters(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.Messages(context.Background(), &MessagesOpts{Thread: "global", Limit: 50, Since: 1700000000}); err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestMessages_AppliesFilters(t *testing.T) {
 
 func TestPostMessage(t *testing.T) {
 	srv, _ := newCapturingServer(t, `{"ok":true}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.PostMessage(context.Background(), &PostMessageReq{Thread: "global", Body: "hi"}); err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestPostMessage(t *testing.T) {
 
 func TestWhoami(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{"agent_id":"a-1","display_name":"alice"}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Whoami(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +246,7 @@ func TestWhoami(t *testing.T) {
 
 func TestRepos(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `[{"repo_id":"r-1","path":"/path/to/squad","remote":"git@..."}]`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Repos(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -258,7 +258,7 @@ func TestRepos(t *testing.T) {
 
 func TestWorkspaceStatus(t *testing.T) {
 	srv, gotURL := newCapturingServer(t, `{}`)
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if _, err := c.WorkspaceStatus(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestClaim_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Claim(context.Background(), "BUG-100", &ClaimReq{Intent: "fixing", Long: false}); err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestRelease_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Release(context.Background(), "BUG-100", "released"); err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestDone_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Done(context.Background(), "BUG-100", true); err != nil {
 		t.Fatal(err)
 	}
@@ -336,7 +336,7 @@ func TestBlocked_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Blocked(context.Background(), "BUG-100", "waiting on infra"); err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestHandoff_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Handoff(context.Background(), "BUG-100", &HandoffReq{To: "agent-other", Summary: "ctx for next"}); err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +376,7 @@ func TestTouch_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Touch(context.Background(), "BUG-100"); err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +394,7 @@ func TestForceRelease_HitsCorrectURL(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true,"prior_holder":"agent-old"}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	resp, err := c.ForceRelease(context.Background(), "BUG-100", "stale")
 	if err != nil {
 		t.Fatal(err)
@@ -417,7 +417,7 @@ func TestPostMessage_PassesKind(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer srv.Close()
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.PostMessage(context.Background(), &PostMessageReq{Thread: "BUG-100", Body: "?", Kind: "ask"}); err != nil {
 		t.Fatal(err)
 	}

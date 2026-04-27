@@ -20,7 +20,7 @@ func TestClient_Inbox(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	got, err := c.Inbox(context.Background(), InboxOpts{})
 	if err != nil {
 		t.Fatal(err)
@@ -48,7 +48,7 @@ func TestClient_Accept(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Accept(context.Background(), "FEAT-001"); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestClient_Accept_DoRViolation(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	err := c.Accept(context.Background(), "FEAT-001")
 	if err == nil {
 		t.Fatal("expected error")
@@ -96,7 +96,7 @@ func TestClient_Accept_NotFound(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	err := c.Accept(context.Background(), "FEAT-001")
 	if err == nil {
 		t.Fatal("expected error")
@@ -118,7 +118,7 @@ func TestClient_Reject(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	if err := c.Reject(context.Background(), "FEAT-001", "duplicate"); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestClient_Reject_Conflict(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	err := c.Reject(context.Background(), "FEAT-001", "dup")
 	if err == nil {
 		t.Fatal("expected error")
@@ -158,7 +158,7 @@ func TestClient_NewItem(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	out, err := c.NewItem(context.Background(), NewItemArgs{
 		Type:       "feature",
 		Title:      "do the thing",

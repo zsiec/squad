@@ -31,7 +31,7 @@ func TestSpecs_InitFetchesAndPopulates(t *testing.T) {
 		{Name: "billing", Title: "Billing flow", Path: "/p/billing.md"},
 	}
 	srv := specsFixture(t, specs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSpecs(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(SpecsModel)
@@ -45,7 +45,7 @@ func TestSpecs_InitFetchesAndPopulates(t *testing.T) {
 
 func TestSpecs_EnterEmitsDrillInMsg(t *testing.T) {
 	srv := specsFixture(t, []client.Spec{{Name: "auth", Title: "x"}})
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSpecs(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SpecsModel)
@@ -66,7 +66,7 @@ func TestSpecs_EnterEmitsDrillInMsg(t *testing.T) {
 
 func TestSpecs_RefreshMsgRefetches(t *testing.T) {
 	srv := specsFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewSpecs(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(SpecsModel)

@@ -20,7 +20,7 @@ After=default.target
 
 [Service]
 Type=simple
-ExecStart={{.BinaryPath}} serve --bind {{.Bind}} --port {{.Port}} --token {{.Token}}
+ExecStart={{.BinaryPath}} serve --bind {{.Bind}} --port {{.Port}}
 Restart=on-failure
 RestartSec=2s
 StandardOutput=append:{{.LogDir}}/serve.out.log
@@ -85,11 +85,11 @@ func (m *linuxManager) Install(opts InstallOpts) error {
 	var buf bytes.Buffer
 	tpl := template.Must(template.New("unit").Parse(unitTpl))
 	err := tpl.Execute(&buf, struct {
-		BinaryPath, Bind, Port, Token, HomeDir, LogDir string
+		BinaryPath, Bind, Port, HomeDir, LogDir string
 	}{
 		BinaryPath: opts.BinaryPath,
 		Bind:       opts.Bind, Port: fmt.Sprintf("%d", opts.Port),
-		Token: opts.Token, HomeDir: opts.HomeDir, LogDir: opts.LogDir,
+		HomeDir: opts.HomeDir, LogDir: opts.LogDir,
 	})
 	if err != nil {
 		return fmt.Errorf("render unit: %w", err)

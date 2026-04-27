@@ -30,7 +30,7 @@ func TestEpics_InitFetchesAndPopulates(t *testing.T) {
 		{Name: "login-redesign", Spec: "auth", Status: "open", Parallelism: "low"},
 	}
 	srv := epicsFixture(t, epics)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewEpics(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(EpicsModel)
@@ -44,7 +44,7 @@ func TestEpics_InitFetchesAndPopulates(t *testing.T) {
 
 func TestEpics_EnterEmitsDrillInMsg(t *testing.T) {
 	srv := epicsFixture(t, []client.Epic{{Name: "login-redesign", Spec: "auth"}})
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewEpics(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(EpicsModel)
@@ -70,7 +70,7 @@ func TestEpics_SetSpecFilterAppendsQuery(t *testing.T) {
 		_, _ = w.Write([]byte("[]"))
 	}))
 	t.Cleanup(srv.Close)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewEpics(c).SetSpecFilter("auth")
 	_ = runCmd(t, m.Init())
 	if !strings.Contains(gotURL, "spec=auth") {
@@ -80,7 +80,7 @@ func TestEpics_SetSpecFilterAppendsQuery(t *testing.T) {
 
 func TestEpics_RefreshMsgRefetches(t *testing.T) {
 	srv := epicsFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewEpics(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(EpicsModel)

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -16,16 +14,14 @@ import (
 )
 
 // upgradeDaemon is a self-contained fake daemon for the upgrade-flow
-// tests. The restart handler captures the X-Squad-Restart-Token header
-// and runs onRestart, which lets each test simulate launchd relaunching
-// the binary at a new version (or, for the timeout case, decline to).
+// tests. onRestart lets each test simulate launchd relaunching the binary
+// at a new version (or, for the timeout case, decline to).
 type upgradeDaemon struct {
 	version    atomic.Value // string
 	binaryPath atomic.Value // string
 	pid        int
 	startedAt  time.Time
 	restartHit atomic.Int32
-	gotToken   atomic.Value // string
 	onRestart  func(*upgradeDaemon)
 }
 
@@ -33,7 +29,6 @@ func newUpgradeDaemon(version, binaryPath string) *upgradeDaemon {
 	d := &upgradeDaemon{pid: 1234, startedAt: time.Now().UTC()}
 	d.version.Store(version)
 	d.binaryPath.Store(binaryPath)
-	d.gotToken.Store("")
 	return d
 }
 
@@ -50,24 +45,12 @@ func (d *upgradeDaemon) handler() http.Handler {
 	})
 	mux.HandleFunc("/api/_internal/restart", func(w http.ResponseWriter, r *http.Request) {
 		d.restartHit.Add(1)
-		d.gotToken.Store(r.Header.Get("X-Squad-Restart-Token"))
 		w.WriteHeader(http.StatusAccepted)
 		if d.onRestart != nil {
 			d.onRestart(d)
 		}
 	})
 	return mux
-}
-
-func writeRestartTokenFile(t *testing.T, home, token string) {
-	t.Helper()
-	dir := filepath.Join(home, ".squad")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "restart.token"), []byte(token), 0o600); err != nil {
-		t.Fatal(err)
-	}
 }
 
 // TestUpgrade_VersionMismatch_RestartsAndPolls covers the headline
@@ -78,22 +61,18 @@ func TestUpgrade_VersionMismatch_RestartsAndPolls(t *testing.T) {
 	shrinkTimings(t)
 	_ = ConsumeBanner()
 
-	const restartToken = "sec-9af3a8c1"
 	d := newUpgradeDaemon("A", "/old/squad")
 	d.onRestart = func(d *upgradeDaemon) { d.version.Store("B") }
 	ts := httptest.NewServer(d.handler())
 	defer ts.Close()
 	setProbeBase(t, ts.URL)
 
-	home := t.TempDir()
-	writeRestartTokenFile(t, home, restartToken)
-
 	mgr := &recordingMgr{}
 	if err := Ensure(context.Background(), Options{
 		BinaryPath: "/old/squad",
 		Bind:       "127.0.0.1",
 		Port:       7777,
-		HomeDir:    home,
+		HomeDir:    t.TempDir(),
 		Manager:    mgr,
 		Version:    "B",
 	}); err != nil {
@@ -102,9 +81,6 @@ func TestUpgrade_VersionMismatch_RestartsAndPolls(t *testing.T) {
 
 	if got := d.restartHit.Load(); got != 1 {
 		t.Errorf("restart hit %d times, want 1", got)
-	}
-	if tok, _ := d.gotToken.Load().(string); tok != restartToken {
-		t.Errorf("restart token sent=%q want %q", tok, restartToken)
 	}
 	if v, _ := d.version.Load().(string); v != "B" {
 		t.Errorf("daemon still on version %q after restart, want B", v)
@@ -181,22 +157,18 @@ func TestUpgrade_PollTimeout_ReturnsError(t *testing.T) {
 	t.Cleanup(func() { pollDeadline, pollInterval, probeTimeout = prevD, prevC, prevT })
 	_ = ConsumeBanner()
 
-	const restartToken = "sec-timeout-token"
 	d := newUpgradeDaemon("A", "/old/squad")
 	// onRestart deliberately omitted — version stays "A" forever.
 	ts := httptest.NewServer(d.handler())
 	defer ts.Close()
 	setProbeBase(t, ts.URL)
 
-	home := t.TempDir()
-	writeRestartTokenFile(t, home, restartToken)
-
 	mgr := &recordingMgr{}
 	err := Ensure(context.Background(), Options{
 		BinaryPath: "/old/squad",
 		Bind:       "127.0.0.1",
 		Port:       7777,
-		HomeDir:    home,
+		HomeDir:    t.TempDir(),
 		Manager:    mgr,
 		Version:    "B",
 	})

@@ -47,7 +47,7 @@ func e2eFixture(t *testing.T) (*httptest.Server, *sql.DB) {
 
 func TestE2E_ClaimFlow(t *testing.T) {
 	ts, db := e2eFixture(t)
-	c := client.New(ts.URL, "")
+	c := client.New(ts.URL)
 
 	m := views.NewItems(c)
 	updated, _ := m.Update(runE2ECmd(t, m.Init()))
@@ -88,7 +88,7 @@ func runE2ECmd(t *testing.T, cmd tea.Cmd) tea.Msg {
 
 func TestE2E_SessionMessage(t *testing.T) {
 	ts, db := e2eFixture(t)
-	c := client.New(ts.URL, "")
+	c := client.New(ts.URL)
 
 	// Pre-seed an agent row so the whoami response is non-empty.
 	now := time.Now().Unix()
@@ -131,7 +131,7 @@ func TestE2E_SessionMessage(t *testing.T) {
 
 func TestE2E_SSEInvalidation(t *testing.T) {
 	ts, db := e2eFixture(t)
-	c := client.New(ts.URL, "")
+	c := client.New(ts.URL)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

@@ -11,7 +11,6 @@ import (
 
 	squad "github.com/zsiec/squad"
 	"github.com/zsiec/squad/internal/installer"
-	"github.com/zsiec/squad/internal/store"
 	"github.com/zsiec/squad/internal/tui/daemon"
 	"github.com/zsiec/squad/plugin/hooks"
 )
@@ -64,9 +63,6 @@ func newInstallPluginCmd() *cobra.Command {
 				}
 				if err := daemon.New().Uninstall(); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not uninstall background daemon: %v\n", err)
-				}
-				if err := removeSquadSentinels(); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not remove first-run sentinels: %v\n", err)
 				}
 				return nil
 			}
@@ -179,24 +175,4 @@ func pluginDestDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, ".claude", "plugins"), nil
-}
-
-// removeSquadSentinels deletes per-install secrets from $SQUAD_HOME on
-// uninstall. global.db and the directory itself are deliberately left in
-// place — they hold user data (claims, items, attestations, learnings)
-// that outlive the plugin install. .welcomed is also preserved: the user
-// completing the welcome flow on this machine is a fact that outlives a
-// plugin uninstall, so re-installing must not re-pop the browser. Only
-// restart.token (the daemon's per-install bearer) is wiped.
-func removeSquadSentinels() error {
-	home, err := store.Home()
-	if err != nil {
-		return err
-	}
-	for _, name := range []string{"restart.token"} {
-		if err := os.Remove(filepath.Join(home, name)); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("remove %s: %w", name, err)
-		}
-	}
-	return nil
 }

@@ -45,9 +45,6 @@ func (c *Client) streamEvents(ctx context.Context, out chan<- Event) error {
 	if err != nil {
 		return err
 	}
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err

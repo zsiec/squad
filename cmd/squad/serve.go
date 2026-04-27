@@ -28,7 +28,6 @@ func newServeCmd() *cobra.Command {
 		port     int
 		bind     string
 		squadDir string
-		token    string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -48,15 +47,11 @@ func newServeCmd() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			tok := token
-			if tok == "" {
-				tok = os.Getenv("SQUAD_DASHBOARD_TOKEN")
-			}
 			// runServeCtx returns the intended exit code (4 for startup
-			// failures, including the bind/token security refusal). Cobra's
-			// default error path would replace any non-zero with 2, so call
-			// os.Exit directly to preserve the signal scripts can key on.
-			if code := runServeCtx(ctx, port, bind, squadDir, tok, cmd.OutOrStdout()); code != 0 {
+			// failures). Cobra's default error path would replace any non-zero
+			// with 2, so call os.Exit directly to preserve the signal scripts
+			// can key on.
+			if code := runServeCtx(ctx, port, bind, squadDir, cmd.OutOrStdout()); code != 0 {
 				os.Exit(code)
 			}
 			return nil
@@ -65,7 +60,6 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().IntVar(&port, "port", 7777, "TCP port to bind")
 	cmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "interface to bind (default localhost only)")
 	cmd.Flags().StringVar(&squadDir, "squad-dir", ".squad", "squad directory containing items/ and done/")
-	cmd.Flags().StringVar(&token, "token", "", "require Bearer <token> on every request (or ?token= for SSE in browsers); falls back to $SQUAD_DASHBOARD_TOKEN")
 	cmd.Flags().Bool("install-service", false, "install squad serve as a system service (launchd / systemd-user)")
 	cmd.Flags().Bool("uninstall-service", false, "uninstall the system service")
 	cmd.Flags().Bool("reinstall-service", false, "reinstall with current binary path")
@@ -85,7 +79,7 @@ func runInstallService(cmd *cobra.Command) error {
 	if err := installServiceFlow(home, binary, daemon.New()); err != nil {
 		return err
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "squad serve installed; token at %s\n", filepath.Join(home, ".squad", "token"))
+	fmt.Fprintln(cmd.OutOrStdout(), "squad serve installed")
 	return nil
 }
 
@@ -122,7 +116,7 @@ func runServiceStatus(cmd *cobra.Command) error {
 	return nil
 }
 
-func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, out interface{ Write([]byte) (int, error) }) int {
+func runServeCtx(ctx context.Context, port int, bind, squadDir string, out interface{ Write([]byte) (int, error) }) int {
 	// Reject host:port forms early — users instinctively try
 	// `--bind 127.0.0.1:8080` and the resulting startup error would otherwise
 	// be a cryptic net.Listen failure.
@@ -130,17 +124,6 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 		fmt.Fprintf(os.Stderr,
 			"squad serve: --bind takes only a host or IP, not a host:port pair (got %q).\n"+
 				"  use --port for the port; e.g. --bind 127.0.0.1 --port 8080.\n", bind)
-		return 4
-	}
-	// A whitespace-only token satisfies the gate but cannot survive an
-	// HTTP header — the operator would think they secured the server while
-	// no client could actually authenticate.
-	token = strings.TrimSpace(token)
-	if !isLoopbackBind(bind) && token == "" {
-		fmt.Fprintf(os.Stderr,
-			"squad serve: refusing to bind %s without --token (or $SQUAD_DASHBOARD_TOKEN).\n"+
-				"  unauthenticated POST /api/messages would let any host on the network impersonate any agent.\n"+
-				"  pass --token <random-string> or bind to a loopback address.\n", bind)
 		return 4
 	}
 	db, err := store.OpenDefault()
@@ -169,7 +152,6 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 		Host: bind, Port: port,
 		SquadDir: squadDir, RepoID: repoID,
 		LearningsRoot: repoRoot,
-		Token:         token,
 		Version:       versionString,
 		BinaryPath:    binaryPath,
 	})
@@ -205,23 +187,4 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir, token string, ou
 		return 4
 	}
 	return 0
-}
-
-// isLoopbackBind reports whether the user's --bind value targets only the
-// local host. The unauthenticated-impersonation gate uses this to decide
-// whether to require a token. We accept the canonical loopback addresses
-// (IPv4 + IPv6) and "localhost" (case-insensitive, with optional trailing
-// dot); anything else (0.0.0.0, an interface IP, or a hostname) is treated
-// as network-exposed.
-func isLoopbackBind(bind string) bool {
-	normalized := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(bind)), ".")
-	switch normalized {
-	case "127.0.0.1", "::1", "localhost":
-		return true
-	}
-	ip := net.ParseIP(normalized)
-	if ip != nil && ip.IsLoopback() {
-		return true
-	}
-	return false
 }

@@ -15,7 +15,6 @@ import (
 
 type Client struct {
 	baseURL string
-	token   string
 	agent   string
 	http    *http.Client
 }
@@ -30,10 +29,9 @@ func (e *StatusErr) Error() string {
 	return fmt.Sprintf("%s -> %d: %s", e.Endpoint, e.Code, e.Body)
 }
 
-func New(baseURL, token string) *Client {
+func New(baseURL string) *Client {
 	return &Client{
 		baseURL: baseURL,
-		token:   token,
 		http:    &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -63,9 +61,6 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, ou
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
 		return err
-	}
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 	if c.agent != "" {
 		req.Header.Set("X-Squad-Agent", c.agent)

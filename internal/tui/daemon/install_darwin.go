@@ -25,7 +25,6 @@ const plistTpl = `<?xml version="1.0" encoding="UTF-8"?>
       <string>serve</string>
       <string>--bind</string><string>{{.Bind}}</string>
       <string>--port</string><string>{{.Port}}</string>
-      <string>--token</string><string>{{.Token}}</string>
     </array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key>
@@ -77,11 +76,11 @@ func (m *darwinManager) Install(opts InstallOpts) error {
 	var buf bytes.Buffer
 	tpl := template.Must(template.New("plist").Parse(plistTpl))
 	err := tpl.Execute(&buf, struct {
-		Label, BinaryPath, Bind, Port, Token, HomeDir, LogDir string
+		Label, BinaryPath, Bind, Port, HomeDir, LogDir string
 	}{
 		Label: launchdLabel, BinaryPath: opts.BinaryPath,
 		Bind: opts.Bind, Port: fmt.Sprintf("%d", opts.Port),
-		Token: opts.Token, HomeDir: opts.HomeDir, LogDir: opts.LogDir,
+		HomeDir: opts.HomeDir, LogDir: opts.LogDir,
 	})
 	if err != nil {
 		return fmt.Errorf("render plist: %w", err)

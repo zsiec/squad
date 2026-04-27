@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 )
@@ -20,7 +19,7 @@ func TestSSE_ParsesSingleEvent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -56,7 +55,7 @@ func TestSSE_IgnoresPingComments(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -84,7 +83,7 @@ func TestSSE_ParsesMultipleEvents(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, "")
+	c := New(srv.URL)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -125,35 +124,5 @@ func TestSSE_ParsesMultipleEvents(t *testing.T) {
 	}
 	if got[0] != "item_changed" || got[1] != "message_posted" {
 		t.Fatalf("got=%v", got)
-	}
-}
-
-func TestSSE_AddsBearerToken(t *testing.T) {
-	var (
-		mu      sync.Mutex
-		gotAuth string
-	)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		gotAuth = r.Header.Get("Authorization")
-		mu.Unlock()
-		w.Header().Set("Content-Type", "text/event-stream")
-		w.(http.Flusher).Flush()
-		// keep open briefly so subscribe loop has time to read header
-		time.Sleep(100 * time.Millisecond)
-	}))
-	defer srv.Close()
-
-	c := New(srv.URL, "secret")
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	_ = c.SubscribeEvents(ctx)
-	time.Sleep(200 * time.Millisecond)
-	mu.Lock()
-	got := gotAuth
-	mu.Unlock()
-	if got != "Bearer secret" {
-		t.Fatalf("auth=%q", got)
 	}
 }

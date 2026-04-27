@@ -22,7 +22,6 @@ type InstallOpts struct {
 	BinaryPath string
 	Bind       string
 	Port       int
-	Token      string
 	LogDir     string
 	HomeDir    string
 }

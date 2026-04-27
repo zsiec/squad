@@ -31,7 +31,7 @@ func TestRepos_InitFetchesAndPopulates(t *testing.T) {
 		{RepoID: "repo-b", Path: "/path/b", Remote: ""},
 	}
 	srv := reposFixture(t, repos)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewRepos(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(ReposModel)
@@ -46,7 +46,7 @@ func TestRepos_InitFetchesAndPopulates(t *testing.T) {
 func TestRepos_EnterEmitsScopeMsg(t *testing.T) {
 	repos := []client.Repo{{RepoID: "repo-a", Path: "/p", Remote: ""}}
 	srv := reposFixture(t, repos)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewRepos(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ReposModel)
@@ -67,7 +67,7 @@ func TestRepos_EnterEmitsScopeMsg(t *testing.T) {
 
 func TestRepos_SSEItemChangedRefetches(t *testing.T) {
 	srv := reposFixture(t, []client.Repo{{RepoID: "r", Path: "/p"}})
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewRepos(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ReposModel)
@@ -84,7 +84,7 @@ func TestRepos_SSEItemChangedRefetches(t *testing.T) {
 
 func TestRepos_RefreshMsgRefetches(t *testing.T) {
 	srv := reposFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewRepos(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ReposModel)

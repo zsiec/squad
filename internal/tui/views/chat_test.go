@@ -31,7 +31,7 @@ func TestChat_InitFetchesAndRenders(t *testing.T) {
 		{ID: 2, TS: 1700000060, AgentID: "bob", Thread: "BUG-1", Kind: "say", Body: "looking at this"},
 	}
 	srv := chatFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(ChatModel)
@@ -48,7 +48,7 @@ func TestChat_SSEMessageAppends(t *testing.T) {
 		{ID: 1, TS: 1700000000, AgentID: "alice", Thread: "global", Kind: "say", Body: "first"},
 	}
 	srv := chatFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)
@@ -70,7 +70,7 @@ func TestChat_ReplyKeyEmitsReplyMsg(t *testing.T) {
 		{ID: 1, AgentID: "alice", Thread: "BUG-1", Kind: "say", Body: "hi"},
 	}
 	srv := chatFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)
@@ -93,7 +93,7 @@ func TestChat_JumpKeyEmitsJumpToItemMsg(t *testing.T) {
 		{ID: 1, AgentID: "alice", Thread: "BUG-42", Kind: "say", Body: "x"},
 	}
 	srv := chatFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)
@@ -116,7 +116,7 @@ func TestChat_JumpKey_NoOpOnGlobalThread(t *testing.T) {
 		{ID: 1, AgentID: "alice", Thread: "global", Kind: "say", Body: "x"},
 	}
 	srv := chatFixture(t, msgs)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)
@@ -133,7 +133,7 @@ func TestChat_JumpKey_NoOpOnGlobalThread(t *testing.T) {
 
 func TestChat_RefreshMsgRefetches(t *testing.T) {
 	srv := chatFixture(t, nil)
-	c := client.New(srv.URL, "")
+	c := client.New(srv.URL)
 	m := NewChat(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ChatModel)

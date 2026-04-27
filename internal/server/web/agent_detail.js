@@ -1,4 +1,4 @@
-import { fetchJSON, escapeHtml, fmtAgo, token } from './util.js';
+import { fetchJSON, escapeHtml, fmtAgo } from './util.js';
 import { displayName } from './names.js';
 import { identicon } from './identicon.js';
 
@@ -63,16 +63,11 @@ function close() {
 // startLiveStream opens a dedicated EventSource for the open drawer. The
 // drawer owns this connection — it is opened on openAgentDetail and closed
 // in stopLiveStream when the drawer closes (matching AC for resource
-// cleanup). Auth posture is inherited from /api/sse — same cookie/token
-// surface as the global stream.
+// cleanup).
 function startLiveStream(agentId) {
   stopLiveStream();
   if (typeof EventSource === 'undefined') return;
-  // Inherit the same /api/events route + token-in-query-string posture the
-  // global EventSource uses (app.js). EventSource cannot set Authorization
-  // headers, so token-protected dashboards rely on the query-string fallback.
-  const url = '/api/events' + (token ? '?token=' + encodeURIComponent(token) : '');
-  liveES = new EventSource(url);
+  liveES = new EventSource('/api/events');
   const onSSE = (e, sseKind) => {
     if (currentAgentId !== agentId) return;
     let env;

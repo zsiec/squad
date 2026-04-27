@@ -69,7 +69,7 @@ func TestItems_InitFetchesAndPopulates(t *testing.T) {
 		{ID: "BUG-2", Title: "second", Status: "claimed"},
 	}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	cmd := m.Init()
 	msg := runCmd(t, cmd)
@@ -88,7 +88,7 @@ func TestItems_RendersR3R4Columns(t *testing.T) {
 			ClaimedBy: "alice", LastTouch: 1700000000},
 	}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(ItemsModel)
@@ -103,7 +103,7 @@ func TestItems_RendersR3R4Columns(t *testing.T) {
 func TestItems_ClaimKeyHitsClaimEndpoint(t *testing.T) {
 	items := []client.Item{{ID: "BUG-1", Title: "x", Status: "open"}}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	// Load
 	updated, _ := m.Update(runCmd(t, m.Init()))
@@ -127,7 +127,7 @@ func TestItems_DefaultFilterExcludesCaptured(t *testing.T) {
 		{ID: "BLK-1", Title: "blocked-one", Status: "blocked"},
 	}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(ItemsModel)
@@ -153,7 +153,7 @@ func TestItems_PressCCyclesFilter(t *testing.T) {
 		{ID: "BLK-1", Title: "blocked-one", Status: "blocked"},
 	}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(ItemsModel)
@@ -208,7 +208,7 @@ func TestItems_FilterRowFormatting(t *testing.T) {
 		{ID: "DON-1", Title: "d", Status: "done"},
 	}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	mm := updated.(ItemsModel)
@@ -235,7 +235,7 @@ func TestItems_FilterRowFormatting(t *testing.T) {
 func TestItems_ReleaseKeyHitsReleaseEndpoint(t *testing.T) {
 	items := []client.Item{{ID: "BUG-1", Title: "x", Status: "claimed"}}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
@@ -252,7 +252,7 @@ func TestItems_ReleaseKeyHitsReleaseEndpoint(t *testing.T) {
 func TestItems_EnterEmitsDrillInMsg(t *testing.T) {
 	items := []client.Item{{ID: "BUG-1", Title: "x", Status: "open"}}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
@@ -273,7 +273,7 @@ func TestItems_EnterEmitsDrillInMsg(t *testing.T) {
 func TestItems_SSEItemChangedRefetches(t *testing.T) {
 	items := []client.Item{{ID: "BUG-1", Title: "before", Status: "open"}}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
@@ -296,7 +296,7 @@ func TestItems_SSEItemChangedRefetches(t *testing.T) {
 func TestItems_RefreshMsgRefetches(t *testing.T) {
 	items := []client.Item{{ID: "BUG-1", Title: "x", Status: "open"}}
 	f := newFixture(t, items)
-	c := client.New(f.srv.URL, "")
+	c := client.New(f.srv.URL)
 	m := NewItems(c)
 	updated, _ := m.Update(runCmd(t, m.Init()))
 	m = updated.(ItemsModel)
