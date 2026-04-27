@@ -42,27 +42,20 @@ type ProgressResult struct {
 }
 
 func Progress(ctx context.Context, args ProgressArgs) (*ProgressResult, error) {
-	var holder string
-	row := args.DB.QueryRowContext(ctx,
-		`SELECT agent_id FROM claims WHERE item_id = ? AND repo_id = ?`, args.ItemID, args.RepoID)
-	switch err := row.Scan(&holder); err {
-	case nil:
-		if holder != args.AgentID {
-			return nil, fmt.Errorf("%w: %s is held by %s", ErrNotYours, args.ItemID, holder)
-		}
-	case sql.ErrNoRows:
+	holder, err := claims.HolderOf(ctx, args.DB, args.RepoID, args.ItemID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
 		return nil, fmt.Errorf("%w: %s", ErrNotClaimed, args.ItemID)
-	default:
+	case err != nil:
 		return nil, err
+	case holder != args.AgentID:
+		return nil, fmt.Errorf("%w: %s is held by %s", ErrNotYours, args.ItemID, holder)
 	}
 
 	if err := args.Chat.ReportProgress(ctx, args.AgentID, args.ItemID, args.Pct, args.Note); err != nil {
 		return nil, err
 	}
-	// PostProgress is best-effort; the underlying notify is async, so any
-	// error here is swallowed and PostedAt always records when Progress ran.
 	posted := time.Now().Unix()
-	_ = args.Chat.PostProgress(ctx, args.AgentID, args.ItemID, args.Pct, args.Note)
 	return &ProgressResult{ItemID: args.ItemID, Pct: args.Pct, Note: args.Note, PostedAt: posted}, nil
 }
 

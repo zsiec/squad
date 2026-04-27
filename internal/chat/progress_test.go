@@ -141,3 +141,60 @@ func TestReportProgress_DoesNotPublishOnFailure(t *testing.T) {
 	default:
 	}
 }
+
+// CHORE-005 regression: a failure between progress-row insert and
+// messages-row insert must roll both back. Previously PostProgress ran
+// outside the transaction; a partial failure left progress and messages
+// disagreeing on whether the report happened.
+func TestReportProgress_AtomicWithMessageInsert(t *testing.T) {
+	c, db := newTestChat(t)
+	ctx := context.Background()
+
+	if _, err := db.Exec(`
+		INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long)
+		VALUES ('repo-test', 'BUG-707', 'agent-a', 100, 100, '', 0)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`
+		CREATE TRIGGER abort_messages_insert BEFORE INSERT ON messages
+		FOR EACH ROW BEGIN SELECT RAISE(ABORT, 'forced'); END
+	`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.ReportProgress(ctx, "agent-a", "BUG-707", 50, "halfway"); err == nil {
+		t.Fatal("expected error from forced trigger abort, got nil")
+	}
+
+	var progressRows int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM progress WHERE item_id='BUG-707'`).Scan(&progressRows)
+	var msgRows int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM messages WHERE thread='BUG-707' AND kind='progress'`).Scan(&msgRows)
+	if progressRows != 0 || msgRows != 0 {
+		t.Fatalf("partial commit: progress=%d messages=%d (both should be 0)", progressRows, msgRows)
+	}
+}
+
+// Happy path: a single ReportProgress writes both the progress row and
+// the chat message in one transaction — the SSE pump and the LatestProgress
+// reader cannot disagree.
+func TestReportProgress_WritesBothProgressAndMessage(t *testing.T) {
+	c, db := newTestChat(t)
+	ctx := context.Background()
+
+	if err := c.ReportProgress(ctx, "agent-a", "BUG-708", 25, "first quarter"); err != nil {
+		t.Fatal(err)
+	}
+
+	var progressRows int
+	_ = db.QueryRow(`SELECT COUNT(*) FROM progress WHERE item_id='BUG-708'`).Scan(&progressRows)
+	if progressRows != 1 {
+		t.Errorf("progress rows=%d want 1", progressRows)
+	}
+	var body string
+	_ = db.QueryRow(`SELECT body FROM messages WHERE thread='BUG-708' AND kind='progress'`).Scan(&body)
+	if body != "25% — first quarter" {
+		t.Errorf("message body=%q want %q", body, "25% — first quarter")
+	}
+}
