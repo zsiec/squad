@@ -40,4 +40,22 @@ Per CLAUDE.md, "trust internal invariants — validate only at system boundaries
 Found during a parallel exploration sweep on 2026-04-26. Small, low-risk cleanup — good "warm up" item before the bigger BUG-009 / BUG-010 transactional fixes.
 
 ## Resolution
-(Filled in when status → done.)
+
+### Fix
+
+`internal/chat/post.go` — `id, err = res.LastInsertId()` now propagates the error inside the WithTxRetry closure. The id feeds the post-commit `bus.Publish` event payload; silent id=0 would corrupt every downstream listener, so failing the tx is the right call. modernc/sqlite computes LastInsertId locally with no roundtrip, so the practical-cost of this guard is near-zero — but the correctness benefit if the impossible ever happens is real.
+
+`internal/store/migrate.go` — deferred rollback now checks the result and `fmt.Fprintf`s any non-`sql.ErrTxDone` error to stderr. ErrTxDone is the expected post-Commit case and stays silent. Library packages don't normally log to stderr, but `applyMigration` runs once at bootstrap, has no caller-supplied logger, and the deferred function can't return — stderr is exactly where an operator looks during init/up.
+
+Sibling `_ = tx.Rollback()` at `internal/store/store.go:57` (in `WithTxRetry`) was explicitly out of scope per the AC and left untouched.
+
+### Evidence
+
+```
+$ go test ./internal/chat ./internal/store
+ok  	github.com/zsiec/squad/internal/chat   0.669s
+ok  	github.com/zsiec/squad/internal/store  1.017s
+
+$ go test ./... -count=1 -race
+... (0 FAIL lines)
+```

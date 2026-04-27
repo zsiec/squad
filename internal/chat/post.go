@@ -60,7 +60,10 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 		if err != nil {
 			return err
 		}
-		id, _ = res.LastInsertId()
+		id, err = res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("post: read message id: %w", err)
+		}
 		_, err = tx.ExecContext(ctx,
 			`UPDATE agents SET last_tick_at = ?, status = 'active' WHERE id = ?`,
 			now, req.AgentID)

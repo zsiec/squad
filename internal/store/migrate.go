@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -122,7 +124,13 @@ func applyMigration(ctx context.Context, db *sql.DB, f migrationFile) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() {
+		// Post-Commit returns ErrTxDone — expected. Anything else means
+		// the DB is in trouble during bootstrap; surface it.
+		if rerr := tx.Rollback(); rerr != nil && !errors.Is(rerr, sql.ErrTxDone) {
+			fmt.Fprintf(os.Stderr, "squad migrate: rollback after %03d_%s: %v\n", f.version, f.name, rerr)
+		}
+	}()
 	if _, err := tx.ExecContext(ctx, f.sql); err != nil {
 		return fmt.Errorf("apply migration %03d_%s: %w", f.version, f.name, err)
 	}
