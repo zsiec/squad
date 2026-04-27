@@ -95,6 +95,48 @@ func TestAgentsMdHook_SkipsWhenSquadBinaryAbsent(t *testing.T) {
 	}
 }
 
+// TestAgentsMdHook_BlocksCommitOnDriftedAgentsMd is the positive
+// blocking case the other tests don't cover. With AGENTS.md staged
+// and a `squad` binary on PATH whose `scaffold agents-md --check`
+// exits non-zero, the hook must propagate the failure (exit 1) and
+// surface the regenerate-with hint on stderr. Without this test, a
+// regression that silently drops the drift check would only be
+// caught by a downstream user noticing AGENTS.md drift in main.
+func TestAgentsMdHook_BlocksCommitOnDriftedAgentsMd(t *testing.T) {
+	hookScript := writeFixtureScript(t, "pre_commit_agents_md.sh")
+	repo := setupRepoWithStagedFile(t, "AGENTS.md", "# drifted\n")
+
+	// Stub `squad` that fails for `scaffold agents-md --check`,
+	// mimicking the real binary's behavior on drift.
+	stubDir := t.TempDir()
+	stub := filepath.Join(stubDir, "squad")
+	stubBody := `#!/bin/sh
+if [ "$1" = "scaffold" ] && [ "$2" = "agents-md" ] && [ "$3" = "--check" ]; then
+  printf 'AGENTS.md drift: file does not match generator output. Regenerate before commit\n' 1>&2
+  exit 2
+fi
+exit 0
+`
+	if err := os.WriteFile(stub, []byte(stubBody), 0o755); err != nil {
+		t.Fatalf("write stub squad: %v", err)
+	}
+
+	cmd := exec.Command("/bin/sh", hookScript)
+	cmd.Dir = repo
+	cmd.Env = []string{"PATH=" + stubDir + ":/usr/bin:/bin", "HOME=" + os.Getenv("HOME")}
+	cmd.Stdin = strings.NewReader(`{"tool_name":"Bash","tool_input":{"command":"git commit -m 'docs: hand-edit'"}}`)
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("hook must exit non-zero on drift; got 0 with output: %s", out)
+	}
+	if !strings.Contains(string(out), "drift detected") {
+		t.Errorf("hook stderr should explain the failure to the operator; got: %s", out)
+	}
+	if !strings.Contains(string(out), "squad scaffold agents-md") {
+		t.Errorf("hook stderr should name the fix command; got: %s", out)
+	}
+}
+
 func TestAgentsMdHook_DashLintClean(t *testing.T) {
 	requireDash(t)
 	out, err := exec.Command("dash", "-n", fixturePathInRepo(t, "pre_commit_agents_md.sh")).CombinedOutput()

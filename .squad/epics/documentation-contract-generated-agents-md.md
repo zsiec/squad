@@ -54,3 +54,20 @@ Either gap on its own makes the generated artifact thin and the contract
 weaker than the hand-edited version we are replacing. So this epic ships
 after B and C — not because the code depends on them, but because the
 output quality does.
+
+### Decision: where the hand-edited operating manual lives
+
+The original `AGENTS.md` carried ~250 lines of operating manual (mental
+model, session lifecycle, filing items, multi-agent dispatch, handoff,
+escalation, time-boxing, chat cadence, anti-patterns, learnings). When
+this epic flipped `AGENTS.md` to generator-only output, that content
+needed a home. The chosen home is `CLAUDE.md` — already designated as
+the only hand-edited contract file by the epic's own principle. The
+operating-manual sections live there as a top-level "Operating manual"
+block alongside the existing conventions; agents reading `CLAUDE.md`
+end-to-end at session start get the full doctrine in one file.
+
+Discarding the manual was rejected: the §0–§14 cadence and quality bar
+content is load-bearing for new agents and not derivable from skills
+alone. Keeping `AGENTS.md` hand-edited (rolling back the epic) was
+also rejected: the drift problem the epic exists to solve was real.

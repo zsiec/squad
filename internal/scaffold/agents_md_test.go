@@ -1,6 +1,9 @@
 package scaffold
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -131,6 +134,48 @@ func TestRenderAgentsMd_EmptyLedgerStillRenders(t *testing.T) {
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("empty-ledger render missing %q\n---\n%s", want, out)
+		}
+	}
+}
+
+// TestCommittedAgentsMdIsGeneratorOutput is the CI gate for the
+// documentation-contract guarantee: the in-tree `AGENTS.md` must be
+// the output of `squad scaffold agents-md`, not hand-edited prose.
+// A byte-equal comparison to a freshly-regenerated body would be
+// flaky in CI (the generator's "In flight" rows and "Recently done"
+// summaries depend on the local DB, which CI does not seed), so this
+// test asserts the structural shape that distinguishes generator
+// output from hand-edited content: the do-not-edit banner is the
+// first non-blank line, and every section header the generator emits
+// is present. That catches the BUG-037 case (a hand-edited prose
+// `AGENTS.md` shipped to main) without coupling to DB state.
+//
+// Fine-grained drift between committed content and live-ledger output
+// is the pre-commit hook's responsibility (TestAgentsMdHook_BlocksCommitOnDriftedAgentsMd).
+func TestCommittedAgentsMdIsGeneratorOutput(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
+	body, err := os.ReadFile(filepath.Join(repoRoot, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read AGENTS.md: %v", err)
+	}
+	first := strings.TrimLeft(string(body), " \t\n")
+	if !strings.HasPrefix(first, "<!-- do not edit by hand;") {
+		excerpt := first
+		if len(excerpt) > 200 {
+			excerpt = excerpt[:200]
+		}
+		t.Fatalf("AGENTS.md does not start with the do-not-edit banner — was it hand-edited and committed without `squad scaffold agents-md`?\nfirst bytes:\n%s", excerpt)
+	}
+	for _, section := range []string{
+		"## Ready",
+		"## In flight",
+		"## Recently done",
+		"## Specs",
+		"## Epics",
+	} {
+		if !strings.Contains(string(body), section) {
+			t.Errorf("AGENTS.md missing generator section %q — regenerate with `squad scaffold agents-md`", section)
 		}
 	}
 }
