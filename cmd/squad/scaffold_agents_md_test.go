@@ -112,6 +112,46 @@ func TestPickDone_SortsByUpdatedDESC(t *testing.T) {
 	}
 }
 
+// TestPickDone_TiebreaksByAcceptedAtDESC covers BUG-036: when many done
+// items share the same Updated date, the secondary sort key dominates.
+// Pinning ID ASC as the tiebreak surfaces the lowest IDs in the same-day
+// pile, which is the opposite of "recently done." AcceptedAt is the
+// cheapest sub-day recency proxy already on Item — set at promote time,
+// not close time, but useful enough for the AGENTS.md ordering.
+func TestPickDone_TiebreaksByAcceptedAtDESC(t *testing.T) {
+	in := []items.Item{
+		{ID: "BUG-A", Updated: "2026-04-27", AcceptedAt: 1777300000},
+		{ID: "BUG-B", Updated: "2026-04-27", AcceptedAt: 1777330000},
+		{ID: "BUG-C", Updated: "2026-04-27", AcceptedAt: 1777315000},
+		{ID: "FEAT-Z", Updated: "2026-04-26", AcceptedAt: 1777400000},
+	}
+	got := pickDone(in, 10)
+	want := []string{"BUG-B", "BUG-C", "BUG-A", "FEAT-Z"}
+	for i, w := range want {
+		if got[i].ID != w {
+			t.Errorf("pickDone[%d] = %s; want %s (Updated DESC, AcceptedAt DESC tiebreak)", i, got[i].ID, w)
+		}
+	}
+}
+
+// TestPickDone_FallsBackToIDWhenAcceptedAtMissing covers items predating
+// the AcceptedAt field being populated — those rows have AcceptedAt == 0,
+// and the sort must still be deterministic via ID ASC.
+func TestPickDone_FallsBackToIDWhenAcceptedAtMissing(t *testing.T) {
+	in := []items.Item{
+		{ID: "BUG-Z", Updated: "2026-04-27", AcceptedAt: 0},
+		{ID: "BUG-A", Updated: "2026-04-27", AcceptedAt: 0},
+		{ID: "BUG-M", Updated: "2026-04-27", AcceptedAt: 0},
+	}
+	got := pickDone(in, 10)
+	want := []string{"BUG-A", "BUG-M", "BUG-Z"}
+	for i, w := range want {
+		if got[i].ID != w {
+			t.Errorf("pickDone[%d] = %s; want %s (ID ASC fallback when AcceptedAt missing)", i, got[i].ID, w)
+		}
+	}
+}
+
 // TestPickDone_CapsAtN pins the per-section item cap.
 func TestPickDone_CapsAtN(t *testing.T) {
 	in := make([]items.Item, 15)

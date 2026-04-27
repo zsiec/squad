@@ -113,17 +113,25 @@ func capItems(in []items.Item, n int) []items.Item {
 	return in[:n]
 }
 
-// pickDone returns the n most-recently-updated done items. items.Walk
-// returns done in os.ReadDir (alphabetic) order, NOT recency, so we
-// sort by Updated DESC here. Updated is the YAML date string in
-// `2006-01-02` form; lexicographic compare on that format is recency-
-// equivalent for our needs.
+// pickDone returns the n done items most likely to have closed recently.
+// items.Walk returns done in os.ReadDir (alphabetic) order, NOT recency,
+// so the sort is explicit. Primary key: Updated DESC (per-day YAML date
+// string in `2006-01-02` form, lexicographically comparable). Secondary
+// key: AcceptedAt DESC — a sub-day proxy for recency. AcceptedAt is set
+// at promote-from-intake time, not at close time; items.Item carries no
+// closed-at timestamp today, so this is the cheapest in-memory signal
+// that distinguishes same-day rows. Tertiary fallback: ID ASC for items
+// predating AcceptedAt being populated, so the order remains
+// deterministic instead of relying on map iteration.
 func pickDone(done []items.Item, n int) []items.Item {
 	out := make([]items.Item, len(done))
 	copy(out, done)
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Updated != out[j].Updated {
 			return out[i].Updated > out[j].Updated
+		}
+		if out[i].AcceptedAt != out[j].AcceptedAt {
+			return out[i].AcceptedAt > out[j].AcceptedAt
 		}
 		return out[i].ID < out[j].ID
 	})
