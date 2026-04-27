@@ -1,10 +1,96 @@
 package main
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"time"
+
+	"github.com/zsiec/squad/internal/chat"
 )
+
+// staleChatThreshold is the silence window above which the agent gets
+// a stale-chat nudge — chat-cadence doctrine is "post often, post
+// small", and 30m without thinking/milestone/stuck is the threshold
+// dogfood data showed correlates with peers losing visibility.
+const staleChatThreshold = 30 * time.Minute
+
+// staleChatNudgeText returns the one-line "you've gone quiet" reminder
+// when silenceFor crosses the threshold, or "" when below threshold or
+// silenced. The CALLER decides invocation cadence — the function is a
+// pure text helper, like the other nudges in this file.
+func staleChatNudgeText(silenceFor time.Duration) string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	if silenceFor < staleChatThreshold {
+		return ""
+	}
+	return "  tip: 30m+ without thinking/milestone/stuck — see `squad-chat-cadence` skill so peers can route attention · silence with SQUAD_NO_CADENCE_NUDGES=1"
+}
+
+func printStaleChatNudge(w io.Writer, silenceFor time.Duration) {
+	if t := staleChatNudgeText(silenceFor); t != "" {
+		fmt.Fprintln(w, t)
+	}
+}
+
+// maybePrintStaleChatNudge looks up the agent's active claim and
+// prints the stale-chat nudge to w when warranted. No-op when the
+// agent holds no claim or when silenced. Called from `squad tick` so
+// the nudge surfaces on every Bash boundary the loop hook fires on.
+func maybePrintStaleChatNudge(ctx context.Context, db *sql.DB, repoID, agentID string, now time.Time, w io.Writer) {
+	if cadenceNudgesSilenced() {
+		return
+	}
+	var itemID string
+	err := db.QueryRowContext(ctx,
+		`SELECT item_id FROM claims WHERE repo_id=? AND agent_id=? LIMIT 1`,
+		repoID, agentID,
+	).Scan(&itemID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warn: stale-chat nudge claim lookup: %v\n", err)
+		return
+	}
+	silenceFor, err := staleChatSilenceFor(ctx, db, repoID, agentID, itemID, now)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warn: stale-chat nudge silence query: %v\n", err)
+		return
+	}
+	printStaleChatNudge(w, silenceFor)
+}
+
+// staleChatSilenceFor returns how long the agent has been quiet on
+// cadence verbs, anchored at the latest of (claim time, last
+// thinking/milestone/stuck post). Used to feed staleChatNudgeText.
+func staleChatSilenceFor(ctx context.Context, db *sql.DB, repoID, agentID, itemID string, now time.Time) (time.Duration, error) {
+	var claimedAt int64
+	if err := db.QueryRowContext(ctx,
+		`SELECT claimed_at FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
+		repoID, itemID, agentID,
+	).Scan(&claimedAt); err != nil {
+		return 0, err
+	}
+	anchor := time.Unix(claimedAt, 0)
+
+	var latestPost sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		`SELECT MAX(ts) FROM messages WHERE repo_id=? AND agent_id=? AND kind IN (?, ?, ?) AND ts >= ?`,
+		repoID, agentID, chat.KindThinking, chat.KindMilestone, chat.KindStuck, claimedAt,
+	).Scan(&latestPost); err != nil {
+		return 0, err
+	}
+	if latestPost.Valid && latestPost.Int64 > anchor.Unix() {
+		anchor = time.Unix(latestPost.Int64, 0)
+	}
+	return now.Sub(anchor), nil
+}
 
 // cadenceNudgeText returns the one-line claim/done reminder pointing the
 // agent at the right chat verb for the moment, or "" when silenced or when

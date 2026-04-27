@@ -2,9 +2,105 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
+	"time"
 )
+
+// TestStaleChatNudgeText_Under30mIsSilent verifies the stale-chat
+// nudge stays quiet inside the cadence window — agents should not be
+// nagged for normal short pauses.
+func TestStaleChatNudgeText_Under30mIsSilent(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	for _, d := range []time.Duration{0, 5 * time.Minute, 29*time.Minute + 59*time.Second} {
+		if got := staleChatNudgeText(d); got != "" {
+			t.Errorf("staleChatNudgeText(%s) = %q; want empty", d, got)
+		}
+	}
+}
+
+// TestStaleChatNudgeText_AtOrAbove30mFires verifies the nudge text is
+// returned once the silence window crosses 30m.
+func TestStaleChatNudgeText_AtOrAbove30mFires(t *testing.T) {
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+	for _, d := range []time.Duration{30 * time.Minute, 45 * time.Minute, 2 * time.Hour} {
+		got := staleChatNudgeText(d)
+		if got == "" {
+			t.Errorf("staleChatNudgeText(%s) returned empty; want nudge", d)
+		}
+		if !strings.Contains(got, "squad-chat-cadence") {
+			t.Errorf("nudge should name the skill `squad-chat-cadence`, got %q", got)
+		}
+		if !strings.Contains(got, "SQUAD_NO_CADENCE_NUDGES") {
+			t.Errorf("nudge should advertise the silence env var, got %q", got)
+		}
+	}
+}
+
+// TestStaleChatNudgeText_SuppressedByEnv mirrors the existing nudges'
+// suppression contract.
+func TestStaleChatNudgeText_SuppressedByEnv(t *testing.T) {
+	for _, val := range []string{"1", "true", "TRUE"} {
+		t.Run("env="+val, func(t *testing.T) {
+			t.Setenv("SQUAD_NO_CADENCE_NUDGES", val)
+			if got := staleChatNudgeText(2 * time.Hour); got != "" {
+				t.Errorf("env=%q should suppress, got %q", val, got)
+			}
+		})
+	}
+}
+
+// TestStaleChatSilenceFor_NoCadencePostsReturnsClaimAge covers the
+// silent-agent path: with no thinking/milestone/stuck since claim time,
+// the silence anchor falls back to the claim timestamp.
+func TestStaleChatSilenceFor_NoCadencePostsReturnsClaimAge(t *testing.T) {
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-45 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-501", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	got, err := staleChatSilenceFor(context.Background(), env.DB, env.RepoID, env.AgentID, "BUG-501", now)
+	if err != nil {
+		t.Fatalf("staleChatSilenceFor: %v", err)
+	}
+	if got < 44*time.Minute || got > 46*time.Minute {
+		t.Errorf("silenceFor = %s; want ~45m (claim age)", got)
+	}
+}
+
+// TestStaleChatSilenceFor_LatestCadencePostBeatsClaimAge covers the
+// recently-posted path: a thinking post 5m ago resets the silence
+// anchor, so silenceFor returns ~5m even on a 45m-old claim.
+func TestStaleChatSilenceFor_LatestCadencePostBeatsClaimAge(t *testing.T) {
+	env := newTestEnv(t)
+	now := time.Now()
+	claimAt := now.Add(-45 * time.Minute)
+	postAt := now.Add(-5 * time.Minute)
+	if _, err := env.DB.Exec(
+		`INSERT INTO claims (repo_id, item_id, agent_id, claimed_at, last_touch, intent, long) VALUES (?, ?, ?, ?, ?, '', 0)`,
+		env.RepoID, "BUG-502", env.AgentID, claimAt.Unix(), claimAt.Unix(),
+	); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+	if _, err := env.DB.Exec(
+		`INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority) VALUES (?, ?, ?, 'global', 'thinking', 'considering options', '', 'normal')`,
+		env.RepoID, postAt.Unix(), env.AgentID,
+	); err != nil {
+		t.Fatalf("seed thinking post: %v", err)
+	}
+	got, err := staleChatSilenceFor(context.Background(), env.DB, env.RepoID, env.AgentID, "BUG-502", now)
+	if err != nil {
+		t.Fatalf("staleChatSilenceFor: %v", err)
+	}
+	if got < 4*time.Minute || got > 6*time.Minute {
+		t.Errorf("silenceFor = %s; want ~5m (latest thinking post)", got)
+	}
+}
 
 func TestPrintCadenceNudge_ClaimEmitsThinkingTip(t *testing.T) {
 	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")

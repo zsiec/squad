@@ -46,6 +46,7 @@ func newTickCmd() *cobra.Command {
 			if code := runTickBody(ctx, bc.chat, bc.agentID, jsonOut, cmd.OutOrStdout()); code != 0 {
 				os.Exit(code)
 			}
+			maybePrintStaleChatNudge(ctx, bc.db, bc.repoID, bc.agentID, time.Now(), cmd.OutOrStdout())
 			return nil
 		},
 	}
