@@ -4,7 +4,7 @@ title: squad status surfaces multi-agent collision risk
 type: feature
 priority: P2
 area: cmd/squad
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
@@ -70,5 +70,19 @@ test assertions and human eyes both stay stable. The
 query into `internal/claims/claims.go` and call it from here.
 
 ## Resolution
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+- `cmd/squad/status.go`: widened the claims `SELECT` to read `(item_id, agent_id)`,
+  populated a new `ClaimedBy map[string][]string` field on `StatusResult` (per-agent
+  items sorted ASC), and added a `--json` flag wired via a new `runStatusWithJSON`.
+  The text printer adds an indented per-agent block when `len(ClaimedBy) > 1`
+  (multi-agent contention), sorted by agent id ASC. Single-claim and zero-claim
+  output are byte-identical to the prior behavior; existing JSON tags untouched.
+- Trigger note: AC said "claimed > 1" but the *purpose* per the Problem section is
+  multi-agent contention, not multi-item. One agent holding two items is noise;
+  two agents each holding one item is the case the operator wants to see. Implemented
+  as `len(ClaimedBy) > 1` with a one-line WHY comment, plus a new test pinning the
+  one-agent-two-claims-no-breakdown case.
+- New tests in `cmd/squad/status_test.go`: `TestRunStatus_MultiAgentPrintsBreakdown`,
+  `TestRunStatus_JSONFlagEmitsHolders`, `TestRunStatus_SingleClaimOmitsBreakdown`,
+  `TestRunStatus_SingleAgentMultiClaimOmitsBreakdown`. The single-agent-multi-claim
+  test inserts claim rows directly via the store (using `repo.Discover` then
+  `repo.IDFor` to canonicalize the path the way `Status()` does on macOS).
