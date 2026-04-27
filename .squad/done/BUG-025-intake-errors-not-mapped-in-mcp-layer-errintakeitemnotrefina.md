@@ -4,7 +4,7 @@ title: intake errors not mapped in MCP layer (ErrIntakeItemNotRefinable surfaces
 type: bug
 priority: P3
 area: intake
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
