@@ -11,6 +11,8 @@ import (
 
 	squad "github.com/zsiec/squad"
 	"github.com/zsiec/squad/internal/installer"
+	"github.com/zsiec/squad/internal/store"
+	"github.com/zsiec/squad/internal/tui/daemon"
 	"github.com/zsiec/squad/plugin/hooks"
 )
 
@@ -59,6 +61,12 @@ func newInstallPluginCmd() *cobra.Command {
 							}
 						}
 					}
+				}
+				if err := daemon.New().Uninstall(); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not uninstall background daemon: %v\n", err)
+				}
+				if err := removeSquadSentinels(); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "squad: warning: could not remove first-run sentinels: %v\n", err)
 				}
 				return nil
 			}
@@ -171,4 +179,21 @@ func pluginDestDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, ".claude", "plugins"), nil
+}
+
+// removeSquadSentinels deletes the first-run sentinels (.welcomed, restart.token)
+// from $SQUAD_HOME. global.db and the directory itself are deliberately left
+// in place — they hold user data (claims, items, attestations, learnings) that
+// outlive the plugin install.
+func removeSquadSentinels() error {
+	home, err := store.Home()
+	if err != nil {
+		return err
+	}
+	for _, name := range []string{".welcomed", "restart.token"} {
+		if err := os.Remove(filepath.Join(home, name)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", name, err)
+		}
+	}
+	return nil
 }
