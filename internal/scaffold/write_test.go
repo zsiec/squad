@@ -130,6 +130,37 @@ func TestWriteCapturedExampleItem_SkipsIfPresent(t *testing.T) {
 	}
 }
 
+func TestWriteConfig_DefaultsWorktreePerClaimTrue(t *testing.T) {
+	root := t.TempDir()
+	d := Data{ProjectName: "p", IDPrefixes: []string{"BUG"}, PrimaryLanguage: "go"}
+	if err := WriteConfig(root, d); err != nil {
+		t.Fatalf("WriteConfig: %v", err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, ".squad", "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "default_worktree_per_claim: true") {
+		t.Fatalf("config.yaml does not opt into worktree-per-claim by default; got:\n%s", got)
+	}
+}
+
+func TestWriteAgents_DocumentsWorktreeDefaultAndOptOut(t *testing.T) {
+	root := t.TempDir()
+	if err := WriteAgents(root, Data{ProjectName: "p", IDPrefixes: []string{"BUG"}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"default_worktree_per_claim: true", "default_worktree_per_claim: false"} {
+		if !strings.Contains(string(got), want) {
+			t.Fatalf("AGENTS.md missing worktree default/opt-out mention %q; got:\n%s", want, got)
+		}
+	}
+}
+
 func TestWriteAgents_CreatesFile(t *testing.T) {
 	root := t.TempDir()
 	d := Data{ProjectName: "octopus", IDPrefixes: []string{"BUG", "FEAT"}}

@@ -50,9 +50,9 @@ type AgentConfig struct {
 	// Set to a large number (e.g. 100) to effectively disable.
 	ClaimConcurrency int `yaml:"claim_concurrency"`
 
-	// DefaultWorktreePerClaim implies --worktree on every claim. Off by
-	// default; flip on for parallel-agent setups once orphan-cleanup has
-	// been exercised. Per-invocation `--no-worktree` overrides remain
+	// DefaultWorktreePerClaim implies --worktree on every claim. Scaffolded
+	// to true so multi-agent sessions get isolation by default; set false
+	// to opt out per-repo. Per-invocation `--no-worktree` overrides remain
 	// future work.
 	DefaultWorktreePerClaim bool `yaml:"default_worktree_per_claim"`
 }
