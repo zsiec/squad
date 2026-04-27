@@ -105,6 +105,13 @@ var vagueACBulletAllowedVerbs = map[string]struct{}{
 	"contains": {}, "includes": {}, "excludes": {}, "filters": {}, "sorts": {}, "groups": {}, "merges": {}, "supports": {},
 	"shows": {}, "hides": {}, "displays": {}, "prompts": {}, "warns": {}, "informs": {}, "reports": {}, "names": {},
 	"opens": {}, "closes": {}, "starts": {}, "stops": {}, "runs": {}, "uses": {}, "gets": {}, "gains": {}, "picks": {}, "persists": {},
+	"goes": {}, "go": {}, "went": {}, "going": {}, "gone": {},
+	"becomes": {}, "become": {}, "became": {}, "turns": {}, "turn": {}, "turned": {},
+	"changes": {}, "change": {}, "changed": {},
+	"regresses": {}, "regress": {}, "regressed": {},
+	"breaks": {}, "break": {}, "broke": {}, "broken": {}, "holds": {}, "hold": {}, "held": {},
+	"appears": {}, "appear": {}, "disappears": {}, "vanishes": {},
+	"clear": {}, "stays": {}, "stay": {}, "remains": {}, "remain": {}, "remained": {},
 }
 
 var vagueACBulletStripPunctRe = regexp.MustCompile(`^[\W_]+|[\W_]+$`)
