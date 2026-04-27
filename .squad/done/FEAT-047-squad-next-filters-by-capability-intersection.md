@@ -4,7 +4,7 @@ title: squad next filters by capability intersection
 type: feature
 priority: P2
 area: cmd/squad
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
@@ -70,5 +70,34 @@ the agent can actually claim, not nothing.
 
 ## Resolution
 
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+- `cmd/squad/next.go`: `NextArgs` gains `All bool`. New
+  `filterByCapability` reads the calling agent's `agents.capabilities`
+  JSON column and drops ready items whose `requires_capability` is not
+  a subset. Empty `requires_capability` always passes (universal). The
+  filter is a no-op when the agents row / column / unmarshal fails —
+  visibility is the safer default than silently hiding work behind a
+  missing-row.
+- Filter ordering: ready set → exclude already-claimed → capability
+  intersection → limit truncation. `--limit 5` still gets 5 items the
+  agent can act on, not 5 items globally with some unclaimable.
+- Priority preservation: `for _, it := range ready { if isSubset(...) }`
+  is range-and-filter, no sort, no map — order is preserved by
+  construction.
+- `cmd/squad/next.go`: cobra command grows `--all`. `runNext` threads
+  `identity.AgentID()` into `NextArgs.AgentID` so the filter has
+  something to look up.
+- `cmd/squad/mcp_register.go` + `mcp_schemas.go`: MCP `squad_next` now
+  reads `all` and `agent_id` properties, threading both into NextArgs
+  via the existing `resolveAgentID` helper. Without this, MCP callers
+  would fall back to the host process's identity, which is wrong for a
+  capability-filtered list.
+- Tests: `TestNextItem_FiltersByCapabilitySubset` (covers
+  superset-agent / FEAT-101 needs go / FEAT-102 needs go,sql /
+  FEAT-103 needs frontend hidden / FEAT-104 empty-req visible),
+  `TestNextItem_DisjointCapabilitiesHidesAllTagged` (agent {design}
+  sees only the empty-req item), `TestNextItem_AllBypassesFilter`
+  (--all returns the unfiltered set). New helpers
+  `seedAgentCapabilities` and `writeItemWithCaps` keep the fixture
+  setup readable.
+- Existing `runNext` callers updated mechanically to pass the new
+  `all` bool (next_test.go, r3_backcompat_test.go, intake_e2e_test.go).
