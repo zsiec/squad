@@ -179,7 +179,7 @@ func ensureRegistered(out, errOut io.Writer) error {
 	if known && repoID != unscopedRepoID {
 		return nil
 	}
-	return runRegisterWithOpts(out, errOut, "", "", false, false)
+	return runRegisterWithOpts(out, errOut, "", "", false, false, nil, false)
 }
 
 func printItemAC(out io.Writer, itemsDir, itemID string) error {

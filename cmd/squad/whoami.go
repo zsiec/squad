@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,11 +27,12 @@ type WhoamiArgs struct {
 }
 
 type WhoamiResult struct {
-	AgentID    string `json:"id"`
-	LastTickAt int64  `json:"last_tick_at,omitempty"`
-	ItemID     string `json:"item_id,omitempty"`
-	Intent     string `json:"intent,omitempty"`
-	LastTouch  int64  `json:"last_touch,omitempty"`
+	AgentID      string   `json:"id"`
+	LastTickAt   int64    `json:"last_tick_at,omitempty"`
+	ItemID       string   `json:"item_id,omitempty"`
+	Intent       string   `json:"intent,omitempty"`
+	LastTouch    int64    `json:"last_touch,omitempty"`
+	Capabilities []string `json:"capabilities,omitempty"`
 }
 
 func Whoami(_ context.Context, args WhoamiArgs) (*WhoamiResult, error) {
@@ -58,7 +60,7 @@ func Whoami(_ context.Context, args WhoamiArgs) (*WhoamiResult, error) {
 }
 
 func newWhoamiCmd() *cobra.Command {
-	var asJSON bool
+	var asJSON, verbose bool
 	cmd := &cobra.Command{
 		Use:   "whoami",
 		Short: "Print the agent id this session resolves to",
@@ -67,32 +69,45 @@ func newWhoamiCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !asJSON {
-				fmt.Fprintln(cmd.OutOrStdout(), res.AgentID)
+			if asJSON {
+				out := map[string]any{"id": res.AgentID}
+				if res.LastTickAt != 0 {
+					out["last_tick_at"] = res.LastTickAt
+				}
+				if res.ItemID != "" {
+					out["item_id"] = res.ItemID
+				}
+				if res.Intent != "" {
+					out["intent"] = res.Intent
+				}
+				if res.LastTouch != 0 {
+					out["last_touch"] = res.LastTouch
+				}
+				if len(res.Capabilities) > 0 {
+					out["capabilities"] = res.Capabilities
+				}
+				b, err := json.Marshal(out)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(b))
 				return nil
 			}
-			out := map[string]any{"id": res.AgentID}
-			if res.LastTickAt != 0 {
-				out["last_tick_at"] = res.LastTickAt
+			if verbose {
+				fmt.Fprintf(cmd.OutOrStdout(), "id: %s\n", res.AgentID)
+				caps := "(none)"
+				if len(res.Capabilities) > 0 {
+					caps = strings.Join(res.Capabilities, ", ")
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "capabilities: %s\n", caps)
+				return nil
 			}
-			if res.ItemID != "" {
-				out["item_id"] = res.ItemID
-			}
-			if res.Intent != "" {
-				out["intent"] = res.Intent
-			}
-			if res.LastTouch != 0 {
-				out["last_touch"] = res.LastTouch
-			}
-			b, err := json.Marshal(out)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), string(b))
+			fmt.Fprintln(cmd.OutOrStdout(), res.AgentID)
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "emit a JSON object with id, last_tick_at, item_id, intent, last_touch")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit a JSON object with id, last_tick_at, item_id, intent, last_touch, capabilities")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "print id and capabilities; '(none)' when the agent declared no capabilities")
 	return cmd
 }
 
@@ -118,8 +133,17 @@ func discoverRepoIDForWhoami() string {
 
 func annotateWhoamiFromDB(db *sql.DB, res *WhoamiResult, agentID, repoID string) error {
 	var lastTick sql.NullInt64
-	if err := db.QueryRow(`SELECT last_tick_at FROM agents WHERE id = ? LIMIT 1`, agentID).Scan(&lastTick); err == nil && lastTick.Valid {
-		res.LastTickAt = lastTick.Int64
+	var capsRaw sql.NullString
+	if err := db.QueryRow(`SELECT last_tick_at, capabilities FROM agents WHERE id = ? LIMIT 1`, agentID).Scan(&lastTick, &capsRaw); err == nil {
+		if lastTick.Valid {
+			res.LastTickAt = lastTick.Int64
+		}
+		if capsRaw.Valid && capsRaw.String != "" && capsRaw.String != "[]" {
+			var caps []string
+			if jerr := json.Unmarshal([]byte(capsRaw.String), &caps); jerr == nil {
+				res.Capabilities = caps
+			}
+		}
 	}
 
 	// A claim is meaningful only inside the repo it was made against.

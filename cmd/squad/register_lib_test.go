@@ -45,6 +45,149 @@ func TestRegister_PureWritesAgentRow(t *testing.T) {
 	}
 }
 
+func TestRegister_PersistsCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-cap-1")
+	t.Setenv("SQUAD_AGENT", "")
+
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-cap", NoRepoCheck: true,
+		Capabilities: []string{"go", "sql"}, SetCapabilities: true,
+	}); err != nil {
+		t.Fatalf("first register: %v", err)
+	}
+	db, err := store.Open(filepath.Join(dir, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var caps string
+	if err := db.QueryRow(`SELECT capabilities FROM agents WHERE id=?`, "agent-cap").Scan(&caps); err != nil {
+		t.Fatal(err)
+	}
+	if caps != `["go","sql"]` {
+		t.Errorf("capabilities=%q want [\"go\",\"sql\"]", caps)
+	}
+}
+
+func TestRegister_ReregisterReplacesCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-cap-replace")
+	t.Setenv("SQUAD_AGENT", "")
+
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-replace", NoRepoCheck: true,
+		Capabilities: []string{"go", "sql"}, SetCapabilities: true,
+	}); err != nil {
+		t.Fatalf("first register: %v", err)
+	}
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-replace", NoRepoCheck: true, Force: true,
+		Capabilities: []string{"frontend"}, SetCapabilities: true,
+	}); err != nil {
+		t.Fatalf("re-register: %v", err)
+	}
+	db, err := store.Open(filepath.Join(dir, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var caps string
+	if err := db.QueryRow(`SELECT capabilities FROM agents WHERE id=?`, "agent-replace").Scan(&caps); err != nil {
+		t.Fatal(err)
+	}
+	if caps != `["frontend"]` {
+		t.Errorf("capabilities=%q want [\"frontend\"] (replace, not append)", caps)
+	}
+}
+
+func TestRegister_EmptyCapabilitiesPersistsAsEmptyArray(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-cap-empty")
+	t.Setenv("SQUAD_AGENT", "")
+
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-empty", NoRepoCheck: true, SetCapabilities: true,
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	db, err := store.Open(filepath.Join(dir, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var caps string
+	if err := db.QueryRow(`SELECT capabilities FROM agents WHERE id=?`, "agent-empty").Scan(&caps); err != nil {
+		t.Fatal(err)
+	}
+	if caps != "[]" {
+		t.Errorf("capabilities=%q want []", caps)
+	}
+}
+
+func TestRegister_LowercasesAndDedupesCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-cap-dedupe")
+	t.Setenv("SQUAD_AGENT", "")
+
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-dedupe", NoRepoCheck: true,
+		Capabilities: []string{"Go", "go", "SQL", "frontend"}, SetCapabilities: true,
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	db, err := store.Open(filepath.Join(dir, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var caps string
+	if err := db.QueryRow(`SELECT capabilities FROM agents WHERE id=?`, "agent-dedupe").Scan(&caps); err != nil {
+		t.Fatal(err)
+	}
+	// Deterministic ordering — sort keeps "frontend" before "go" before "sql".
+	if caps != `["frontend","go","sql"]` {
+		t.Errorf("capabilities=%q want sorted-deduped lowercase", caps)
+	}
+}
+
+func TestRegister_ReregisterWithoutCapabilityFlagPreservesPriorSet(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-cap-preserve")
+	t.Setenv("SQUAD_AGENT", "")
+
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-keep", NoRepoCheck: true,
+		Capabilities: []string{"go", "sql"}, SetCapabilities: true,
+	}); err != nil {
+		t.Fatalf("first register: %v", err)
+	}
+	// Implicit re-register (e.g., from `squad go`) — no Capabilities, no
+	// SetCapabilities. The prior set must survive.
+	if _, _, err := Register(context.Background(), RegisterArgs{
+		As: "agent-keep", NoRepoCheck: true, Force: true,
+	}); err != nil {
+		t.Fatalf("implicit re-register: %v", err)
+	}
+	db, err := store.Open(filepath.Join(dir, "global.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var caps string
+	if err := db.QueryRow(`SELECT capabilities FROM agents WHERE id=?`, "agent-keep").Scan(&caps); err != nil {
+		t.Fatal(err)
+	}
+	if caps != `["go","sql"]` {
+		t.Errorf("capabilities=%q want preserved [\"go\",\"sql\"] (silent re-register must not wipe)", caps)
+	}
+}
+
 func seedAgent(t *testing.T, dbPath, id, worktree string, pid int, lastTick int64) {
 	t.Helper()
 	db, err := store.Open(dbPath)

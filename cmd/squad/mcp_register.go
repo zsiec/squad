@@ -72,15 +72,21 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 		InputSchema: json.RawMessage(schemaRegister),
 		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var args struct {
-				As   string `json:"as"`
-				Name string `json:"name"`
+				As           string    `json:"as"`
+				Name         string    `json:"name"`
+				Capabilities *[]string `json:"capabilities"`
 			}
 			if len(raw) > 0 {
 				if err := json.Unmarshal(raw, &args); err != nil {
 					return nil, err
 				}
 			}
-			res, warnings, err := Register(ctx, RegisterArgs{As: args.As, Name: args.Name})
+			ra := RegisterArgs{As: args.As, Name: args.Name}
+			if args.Capabilities != nil {
+				ra.Capabilities = *args.Capabilities
+				ra.SetCapabilities = true
+			}
+			res, warnings, err := Register(ctx, ra)
 			if err != nil {
 				return nil, err
 			}

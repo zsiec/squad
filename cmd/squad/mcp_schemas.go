@@ -79,7 +79,8 @@ const schemaRegister = `{
   "required": ["as"],
   "properties": {
     "as":   {"type": "string", "pattern": "^[a-z0-9-]{3,32}$"},
-    "name": {"type": "string", "minLength": 1, "maxLength": 64}
+    "name": {"type": "string", "minLength": 1, "maxLength": 64},
+    "capabilities": {"type": "array", "items": {"type": "string"}}
   },
   "additionalProperties": false
 }`

@@ -35,6 +35,70 @@ func TestWhoami_AfterRegister_PrintsAgentID(t *testing.T) {
 	}
 }
 
+func TestWhoami_RendersCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-whoami-cap")
+	t.Setenv("SQUAD_AGENT", "")
+
+	reg := newRootCmd()
+	var regOut bytes.Buffer
+	reg.SetOut(&regOut)
+	reg.SetErr(&regOut)
+	reg.SetArgs([]string{"register", "--as", "agent-cap", "--no-repo-check",
+		"--capability", "go", "--capability", "sql"})
+	if err := reg.Execute(); err != nil {
+		t.Fatalf("register: %v\n%s", err, regOut.String())
+	}
+
+	who := newRootCmd()
+	var out bytes.Buffer
+	who.SetOut(&out)
+	who.SetErr(&out)
+	who.SetArgs([]string{"whoami", "--json"})
+	if err := who.Execute(); err != nil {
+		t.Fatalf("whoami: %v\n%s", err, out.String())
+	}
+	body := out.String()
+	for _, want := range []string{`"capabilities"`, `"go"`, `"sql"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in: %s", want, body)
+		}
+	}
+}
+
+func TestWhoami_EmptyCapabilitiesShowsNone(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SQUAD_HOME", dir)
+	t.Setenv("SQUAD_SESSION_ID", "test-whoami-no-cap")
+	t.Setenv("SQUAD_AGENT", "")
+
+	reg := newRootCmd()
+	var regOut bytes.Buffer
+	reg.SetOut(&regOut)
+	reg.SetErr(&regOut)
+	reg.SetArgs([]string{"register", "--as", "agent-bare", "--no-repo-check"})
+	if err := reg.Execute(); err != nil {
+		t.Fatalf("register: %v\n%s", err, regOut.String())
+	}
+
+	who := newRootCmd()
+	var out bytes.Buffer
+	who.SetOut(&out)
+	who.SetErr(&out)
+	who.SetArgs([]string{"whoami", "--verbose"})
+	if err := who.Execute(); err != nil {
+		t.Fatalf("whoami: %v\n%s", err, out.String())
+	}
+	body := out.String()
+	if !strings.Contains(body, "agent-bare") {
+		t.Errorf("missing agent id in: %s", body)
+	}
+	if !strings.Contains(body, "(none)") {
+		t.Errorf("expected '(none)' rendering for empty capability set, got: %s", body)
+	}
+}
+
 func TestWhoami_WithExistingDB(t *testing.T) {
 	env := newTestEnv(t)
 	ctx := context.Background()
