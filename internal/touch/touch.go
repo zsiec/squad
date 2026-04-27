@@ -170,10 +170,11 @@ func (t *Tracker) ReleaseAll(ctx context.Context, agentID string) (int, error) {
 // ActiveTouch describes a peer's still-open touch — surfaced by ListOthers
 // so hooks (and the dashboard) can show "agent X is editing path Y."
 type ActiveTouch struct {
-	AgentID string `json:"agent_id"`
-	Repo    string `json:"repo"`
-	ItemID  string `json:"item_id"`
-	Path    string `json:"path"`
+	AgentID   string `json:"agent_id"`
+	Repo      string `json:"repo"`
+	ItemID    string `json:"item_id"`
+	Path      string `json:"path"`
+	StartedAt int64  `json:"started_at,omitempty"`
 }
 
 // ListOthers returns every active touch in this repo NOT held by agentID.
@@ -201,7 +202,7 @@ func (t *Tracker) ListOthers(ctx context.Context, agentID string) ([]ActiveTouch
 	}
 
 	rows, err := t.db.QueryContext(ctx, `
-		SELECT agent_id, COALESCE(item_id, ''), path
+		SELECT agent_id, COALESCE(item_id, ''), path, started_at
 		FROM touches
 		WHERE repo_id = ? AND released_at IS NULL AND agent_id != ?
 		ORDER BY started_at
@@ -213,10 +214,31 @@ func (t *Tracker) ListOthers(ctx context.Context, agentID string) ([]ActiveTouch
 	var out []ActiveTouch
 	for rows.Next() {
 		row := ActiveTouch{Repo: repoLabel}
-		if err := rows.Scan(&row.AgentID, &row.ItemID, &row.Path); err != nil {
+		if err := rows.Scan(&row.AgentID, &row.ItemID, &row.Path, &row.StartedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, row)
+	}
+	return out, nil
+}
+
+// ListOthersSince is ListOthers with a freshness floor: only peer touches
+// whose started_at is at or after `since` are returned. The post-claim
+// overlap nudge passes time.Now().Add(-24h) so day-old peer activity
+// surfaces but week-old residue does not. Filtering happens in Go on top
+// of ListOthers — fine for current scale (peer count × open files); push
+// `started_at >= ?` into SQL when that no longer holds.
+func (t *Tracker) ListOthersSince(ctx context.Context, agentID string, since time.Time) ([]ActiveTouch, error) {
+	all, err := t.ListOthers(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	cutoff := since.Unix()
+	out := all[:0]
+	for _, r := range all {
+		if r.StartedAt >= cutoff {
+			out = append(out, r)
+		}
 	}
 	return out, nil
 }

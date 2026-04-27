@@ -114,6 +114,81 @@ func TestReleaseAll_ClearsEveryPath(t *testing.T) {
 	}
 }
 
+func TestListOthersSince_FiltersByFreshness(t *testing.T) {
+	tr, db := newTestTracker(t)
+	ctx := context.Background()
+	registerAgent(t, db, "repo-test", "agent-a", "A", tr.nowUnix())
+	registerAgent(t, db, "repo-test", "agent-b", "B", tr.nowUnix())
+
+	now := tr.now()
+	_, err := db.Exec(`INSERT INTO touches (repo_id, agent_id, item_id, path, started_at) VALUES (?, ?, ?, ?, ?)`,
+		"repo-test", "agent-a", "FEAT-1", "fresh.go", now.Add(-1*time.Hour).Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO touches (repo_id, agent_id, item_id, path, started_at) VALUES (?, ?, ?, ?, ?)`,
+		"repo-test", "agent-a", "FEAT-2", "stale.go", now.Add(-72*time.Hour).Unix())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := tr.ListOthersSince(ctx, "agent-b", now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d touches, want 1 (only fresh.go): %+v", len(got), got)
+	}
+	if got[0].Path != "fresh.go" {
+		t.Errorf("path=%q want fresh.go", got[0].Path)
+	}
+	if got[0].StartedAt != now.Add(-1*time.Hour).Unix() {
+		t.Errorf("started_at=%d want %d", got[0].StartedAt, now.Add(-1*time.Hour).Unix())
+	}
+}
+
+func TestListOthersSince_ExcludesCallerOwnTouches(t *testing.T) {
+	tr, db := newTestTracker(t)
+	ctx := context.Background()
+	registerAgent(t, db, "repo-test", "agent-a", "A", tr.nowUnix())
+	registerAgent(t, db, "repo-test", "agent-b", "B", tr.nowUnix())
+
+	if _, err := tr.Add(ctx, "agent-b", "FEAT-1", "own.go"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tr.Add(ctx, "agent-a", "FEAT-2", "peer.go"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := tr.ListOthersSince(ctx, "agent-b", tr.now().Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Path != "peer.go" {
+		t.Fatalf("ListOthersSince must exclude caller's own touches; got %+v", got)
+	}
+}
+
+func TestListOthersSince_ExcludesReleasedTouches(t *testing.T) {
+	tr, db := newTestTracker(t)
+	ctx := context.Background()
+	registerAgent(t, db, "repo-test", "agent-a", "A", tr.nowUnix())
+	registerAgent(t, db, "repo-test", "agent-b", "B", tr.nowUnix())
+
+	if _, err := tr.Add(ctx, "agent-a", "FEAT-1", "released.go"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tr.Release(ctx, "agent-a", "released.go"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := tr.ListOthersSince(ctx, "agent-b", tr.now().Add(-24*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("released touches must not surface; got %+v", got)
+	}
+}
+
 func TestConflicts_ReadOnly(t *testing.T) {
 	tr, db := newTestTracker(t)
 	ctx := context.Background()

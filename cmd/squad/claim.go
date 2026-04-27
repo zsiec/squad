@@ -17,6 +17,7 @@ import (
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
 	"github.com/zsiec/squad/internal/stats"
+	"github.com/zsiec/squad/internal/touch"
 	"github.com/zsiec/squad/internal/worktree"
 )
 
@@ -212,6 +213,11 @@ func newClaimCmd() *cobra.Command {
 						acTotal := items.CountAC(parsed.Body)
 						printMilestoneTargetNudge(cmd.ErrOrStderr(), acTotal)
 						printDecomposeNudge(cmd.ErrOrStderr(), itemID, acTotal, items.CountFileRefs(parsed.Body))
+						refs := append([]string{}, parsed.References...)
+						refs = append(refs, items.ListFileRefs(parsed.Body)...)
+						if peer, perr := touch.New(bc.db, bc.repoID).ListOthersSince(ctx, bc.agentID, time.Now().Add(-24*time.Hour)); perr == nil {
+							printPeerTouchOverlapNudge(cmd.ErrOrStderr(), refs, peer, time.Now())
+						}
 					}
 				}
 				if res.WorktreePath != "" {

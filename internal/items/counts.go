@@ -43,22 +43,39 @@ var (
 // the AC section are ignored so prose paths in Problem/Context don't inflate
 // the count.
 func CountFileRefs(body string) int {
+	return len(ListFileRefs(body))
+}
+
+// ListFileRefs returns the distinct file/package references inside the AC
+// bullets. Same scope and dedupe rules as CountFileRefs; surfaced as a list
+// so the post-claim peer-touch overlap nudge can intersect against
+// touch.Tracker.ListOthersSince.
+func ListFileRefs(body string) []string {
 	hdr := dorACHeaderRe.FindStringIndex(body)
 	if hdr == nil {
-		return 0
+		return nil
 	}
 	rest := body[hdr[1]:]
 	if nxt := dorNextHdrRe.FindStringIndex(rest); nxt != nil {
 		rest = rest[:nxt[0]]
 	}
 	seen := map[string]struct{}{}
+	var out []string
 	for _, m := range fileRefSlashedRe.FindAllString(rest, -1) {
+		if _, ok := seen[m]; ok {
+			continue
+		}
 		seen[m] = struct{}{}
+		out = append(out, m)
 	}
 	for _, m := range fileRefBareDocRe.FindAllString(rest, -1) {
+		if _, ok := seen[m]; ok {
+			continue
+		}
 		seen[m] = struct{}{}
+		out = append(out, m)
 	}
-	return len(seen)
+	return out
 }
 
 type CountReport struct {
