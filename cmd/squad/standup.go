@@ -11,6 +11,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// StandupArgs is the input for Standup. AgentID defaults to the
+// session-derived identity when empty. Window defaults to 24h when zero.
+type StandupArgs struct {
+	DB      *sql.DB       `json:"-"`
+	RepoID  string        `json:"repo_id"`
+	AgentID string        `json:"agent_id"`
+	Window  time.Duration `json:"window"`
+}
+
+// StandupResult mirrors the CLI's standup payload directly. Aliasing
+// keeps the JSON wire shape stable across the three surfaces (CLI,
+// MCP, and any future HTTP endpoint).
+type StandupResult = standupReport
+
+func Standup(ctx context.Context, args StandupArgs) (*StandupResult, error) {
+	window := args.Window
+	if window <= 0 {
+		window = 24 * time.Hour
+	}
+	return buildStandupFor(ctx, args.DB, args.RepoID, args.AgentID, window)
+}
+
 type standupReport struct {
 	Agent          string                `json:"agent"`
 	Repo           string                `json:"repo"`
@@ -87,23 +109,27 @@ func newStandupCmd() *cobra.Command {
 }
 
 func buildStandup(ctx context.Context, bc *claimContext, window time.Duration) (*standupReport, error) {
+	return buildStandupFor(ctx, bc.db, bc.repoID, bc.agentID, window)
+}
+
+func buildStandupFor(ctx context.Context, db *sql.DB, repoID, agentID string, window time.Duration) (*standupReport, error) {
 	now := time.Now().Unix()
 	cutoff := now - int64(window.Seconds())
 	r := &standupReport{
-		Agent:         bc.agentID,
-		Repo:          bc.repoID,
+		Agent:         agentID,
+		Repo:          repoID,
 		WindowSeconds: int64(window.Seconds()),
 	}
 
 	// Claims I closed in the window.
-	closed, err := queryClaimEvents(ctx, bc.db, bc.repoID, bc.agentID, "done", cutoff)
+	closed, err := queryClaimEvents(ctx, db, repoID, agentID, "done", cutoff)
 	if err != nil {
 		return nil, err
 	}
 	r.Closed = closed
 
 	// Claims I lost (reclaimed by hygiene OR force-released by someone).
-	reclaimed, err := queryClaimEventsAny(ctx, bc.db, bc.repoID, bc.agentID,
+	reclaimed, err := queryClaimEventsAny(ctx, db, repoID, agentID,
 		[]string{"reclaimed", "force_released"}, cutoff)
 	if err != nil {
 		return nil, err
@@ -111,14 +137,14 @@ func buildStandup(ctx context.Context, bc *claimContext, window time.Duration) (
 	r.Reclaimed = reclaimed
 
 	// Currently-open claim, if any.
-	open, err := queryOpenClaim(ctx, bc.db, bc.repoID, bc.agentID, now)
+	open, err := queryOpenClaim(ctx, db, repoID, agentID, now)
 	if err != nil {
 		return nil, err
 	}
 	r.OpenClaim = open
 
 	// Stuck messages I posted.
-	stuck, err := queryMyMessages(ctx, bc.db, bc.repoID, bc.agentID, "stuck", cutoff)
+	stuck, err := queryMyMessages(ctx, db, repoID, agentID, "stuck", cutoff)
 	if err != nil {
 		return nil, err
 	}
@@ -127,14 +153,14 @@ func buildStandup(ctx context.Context, bc *claimContext, window time.Duration) (
 	// Asks I posted that haven't been answered. Heuristic: my ask body
 	// names a thread; we count it unanswered if there is no later
 	// kind='answer' on the same thread by anyone in the window.
-	asks, err := queryUnansweredAsks(ctx, bc.db, bc.repoID, bc.agentID, cutoff)
+	asks, err := queryUnansweredAsks(ctx, db, repoID, agentID, cutoff)
 	if err != nil {
 		return nil, err
 	}
 	r.UnansweredAsks = asks
 
 	// Active touches I hold.
-	touches, err := queryActiveTouches(ctx, bc.db, bc.repoID, bc.agentID)
+	touches, err := queryActiveTouches(ctx, db, repoID, agentID)
 	if err != nil {
 		return nil, err
 	}

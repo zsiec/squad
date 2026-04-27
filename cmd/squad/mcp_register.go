@@ -491,6 +491,40 @@ func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot strin
 	})
 
 	srv.Register(mcp.Tool{
+		Name:        "squad_standup",
+		Description: "Per-agent activity rollup over a recent window: closed claims, lost claims, current open claim, stuck signals, unanswered asks, active touches.",
+		InputSchema: json.RawMessage(schemaStandup),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				Since   *int64 `json:"since"`
+				AgentID string `json:"agent_id"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &args); err != nil {
+					return nil, err
+				}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			agent, err := resolveAgentID(args.AgentID)
+			if err != nil {
+				return nil, err
+			}
+			window := 24 * time.Hour
+			if args.Since != nil {
+				delta := time.Now().Unix() - *args.Since
+				if delta > 0 {
+					window = time.Duration(delta) * time.Second
+				}
+			}
+			return Standup(ctx, StandupArgs{
+				DB: db, RepoID: repoID, AgentID: agent, Window: window,
+			})
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_stats",
 		Description: "Operational statistics: items, claims, verification rate, claim p50/p99, WIP violations, learning-derived metrics.",
 		InputSchema: json.RawMessage(schemaStats),
