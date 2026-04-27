@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -117,6 +118,15 @@ func runMCP(ctx context.Context, db *sql.DB, repoID, repoRoot string, in io.Read
 	}
 	srv := mcp.NewServer(mcp.ServerInfo{Name: "squad", Version: versionString})
 	registerTools(srv, db, repoID, repoRoot)
+	if env := os.Getenv("SQUAD_MCP_TOOLS"); env != "" {
+		var allow []string
+		for _, name := range strings.Split(env, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				allow = append(allow, name)
+			}
+		}
+		srv.RestrictTo(allow)
+	}
 	if cfg.bootstrapFn != nil {
 		cfg.bootstrapFn(ctx)
 	}

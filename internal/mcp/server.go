@@ -54,6 +54,27 @@ func (s *Server) Register(t Tool) {
 	s.tools[t.Name] = t
 }
 
+// RestrictTo drops every registered tool whose name is not in allow. The
+// auto-refine subprocess flow uses this to expose only the read tools plus
+// `squad_auto_refine_apply` to the spawned claude session, even though
+// registerTools has already wired the full surface.
+func (s *Server) RestrictTo(allow []string) {
+	if len(allow) == 0 {
+		return
+	}
+	keep := make(map[string]struct{}, len(allow))
+	for _, name := range allow {
+		keep[name] = struct{}{}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for name := range s.tools {
+		if _, ok := keep[name]; !ok {
+			delete(s.tools, name)
+		}
+	}
+}
+
 // SetBanner stages a one-shot text block for the next successful
 // tools/call response. Thin facade over bootstrap.SetBanner so callers
 // holding a *Server reference don't need to import the bootstrap

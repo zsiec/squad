@@ -29,19 +29,22 @@ type Config struct {
 }
 
 type Server struct {
-	db               *sql.DB
-	chat             *chat.Chat
-	cfg              Config
-	callerAgent      string
-	startedAt        time.Time
-	exitFunc         func()
-	restartExitDelay time.Duration
-	rlMu             sync.Mutex
-	rl               map[string][]time.Time
-	pump             *messagesPump
-	claimsPump       *claimsPump
-	agentsPump       *agentsPump
-	activityPump     *activityPump
+	db                 *sql.DB
+	chat               *chat.Chat
+	cfg                Config
+	callerAgent        string
+	startedAt          time.Time
+	exitFunc           func()
+	restartExitDelay   time.Duration
+	rlMu               sync.Mutex
+	rl                 map[string][]time.Time
+	pump               *messagesPump
+	claimsPump         *claimsPump
+	agentsPump         *agentsPump
+	activityPump       *activityPump
+	autoRefineMu       sync.Mutex
+	autoRefineRunner   autoRefineRunner
+	autoRefineInFlight map[string]struct{}
 }
 
 func New(db *sql.DB, repoID string, cfg Config) *Server {
@@ -115,6 +118,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/items/{id}/links", s.handleItemLinks)
 	mux.HandleFunc("POST /api/items/{id}/accept", s.handleItemsAccept)
 	mux.HandleFunc("POST /api/items/{id}/refine", s.handleItemsRefine)
+	mux.HandleFunc("POST /api/items/{id}/auto-refine", s.handleItemsAutoRefine)
 	mux.HandleFunc("POST /api/items/{id}/recapture", s.handleItemsRecapture)
 	mux.HandleFunc("POST /api/items/{id}/reject", s.handleItemsReject)
 	mux.HandleFunc("POST /api/items/{id}/claim", s.handleItemClaim)
