@@ -18,9 +18,23 @@ const welcomeSentinel = ".welcomed"
 // is logged but never repeated. A sentinel-write failure is the only
 // error Welcome returns — without that signal the caller cannot tell
 // whether the next session will silently re-open Chrome.
+//
+// Sentinel path: opts.SquadHome (preferred — honors SQUAD_HOME drift)
+// falls back to opts.HomeDir/.squad. Stat errors other than ENOENT (e.g.
+// EACCES on a chmod 000 .squad) skip the opener with a stderr line: the
+// caller has likely completed welcome and the sentinel is just unreadable
+// from this session, so re-popping the browser would be the wrong default.
 func Welcome(ctx context.Context, opts Options) error {
-	sentinel := filepath.Join(opts.HomeDir, ".squad", welcomeSentinel)
-	if _, err := os.Stat(sentinel); err == nil {
+	squadHome := opts.SquadHome
+	if squadHome == "" {
+		squadHome = filepath.Join(opts.HomeDir, ".squad")
+	}
+	sentinel := filepath.Join(squadHome, welcomeSentinel)
+	switch _, err := os.Stat(sentinel); {
+	case err == nil:
+		return nil
+	case !os.IsNotExist(err):
+		fmt.Fprintf(os.Stderr, "squad: welcome: cannot stat sentinel %s: %v; skipping auto-open\n", sentinel, err)
 		return nil
 	}
 

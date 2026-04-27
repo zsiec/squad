@@ -32,8 +32,15 @@ type Options struct {
 	Bind       string
 	Port       int
 	HomeDir    string
-	Manager    daemon.Manager
-	Version    string
+	// SquadHome is the canonical squad-home (typically store.Home() — honors
+	// SQUAD_HOME, defaults to $HOME/.squad). When set, Welcome uses it for
+	// the .welcomed sentinel path. When empty, Welcome falls back to
+	// filepath.Join(HomeDir, ".squad") for back-compat with callers that
+	// haven't been updated. Production should always set it from store.Home()
+	// so the sentinel check survives SQUAD_HOME drift.
+	SquadHome string
+	Manager   daemon.Manager
+	Version   string
 	// Opener is invoked with the dashboard URL to launch a browser.
 	// nil → defaultOpener (platform open / xdg-open).
 	Opener func(url string) error

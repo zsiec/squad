@@ -10,6 +10,37 @@ import (
 	"testing"
 )
 
+// TestRemoveSquadSentinels_PreservesWelcomedSentinel pins the
+// "uninstall must not nuke the user's first-run welcomed state" fix.
+// The user completing the welcome flow on this machine is a fact that
+// outlives a plugin uninstall — re-installing should not re-pop the
+// browser. restart.token is a per-install secret and must still be
+// removed.
+func TestRemoveSquadSentinels_PreservesWelcomedSentinel(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("SQUAD_HOME", tmp)
+
+	welcomedPath := filepath.Join(tmp, ".welcomed")
+	restartPath := filepath.Join(tmp, "restart.token")
+	if err := os.WriteFile(welcomedPath, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(restartPath, []byte("tok"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := removeSquadSentinels(); err != nil {
+		t.Fatalf("removeSquadSentinels: %v", err)
+	}
+
+	if _, err := os.Stat(welcomedPath); err != nil {
+		t.Errorf(".welcomed must NOT be removed (welcome state outlives uninstall): %v", err)
+	}
+	if _, err := os.Stat(restartPath); !os.IsNotExist(err) {
+		t.Errorf("restart.token must still be removed (per-install secret): err=%v", err)
+	}
+}
+
 func TestInstallPlugin_CreatesDestDir(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("SQUAD_PLUGIN_DEST", filepath.Join(tmp, "plugins"))

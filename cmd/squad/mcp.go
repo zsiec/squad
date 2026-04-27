@@ -67,11 +67,17 @@ func realBootstrap(ctx context.Context) {
 		fmt.Fprintf(os.Stderr, "squad: dashboard auto-install skipped: resolve home: %v\n", err)
 		return
 	}
+	squadHome, err := store.Home()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "squad: dashboard auto-install skipped: resolve squad home: %v\n", err)
+		return
+	}
 	opts := bootstrap.Options{
 		BinaryPath: bin,
 		Bind:       "127.0.0.1",
 		Port:       7777,
 		HomeDir:    home,
+		SquadHome:  squadHome,
 		Manager:    daemon.New(),
 		Version:    versionString,
 	}

@@ -181,16 +181,19 @@ func pluginDestDir() (string, error) {
 	return filepath.Join(home, ".claude", "plugins"), nil
 }
 
-// removeSquadSentinels deletes the first-run sentinels (.welcomed, restart.token)
-// from $SQUAD_HOME. global.db and the directory itself are deliberately left
-// in place — they hold user data (claims, items, attestations, learnings) that
-// outlive the plugin install.
+// removeSquadSentinels deletes per-install secrets from $SQUAD_HOME on
+// uninstall. global.db and the directory itself are deliberately left in
+// place — they hold user data (claims, items, attestations, learnings)
+// that outlive the plugin install. .welcomed is also preserved: the user
+// completing the welcome flow on this machine is a fact that outlives a
+// plugin uninstall, so re-installing must not re-pop the browser. Only
+// restart.token (the daemon's per-install bearer) is wiped.
 func removeSquadSentinels() error {
 	home, err := store.Home()
 	if err != nil {
 		return err
 	}
-	for _, name := range []string{".welcomed", "restart.token"} {
+	for _, name := range []string{"restart.token"} {
 		if err := os.Remove(filepath.Join(home, name)); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove %s: %w", name, err)
 		}

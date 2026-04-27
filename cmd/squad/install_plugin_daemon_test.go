@@ -78,8 +78,8 @@ func TestInstallPlugin_UninstallRemovesDaemonAndSentinelsPreservesDB(t *testing.
 	if _, err := os.Stat(artifactPath); !os.IsNotExist(err) {
 		t.Errorf("daemon artifact at %s should be gone, err=%v", artifactPath, err)
 	}
-	if _, err := os.Stat(welcomed); !os.IsNotExist(err) {
-		t.Errorf(".welcomed should be gone, err=%v", err)
+	if _, err := os.Stat(welcomed); err != nil {
+		t.Errorf(".welcomed must be preserved across uninstall (welcome state outlives plugin install): %v", err)
 	}
 	if _, err := os.Stat(restartToken); !os.IsNotExist(err) {
 		t.Errorf("restart.token should be gone, err=%v", err)
