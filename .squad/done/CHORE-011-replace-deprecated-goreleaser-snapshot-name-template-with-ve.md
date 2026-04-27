@@ -4,7 +4,7 @@ title: replace deprecated goreleaser snapshot.name_template with version_templat
 type: chore
 priority: P2
 area: release
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: []
