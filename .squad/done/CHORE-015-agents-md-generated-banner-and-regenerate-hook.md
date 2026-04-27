@@ -4,7 +4,7 @@ title: AGENTS.md generated banner and regenerate hook
 type: chore
 priority: P3
 area: plugin/hooks
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: []
