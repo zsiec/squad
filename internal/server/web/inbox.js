@@ -23,6 +23,14 @@ export async function refreshCount() {
   } catch { /* ignore */ }
 }
 
+// refreshIfOpen re-renders the inbox modal's row list when it's currently
+// open. No-op when closed so backgrounded sessions don't fetch on every
+// inbox_changed event from peers.
+export async function refreshIfOpen() {
+  if (!modalEl || modalEl.hidden) return;
+  await renderList();
+}
+
 function setCount(n) {
   if (!countEl) return;
   if (n > 0) {

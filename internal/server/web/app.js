@@ -14,7 +14,7 @@ import { initDepGraph, openAsync as openDepGraph } from './depgraph.js';
 import { initSavedViews } from './savedviews.js';
 import { openNewItemModal, setOnMutated as setOnActionMutated } from './actions.js';
 import { initSidebar } from './sidebar.js';
-import { initInbox, refreshCount as refreshInboxCount } from './inbox.js';
+import { initInbox, refreshCount as refreshInboxCount, refreshIfOpen as refreshInboxIfOpen } from './inbox.js';
 import { initLearnings } from './learnings.js';
 
 // clock
@@ -271,6 +271,7 @@ function connectSSE() {
 
   es.addEventListener('inbox_changed', () => {
     refreshInboxCount();
+    refreshInboxIfOpen();
   });
 
   es.addEventListener('message', (e) => {
