@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/cmd/squad	12.710s
