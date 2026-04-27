@@ -246,6 +246,33 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 	})
 
 	srv.Register(mcp.Tool{
+		Name:        "squad_auto_refine_apply",
+		Description: "Apply an auto-refined body to a captured item: replace the body, stamp auto_refined_at/auto_refined_by. Refuses non-captured items and bodies that fail DoR. Intended for the auto-refine subprocess flow.",
+		InputSchema: json.RawMessage(schemaAutoRefineApply),
+		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var args struct {
+				ItemID  string `json:"item_id"`
+				NewBody string `json:"new_body"`
+			}
+			if err := json.Unmarshal(raw, &args); err != nil {
+				return nil, &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}
+			}
+			if err := requireRepo(repoRoot, repoID); err != nil {
+				return nil, err
+			}
+			res, err := AutoRefineApply(ctx, AutoRefineApplyArgs{
+				SquadDir: filepath.Join(repoRoot, ".squad"),
+				ItemID:   args.ItemID,
+				NewBody:  args.NewBody,
+			})
+			if err != nil {
+				return nil, &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}
+			}
+			return res, nil
+		},
+	})
+
+	srv.Register(mcp.Tool{
 		Name:        "squad_done",
 		Description: "Mark an item done: release claim, rewrite frontmatter, move to .squad/done/.",
 		InputSchema: json.RawMessage(schemaDone),

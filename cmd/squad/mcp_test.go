@@ -55,6 +55,7 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_doctor", "squad_stats",
 		"squad_ready", "squad_refine", "squad_recapture", "squad_analyze",
 		"squad_standup",
+		"squad_auto_refine_apply",
 	}
 	have := map[string]bool{}
 	for _, tt := range toolsResp.Result.Tools {

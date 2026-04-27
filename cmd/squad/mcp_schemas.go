@@ -103,6 +103,17 @@ const schemaRelease = `{
   "additionalProperties": false
 }`
 
+const schemaAutoRefineApply = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["item_id", "new_body"],
+  "properties": {
+    "item_id":  {"type": "string", "description": "Identifier of a captured item to be auto-refined."},
+    "new_body": {"type": "string", "description": "Drafted markdown body (Problem / Context / Acceptance criteria) that replaces the existing body. Must satisfy DoR."}
+  },
+  "additionalProperties": false
+}`
+
 const schemaRecapture = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
