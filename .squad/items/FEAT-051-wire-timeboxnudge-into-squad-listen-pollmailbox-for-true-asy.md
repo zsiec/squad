@@ -4,12 +4,12 @@ title: wire timeBoxNudge into squad listen pollMailbox for true async wakeup
 type: feature
 priority: P2
 area: cmd/squad
-status: captured
+status: needs-refinement
 estimate: 1h
 risk: low
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-27"
 captured_by: agent-afcd
 captured_at: 1777321662
 accepted_by: ""
@@ -18,6 +18,9 @@ references: []
 relates-to: []
 blocked-by: []
 ---
+
+## Reviewer feedback
+fix DoR violations
 
 ## Problem
 

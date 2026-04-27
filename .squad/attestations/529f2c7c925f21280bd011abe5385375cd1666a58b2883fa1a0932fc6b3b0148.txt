@@ -1,0 +1,6 @@
+# github.com/zsiec/squad/cmd/squad [github.com/zsiec/squad/cmd/squad.test]
+cmd/squad/cadence_nudge_test.go:229:13: undefined: sql
+cmd/squad/cadence_nudge_test.go:262:16: undefined: sql
+ok  	github.com/zsiec/squad/internal/scaffold	1.470s
+FAIL	github.com/zsiec/squad/cmd/squad [build failed]
+FAIL

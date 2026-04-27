@@ -4,7 +4,7 @@ title: 'regression: manual-refine flow remains intact at item-detail panel'
 type: task
 priority: P2
 area: web-ui
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: [test]
