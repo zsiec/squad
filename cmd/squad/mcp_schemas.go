@@ -564,3 +564,50 @@ const schemaPRClose = `{
   },
   "additionalProperties": false
 }`
+
+const schemaIntakeOpen = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["mode"],
+  "properties": {
+    "mode":          {"type": "string", "enum": ["new", "refine"]},
+    "idea_seed":     {"type": "string", "description": "Free-form starting idea for new mode."},
+    "refine_item_id": {"type": "string", "description": "Required for refine mode; targets an existing captured item."}
+  },
+  "additionalProperties": false
+}`
+
+const schemaIntakeTurn = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["session_id", "role", "content"],
+  "properties": {
+    "session_id":    {"type": "string"},
+    "role":          {"type": "string", "enum": ["user", "agent", "system"]},
+    "content":       {"type": "string", "minLength": 1},
+    "fields_filled": {"type": "array", "items": {"type": "string"}, "description": "Honor-system claim about which checklist fields this turn satisfied."}
+  },
+  "additionalProperties": false
+}`
+
+const schemaIntakeStatus = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["session_id"],
+  "properties": {
+    "session_id": {"type": "string"}
+  },
+  "additionalProperties": false
+}`
+
+const schemaIntakeCommit = `{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["session_id", "bundle"],
+  "properties": {
+    "session_id": {"type": "string"},
+    "bundle":     {"type": "object", "description": "Bundle: spec/epics/items per intake.Bundle shape."},
+    "ready":      {"type": "boolean", "description": "If true, items land as open instead of captured."}
+  },
+  "additionalProperties": false
+}`

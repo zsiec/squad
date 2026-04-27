@@ -115,10 +115,18 @@ func (e *ToolError) Unwrap() error { return e.Err }
 // CodeInvalidParams / CodeMethodNotFound are exported aliases for the
 // JSON-RPC error codes squad handlers commonly map onto. Use these instead
 // of hand-rolling integers in handler code.
+//
+// CodeNotFound (-32004) and CodeConflict (-32009) live in the
+// JSON-RPC implementation-defined application-error range
+// (-32000…-32099) — they are squad-specific labels, not standard
+// JSON-RPC codes.
 const (
 	CodeInvalidParams  = errInvalidParams
 	CodeMethodNotFound = errMethodNotFound
+	CodeInvalidRequest = errInvalidRequest
 	CodeInternal       = errInternal
+	CodeNotFound       = -32004
+	CodeConflict       = -32009
 )
 
 // isNotification reports whether a parsed JSON-RPC request lacks an id field
