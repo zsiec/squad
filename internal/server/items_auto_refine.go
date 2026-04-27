@@ -17,7 +17,9 @@ import (
 
 // AutoRefineTimeout bounds the spawned `claude -p` subprocess. Set as a
 // var so tests can shorten it; production callers do not change it.
-var AutoRefineTimeout = 90 * time.Second
+// Real-world auto-refine on a captured P0 takes ~4:30; 5 minutes leaves
+// headroom for slower API responses without indefinitely holding the slot.
+var AutoRefineTimeout = 5 * time.Minute
 
 // AutoRefineNarrowTools is the closed set of MCP tools the auto-refine
 // subprocess is allowed to call. The squad mcp subprocess reads this list
@@ -286,6 +288,8 @@ Read the item with squad_get_item(item_id="%s"). Inspect related items via squad
 
 Replace the item's body with a fresh Problem / Context / Acceptance criteria block that satisfies squad's Definition of Ready (no template-not-placeholder violations; AC bullets must be concrete, falsifiable propositions, not the squad-new placeholders).
 
-Call squad_auto_refine_apply(item_id="%s", new_body=...) exactly once with the drafted body and then stop. Do not call any other write tools.`, itemID, itemID)
+If the item's frontmatter "area" is the placeholder "<fill-in>" (or empty), choose a short free-form area string from the title and context (single lowercase word like "dashboard", "auth", "intake") and pass it as the area argument. If the item already has a real area, omit the area argument so the existing value is preserved.
+
+Call squad_auto_refine_apply(item_id="%s", new_body=..., area=...) exactly once with the drafted body and the area when needed, then stop. Do not call any other write tools.`, itemID, itemID)
 }
 

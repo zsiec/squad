@@ -11,6 +11,11 @@ type AutoRefineApplyArgs struct {
 	SquadDir string `json:"-"`
 	ItemID   string `json:"item_id"`
 	NewBody  string `json:"new_body"`
+	// Area is optional. When non-empty, the frontmatter `area` field is
+	// rewritten to this value alongside the body — lets the auto-refine
+	// flow heal items captured with the `<fill-in>` placeholder, which
+	// the DoR area-set rule would otherwise reject.
+	Area string `json:"area"`
 }
 
 // AutoRefineApplyResult is the success shape returned to the LLM caller.
@@ -28,7 +33,7 @@ type AutoRefineApplyResult struct {
 // JSON-RPC arguments and re-parses the file once to surface the freshly-
 // stamped auto_refined_at to the caller.
 func AutoRefineApply(ctx context.Context, args AutoRefineApplyArgs) (*AutoRefineApplyResult, error) {
-	if err := items.AutoRefineApply(args.SquadDir, args.ItemID, args.NewBody, "claude"); err != nil {
+	if err := items.AutoRefineApply(args.SquadDir, args.ItemID, args.NewBody, args.Area, "claude"); err != nil {
 		return nil, err
 	}
 	path, _, err := items.FindByID(args.SquadDir, args.ItemID)

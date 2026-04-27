@@ -35,7 +35,7 @@ func TestParse_RoundTripsAutoRefinedFields(t *testing.T) {
 
 func TestAutoRefineApply_HappyPath(t *testing.T) {
 	dir, id := setupCapturedItem(t)
-	if err := AutoRefineApply(dir, id, dorCleanBody, "claude"); err != nil {
+	if err := AutoRefineApply(dir, id, dorCleanBody, "", "claude"); err != nil {
 		t.Fatalf("AutoRefineApply: %v", err)
 	}
 	path := mustItemPath(t, dir, id)
@@ -60,6 +60,48 @@ func TestAutoRefineApply_HappyPath(t *testing.T) {
 	}
 }
 
+// TestAutoRefineApply_WritesAreaWhenSupplied covers the "claude auto-refine
+// fills placeholder area" path. With a non-empty area arg, the frontmatter
+// `area` field must be rewritten and the DoR area-set rule must pass even
+// when the original captured item had area `<fill-in>`.
+func TestAutoRefineApply_WritesAreaWhenSupplied(t *testing.T) {
+	dir, id := setupCapturedItemWithArea(t, "<fill-in>")
+
+	if err := AutoRefineApply(dir, id, dorCleanBody, "dashboard", "claude"); err != nil {
+		t.Fatalf("AutoRefineApply: %v", err)
+	}
+
+	it, err := Parse(mustItemPath(t, dir, id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if it.Area != "dashboard" {
+		t.Errorf("area=%q want dashboard", it.Area)
+	}
+	if violations := DoRCheck(it); len(violations) != 0 {
+		t.Errorf("DoR violations after area-supplying apply: %+v", violations)
+	}
+}
+
+// TestAutoRefineApply_PreservesAreaWhenEmpty covers the back-compat path:
+// callers that don't supply an area must leave the frontmatter `area`
+// untouched (the body-only refine that already worked before this change).
+func TestAutoRefineApply_PreservesAreaWhenEmpty(t *testing.T) {
+	dir, id := setupCapturedItemWithArea(t, "auth")
+
+	if err := AutoRefineApply(dir, id, dorCleanBody, "", "claude"); err != nil {
+		t.Fatalf("AutoRefineApply: %v", err)
+	}
+
+	it, err := Parse(mustItemPath(t, dir, id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if it.Area != "auth" {
+		t.Errorf("area=%q want auth (must be untouched when not supplied)", it.Area)
+	}
+}
+
 func TestAutoRefineApply_RefusesNonCapturedStatus(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
@@ -75,7 +117,7 @@ func TestAutoRefineApply_RefusesNonCapturedStatus(t *testing.T) {
 	id := mustParseID(t, path)
 	beforeBytes := mustReadFile(t, path)
 
-	err = AutoRefineApply(dir, id, dorCleanBody, "claude")
+	err = AutoRefineApply(dir, id, dorCleanBody, "", "claude")
 	if err == nil {
 		t.Fatal("AutoRefineApply on open item must error")
 	}
@@ -94,7 +136,7 @@ func TestAutoRefineApply_RefusesEmptyBody(t *testing.T) {
 	beforeBytes := mustReadFile(t, path)
 
 	for _, b := range []string{"", "   ", "\n\t\n"} {
-		err := AutoRefineApply(dir, id, b, "claude")
+		err := AutoRefineApply(dir, id, b, "", "claude")
 		if err == nil {
 			t.Errorf("AutoRefineApply with body %q must error", b)
 		}
@@ -127,7 +169,7 @@ func TestAutoRefineApply_RefusesDoRFailingBody(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := AutoRefineApply(dir, id, c.body, "claude")
+			err := AutoRefineApply(dir, id, c.body, "", "claude")
 			if err == nil {
 				t.Fatalf("AutoRefineApply must error on DoR-failing body")
 			}
@@ -147,7 +189,7 @@ func TestAutoRefineApply_RefusesUnknownItem(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	err := AutoRefineApply(dir, "BUG-999", dorCleanBody, "claude")
+	err := AutoRefineApply(dir, "BUG-999", dorCleanBody, "", "claude")
 	if err == nil {
 		t.Fatal("AutoRefineApply on unknown id must error")
 	}
@@ -166,7 +208,7 @@ func TestAutoRefineApply_RefusesItemAlreadyInDone(t *testing.T) {
 	if err := os.Rename(src, filepath.Join(doneDir, filepath.Base(src))); err != nil {
 		t.Fatal(err)
 	}
-	err := AutoRefineApply(dir, id, dorCleanBody, "claude")
+	err := AutoRefineApply(dir, id, dorCleanBody, "", "claude")
 	if err == nil {
 		t.Fatal("AutoRefineApply on done item must error")
 	}
@@ -186,7 +228,7 @@ func TestAutoRefineApply_ConcurrentCallsSerialize(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			body := dorCleanBody + "\n<!-- caller=" + string(rune('A'+idx)) + " -->\n"
-			errs <- AutoRefineApply(dir, id, body, "claude")
+			errs <- AutoRefineApply(dir, id, body, "", "claude")
 		}(i)
 	}
 	wg.Wait()
@@ -211,12 +253,17 @@ func TestAutoRefineApply_ConcurrentCallsSerialize(t *testing.T) {
 
 func setupCapturedItem(t *testing.T) (squadDir, id string) {
 	t.Helper()
+	return setupCapturedItemWithArea(t, "auth")
+}
+
+func setupCapturedItemWithArea(t *testing.T, area string) (squadDir, id string) {
+	t.Helper()
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	path, err := NewWithOptions(dir, "FEAT", "a sufficiently long title for dor", Options{
-		Area: "auth",
+		Area: area,
 	})
 	if err != nil {
 		t.Fatal(err)

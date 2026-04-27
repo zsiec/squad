@@ -103,7 +103,7 @@ func TestIntegration_AutoRefine(t *testing.T) {
 		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
 			seenPrompt = prompt
 			seenConfigPath = mcpConfigPath
-			if err := items.AutoRefineApply(squadDir, "FEAT-100", intAutoRefineDraftedBody, "claude"); err != nil {
+			if err := items.AutoRefineApply(squadDir, "FEAT-100", intAutoRefineDraftedBody, "", "claude"); err != nil {
 				return autoRefineRunResult{Err: err}
 			}
 			return autoRefineRunResult{}
@@ -193,7 +193,7 @@ func TestIntegration_AutoRefine(t *testing.T) {
 		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
 			close(first)
 			<-release
-			if err := items.AutoRefineApply(squadDir, "FEAT-102", intAutoRefineDraftedBody, "claude"); err != nil {
+			if err := items.AutoRefineApply(squadDir, "FEAT-102", intAutoRefineDraftedBody, "", "claude"); err != nil {
 				return autoRefineRunResult{Err: err}
 			}
 			return autoRefineRunResult{}

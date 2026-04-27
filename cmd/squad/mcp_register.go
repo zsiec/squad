@@ -267,6 +267,7 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 			var args struct {
 				ItemID  string `json:"item_id"`
 				NewBody string `json:"new_body"`
+				Area    string `json:"area"`
 			}
 			if err := json.Unmarshal(raw, &args); err != nil {
 				return nil, &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}
@@ -278,6 +279,7 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 				SquadDir: filepath.Join(repoRoot, ".squad"),
 				ItemID:   args.ItemID,
 				NewBody:  args.NewBody,
+				Area:     args.Area,
 			})
 			if err != nil {
 				return nil, &mcp.ToolError{Code: mcp.CodeInvalidParams, Err: err}

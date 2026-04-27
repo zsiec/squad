@@ -142,6 +142,65 @@ func TestMCP_AutoRefineApply_HappyPath(t *testing.T) {
 	}
 }
 
+// TestMCP_AutoRefineApply_AreaArgRewritesFrontmatter pins the wire shape:
+// when the squad_auto_refine_apply MCP tool receives an `area` argument,
+// it must thread through items.AutoRefineApply and rewrite the item's
+// frontmatter `area` field. Without this, items captured with the
+// `<fill-in>` placeholder area cannot pass DoR area-set even after a
+// successful body refine.
+func TestMCP_AutoRefineApply_AreaArgRewritesFrontmatter(t *testing.T) {
+	env := newTestEnv(t)
+	body := strings.Replace(fmt.Sprintf(arPlaceholderItem, "BUG-710", "captured"),
+		"area: auth", "area: <fill-in>", 1)
+	path := filepath.Join(env.ItemsDir, "BUG-710-x.md")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args, err := json.Marshal(map[string]any{
+		"item_id":  "BUG-710",
+		"new_body": arDoRCleanBody,
+		"area":     "dashboard",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	callReq, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+		"params": map[string]any{
+			"name":      "squad_auto_refine_apply",
+			"arguments": json.RawMessage(args),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" + string(callReq) + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	resp := decodeAutoRefineResp(t, lines[1])
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+
+	on, err := items.Parse(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if on.Area != "dashboard" {
+		t.Errorf("frontmatter area = %q, want dashboard", on.Area)
+	}
+	if violations := items.DoRCheck(on); len(violations) != 0 {
+		t.Errorf("DoR violations after area-supplying apply: %+v", violations)
+	}
+}
+
 func TestMCP_AutoRefineApply_RejectsDoRFailingBody(t *testing.T) {
 	env := newTestEnv(t)
 	writeAutoRefineFixture(t, env.ItemsDir, "BUG-701", "captured")

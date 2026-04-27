@@ -112,7 +112,8 @@ const schemaAutoRefineApply = `{
   "required": ["item_id", "new_body"],
   "properties": {
     "item_id":  {"type": "string", "description": "Identifier of a captured item to be auto-refined."},
-    "new_body": {"type": "string", "description": "Drafted markdown body (Problem / Context / Acceptance criteria) that replaces the existing body. Must satisfy DoR."}
+    "new_body": {"type": "string", "description": "Drafted markdown body (Problem / Context / Acceptance criteria) that replaces the existing body. Must satisfy DoR."},
+    "area":     {"type": "string", "description": "Optional. Free-form area string written to the item's frontmatter. Required when the captured item's area is the placeholder \"<fill-in>\"; the DoR area-set rule rejects placeholders."}
   },
   "additionalProperties": false
 }`

@@ -100,7 +100,7 @@ func TestAutoRefine_HappyPath(t *testing.T) {
 	path := writeAutoRefineItem(t, itemsDir, "BUG-700", "captured")
 
 	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
-		if err := items.AutoRefineApply(squadDir, "BUG-700", autoRefineCleanBody, "claude"); err != nil {
+		if err := items.AutoRefineApply(squadDir, "BUG-700", autoRefineCleanBody, "", "claude"); err != nil {
 			return autoRefineRunResult{Err: err}
 		}
 		return autoRefineRunResult{}
@@ -252,7 +252,7 @@ func TestAutoRefine_ConcurrentClickReturns409(t *testing.T) {
 	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
 		close(first)
 		<-released
-		if err := items.AutoRefineApply(squadDir, "BUG-707", autoRefineCleanBody, "claude"); err != nil {
+		if err := items.AutoRefineApply(squadDir, "BUG-707", autoRefineCleanBody, "", "claude"); err != nil {
 			return autoRefineRunResult{Err: err}
 		}
 		return autoRefineRunResult{}
@@ -291,7 +291,7 @@ func TestAutoRefine_PublishesInboxChanged(t *testing.T) {
 	defer s.Bus().Unsubscribe(sub)
 
 	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
-		if err := items.AutoRefineApply(squadDir, "BUG-708", autoRefineCleanBody, "claude"); err != nil {
+		if err := items.AutoRefineApply(squadDir, "BUG-708", autoRefineCleanBody, "", "claude"); err != nil {
 			return autoRefineRunResult{Err: err}
 		}
 		return autoRefineRunResult{}

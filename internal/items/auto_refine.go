@@ -11,7 +11,13 @@ import (
 
 // Status stays `captured` on success — the human Accept click remains the
 // only path from captured to open.
-func AutoRefineApply(squadDir, itemID, newBody, refinedBy string) error {
+//
+// area is optional. When non-empty the frontmatter `area` field is rewritten
+// alongside the body — this lets the auto-refine flow heal items captured
+// with the `<fill-in>` placeholder, which the DoR area-set rule would
+// otherwise reject. An empty area leaves frontmatter `area` untouched, which
+// is the back-compat path for callers that only refine the body.
+func AutoRefineApply(squadDir, itemID, newBody, area, refinedBy string) error {
 	if strings.TrimSpace(newBody) == "" {
 		return errors.New("auto-refine: newBody is empty")
 	}
@@ -33,6 +39,9 @@ func AutoRefineApply(squadDir, itemID, newBody, refinedBy string) error {
 
 		candidate := it
 		candidate.Body = newBody
+		if area != "" {
+			candidate.Area = area
+		}
 		if violations := DoRCheck(candidate); len(violations) > 0 {
 			rules := make([]string, 0, len(violations))
 			for _, v := range violations {
@@ -46,11 +55,15 @@ func AutoRefineApply(squadDir, itemID, newBody, refinedBy string) error {
 		if err != nil {
 			return err
 		}
-		rewritten, err := rewriteFrontmatter(raw, map[string]string{
+		updates := map[string]string{
 			"auto_refined_at": strconv.FormatInt(now.Unix(), 10),
 			"auto_refined_by": refinedBy,
 			"updated":         now.UTC().Format("2006-01-02"),
-		})
+		}
+		if area != "" {
+			updates["area"] = area
+		}
+		rewritten, err := rewriteFrontmatter(raw, updates)
 		if err != nil {
 			return fmt.Errorf("rewrite frontmatter for %s: %w", path, err)
 		}
