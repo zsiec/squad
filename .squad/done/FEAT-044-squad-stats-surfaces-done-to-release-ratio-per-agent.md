@@ -4,7 +4,7 @@ title: squad stats surfaces done-to-release ratio per agent
 type: feature
 priority: P2
 area: internal/stats
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
@@ -57,6 +57,28 @@ intentionally `-` rather than `0` or `NaN`; zero releases is a different
 signal from a poor ratio.
 
 ## Resolution
-
-(Filled in when status → done.)
-What changed, file references, anything a future maintainer needs to know.
+- `internal/stats/schema.go`: `AgentRow` gains `ReleaseCount int64` and `Ratio
+  *float64`. Ratio is nil when ReleaseCount is zero — operators' undefined
+  case is intentionally distinct from a low ratio.
+- `internal/stats/breakdowns.go`: widened the claim_history query to count
+  both `done` and `released` outcomes via SUM(CASE WHEN); kept the duration
+  GROUP_CONCAT scoped to done-only so percentile math is unaffected. The
+  cap-and-spill into `_other` now rolls up ReleaseCount and recomputes Ratio
+  on the spill row, so >50-agent repos don't silently drop releases.
+- `cmd/squad/stats.go`: new `--by` flag (only valid value: `agent`); when
+  set, renders a focused table with columns `agent / done_count /
+  release_count / ratio`, sorted by ratio DESC with nil-ratio agents last.
+  Zero-release agents render ratio as `-`.
+- Counted only voluntary `released` outcomes — `force_released` and
+  `reclaimed` are operator/reaper-driven and would corrupt the per-agent
+  quality signal. Documented inline on the field.
+- Tests: `internal/stats/breakdowns_test.go` adds
+  `TestByAgentDoneReleaseRatio` (the 6/2/3.0, 4/0/nil, 1/4/0.25 cases) and
+  `TestByAgentSpillRollsUpReleaseCount` (60 agents → 50 visible + `_other`
+  with 10/10/1.0). `cmd/squad/stats_test.go` adds
+  `TestRenderAgentRatioTable_OrderingAndZeroRelease` (header columns, sort
+  order, `-` for zero-release) and `TestStatsByAgentFlagRejectsUnknownGroup`
+  (clear error on bogus `--by`).
+- Schema version not bumped: adding fields with omittable zero-values is
+  additive, not breaking, and the existing comment only flags
+  rename/remove/semantics-change as breaking.
