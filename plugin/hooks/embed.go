@@ -55,4 +55,12 @@ var All = []Hook{
 		"Record Task tool completion as event with duration_ms.",
 		"Adds <50ms per Task finish.",
 		"TaskCompleted", "*"},
+	{"pre-tool-event", "pre_tool_event.sh", true,
+		"Record a pre_tool event into agent_events for the activity stream.",
+		"Adds one squad call per tool invocation; SQUAD_EVENTS_FILTER_READ=1 skips Read.",
+		"PreToolUse", "*"},
+	{"post-tool-event", "post_tool_event.sh", true,
+		"Record a post_tool event with exit code and duration into agent_events.",
+		"Adds one squad call per tool finish; same opt-out flags as pre-tool-event.",
+		"PostToolUse", "*"},
 }
