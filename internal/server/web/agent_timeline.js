@@ -59,6 +59,12 @@ function trunc(s, n) {
   return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
+function fmtDuration(ms) {
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60_000) return (ms / 1000).toFixed(1) + 's';
+  return Math.round(ms / 1000) + 's';
+}
+
 function renderRow(row, primary, secondary) {
   const ts = row.ts ? fmtAgo(row.ts) + ' ago' : '—';
   const kind = row.kind || '';
@@ -96,10 +102,12 @@ function renderRow(row, primary, secondary) {
       const ek = row.event_kind || '';
       const tool = row.tool || '';
       const exit = row.exit_code != null && row.exit_code !== 0 ? ` exit=${row.exit_code}` : '';
-      return `<div class="tl-row" ${dataAttrs}>
+      const dur = ek === 'PostToolUse' && row.duration_ms > 0 ? ` <span class="tl-duration" title="post-tool duration">${escapeHtml(fmtDuration(row.duration_ms))}</span>` : '';
+      const sessionTitle = row.session_id ? ` data-session="${escapeHtml(row.session_id)}" title="session: ${escapeHtml(row.session_id)}"` : '';
+      return `<div class="tl-row" ${dataAttrs}${sessionTitle}>
         <span class="tl-time">${escapeHtml(ts)}</span>
         <span class="tl-badge tl-event">${escapeHtml(ek || 'event')}</span>
-        <span class="tl-body"><strong>${escapeHtml(tool)}</strong> ${escapeHtml(trunc(row.target || '', TARGET_TRUNC))}${escapeHtml(exit)}</span>
+        <span class="tl-body"><strong>${escapeHtml(tool)}</strong> ${escapeHtml(trunc(row.target || '', TARGET_TRUNC))}${escapeHtml(exit)}${dur}</span>
       </div>`;
     }
     default:
@@ -113,7 +121,9 @@ function applyFilters(host, state) {
   rows.forEach((r) => {
     const primary = r.dataset.primary;
     const secondary = r.dataset.secondary;
-    const ok = state[primary] !== false && (!secondary || state[secondary] !== false);
+    const session = r.dataset.session || '';
+    const sessionOK = !state.session || state.session === session;
+    const ok = state[primary] !== false && (!secondary || state[secondary] !== false) && sessionOK;
     r.hidden = !ok;
     if (ok) visible++;
   });
@@ -127,9 +137,19 @@ function renderTimeline(items, host, _agentId, _refetch) {
   const state = loadFilters();
   const sorted = (items || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
+  const sessions = collectSessions(sorted);
+  if (state.session && !sessions.has(state.session)) state.session = '';
+
   const chipsHtml = CHIPS.map((c) =>
     `<button type="button" class="tl-chip${state[c.id] !== false ? ' on' : ''}" data-chip="${c.id}">${escapeHtml(c.label)}</button>`
   ).join('');
+
+  const sessionPickerHtml = sessions.size > 1
+    ? `<select class="tl-session" aria-label="Filter by session">
+         <option value="">all sessions</option>
+         ${[...sessions].map((s) => `<option value="${escapeHtml(s)}"${state.session === s ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('')}
+       </select>`
+    : '';
 
   const rowsHtml = sorted.map((row) => {
     const [primary, secondary] = classify(row);
@@ -138,7 +158,7 @@ function renderTimeline(items, host, _agentId, _refetch) {
   }).join('');
 
   host.innerHTML = `
-    <div class="tl-filters" role="toolbar" aria-label="Timeline filters">${chipsHtml}</div>
+    <div class="tl-filters" role="toolbar" aria-label="Timeline filters">${chipsHtml}${sessionPickerHtml}</div>
     <div class="tl-list">
       ${rowsHtml || '<div class="agent-detail-empty" data-tl-no-activity>no activity yet — agent is registered but hasn\'t done anything we record.</div>'}
       <div class="agent-detail-empty" data-tl-empty hidden>everything is filtered out — toggle a chip back on.</div>
@@ -153,8 +173,24 @@ function renderTimeline(items, host, _agentId, _refetch) {
       applyFilters(host, state);
     });
   });
+  const sessionEl = host.querySelector('.tl-session');
+  if (sessionEl) {
+    sessionEl.addEventListener('change', () => {
+      state.session = sessionEl.value || '';
+      saveFilters(state);
+      applyFilters(host, state);
+    });
+  }
 
   applyFilters(host, state);
+}
+
+function collectSessions(rows) {
+  const set = new Set();
+  for (const r of rows) {
+    if (r.session_id) set.add(r.session_id);
+  }
+  return set;
 }
 
 setTimelineRenderer(renderTimeline);

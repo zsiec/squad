@@ -77,22 +77,24 @@ func (s *Server) handleAgentEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 type timelineRow struct {
-	TS        int64  `json:"ts"`
-	Kind      string `json:"kind"`
-	AgentID   string `json:"agent_id"`
-	Source    string `json:"source"`
-	ItemID    string `json:"item_id,omitempty"`
-	Thread    string `json:"thread,omitempty"`
-	Body      string `json:"body,omitempty"`
-	Tool      string `json:"tool,omitempty"`
-	Target    string `json:"target,omitempty"`
-	Outcome   string `json:"outcome,omitempty"`
-	SHA       string `json:"sha,omitempty"`
-	Subject   string `json:"subject,omitempty"`
-	AttKind   string `json:"attestation_kind,omitempty"`
-	EventKind string `json:"event_kind,omitempty"`
-	Intent    string `json:"intent,omitempty"`
-	ExitCode  *int   `json:"exit_code,omitempty"`
+	TS         int64  `json:"ts"`
+	Kind       string `json:"kind"`
+	AgentID    string `json:"agent_id"`
+	Source     string `json:"source"`
+	ItemID     string `json:"item_id,omitempty"`
+	Thread     string `json:"thread,omitempty"`
+	Body       string `json:"body,omitempty"`
+	Tool       string `json:"tool,omitempty"`
+	Target     string `json:"target,omitempty"`
+	Outcome    string `json:"outcome,omitempty"`
+	SHA        string `json:"sha,omitempty"`
+	Subject    string `json:"subject,omitempty"`
+	AttKind    string `json:"attestation_kind,omitempty"`
+	EventKind  string `json:"event_kind,omitempty"`
+	Intent     string `json:"intent,omitempty"`
+	ExitCode   *int   `json:"exit_code,omitempty"`
+	DurationMS int64  `json:"duration_ms,omitempty"`
+	SessionID  string `json:"session_id,omitempty"`
 }
 
 func (s *Server) handleAgentTimeline(w http.ResponseWriter, r *http.Request) {
@@ -219,13 +221,13 @@ func (s *Server) queryTimeline(ctx context.Context, agentID string, since int64,
 		},
 		{
 			name: "event",
-			sql: `SELECT ts, event_kind, tool, target, exit_code
+			sql: `SELECT ts, event_kind, tool, target, exit_code, duration_ms, COALESCE(session_id,'')
 			      FROM agent_events
 			      WHERE repo_id = ? AND agent_id = ?` + tsClause,
 			scan: func(rows *sql.Rows, ts int64) (timelineRow, error) {
 				row := timelineRow{Source: "event", AgentID: agentID, Kind: "event"}
 				var exit int
-				if err := rows.Scan(&row.TS, &row.EventKind, &row.Tool, &row.Target, &exit); err != nil {
+				if err := rows.Scan(&row.TS, &row.EventKind, &row.Tool, &row.Target, &exit, &row.DurationMS, &row.SessionID); err != nil {
 					return row, err
 				}
 				row.ExitCode = &exit

@@ -2833,3 +2833,22 @@ a.agent-detail-claim:hover {
   font: 11px var(--font-mono);
   color: var(--fg-dim);
 }
+
+/* timeline duration tag + session picker (CHORE-004) */
+.tl-duration {
+  font: 10px var(--font-mono);
+  color: var(--fg-dim);
+  margin-left: 6px;
+  padding: 1px 4px;
+  border: 1px solid var(--border);
+}
+.tl-session {
+  font: 10px var(--font-mono);
+  letter-spacing: 0.04em;
+  background: transparent;
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  margin-left: auto;
+}
+.tl-session:focus { outline: none; border-color: var(--accent-dim); }
