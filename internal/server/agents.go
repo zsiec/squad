@@ -11,13 +11,27 @@ type agentRow struct {
 	Worktree    string `json:"worktree"`
 	LastTickAt  int64  `json:"last_tick_at"`
 	Status      string `json:"status"`
+	RepoID      string `json:"repo_id"`
 }
 
 func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.db.QueryContext(r.Context(), `
-		SELECT id, COALESCE(display_name,''), COALESCE(worktree,''), last_tick_at, status
-		FROM agents WHERE repo_id = ? ORDER BY last_tick_at DESC
-	`, s.cfg.RepoID)
+	// Workspace mode (cfg.RepoID == "") returns agents across all repos;
+	// single-repo mode keeps the scoped query.
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if s.cfg.RepoID == "" {
+		rows, err = s.db.QueryContext(r.Context(), `
+			SELECT id, COALESCE(display_name,''), COALESCE(worktree,''), last_tick_at, status, repo_id
+			FROM agents ORDER BY last_tick_at DESC
+		`)
+	} else {
+		rows, err = s.db.QueryContext(r.Context(), `
+			SELECT id, COALESCE(display_name,''), COALESCE(worktree,''), last_tick_at, status, repo_id
+			FROM agents WHERE repo_id = ? ORDER BY last_tick_at DESC
+		`, s.cfg.RepoID)
+	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -26,7 +40,7 @@ func (s *Server) handleAgents(w http.ResponseWriter, r *http.Request) {
 	out := []agentRow{}
 	for rows.Next() {
 		var a agentRow
-		if err := rows.Scan(&a.AgentID, &a.DisplayName, &a.Worktree, &a.LastTickAt, &a.Status); err != nil {
+		if err := rows.Scan(&a.AgentID, &a.DisplayName, &a.Worktree, &a.LastTickAt, &a.Status, &a.RepoID); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -56,13 +70,25 @@ type claimWireRow struct {
 	ClaimedAt int64  `json:"claimed_at"`
 	LastTouch int64  `json:"last_touch"`
 	Worktree  string `json:"worktree,omitempty"`
+	RepoID    string `json:"repo_id"`
 }
 
 func (s *Server) handleClaims(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.db.QueryContext(r.Context(), `
-		SELECT item_id, agent_id, COALESCE(intent, ''), claimed_at, last_touch, COALESCE(worktree, '')
-		FROM claims WHERE repo_id = ? ORDER BY claimed_at
-	`, s.cfg.RepoID)
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if s.cfg.RepoID == "" {
+		rows, err = s.db.QueryContext(r.Context(), `
+			SELECT item_id, agent_id, COALESCE(intent, ''), claimed_at, last_touch, COALESCE(worktree, ''), repo_id
+			FROM claims ORDER BY claimed_at
+		`)
+	} else {
+		rows, err = s.db.QueryContext(r.Context(), `
+			SELECT item_id, agent_id, COALESCE(intent, ''), claimed_at, last_touch, COALESCE(worktree, ''), repo_id
+			FROM claims WHERE repo_id = ? ORDER BY claimed_at
+		`, s.cfg.RepoID)
+	}
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -71,7 +97,7 @@ func (s *Server) handleClaims(w http.ResponseWriter, r *http.Request) {
 	out := []claimWireRow{}
 	for rows.Next() {
 		var c claimWireRow
-		if err := rows.Scan(&c.ItemID, &c.AgentID, &c.Intent, &c.ClaimedAt, &c.LastTouch, &c.Worktree); err != nil {
+		if err := rows.Scan(&c.ItemID, &c.AgentID, &c.Intent, &c.ClaimedAt, &c.LastTouch, &c.Worktree, &c.RepoID); err != nil {
 			writeErr(w, http.StatusInternalServerError, err.Error())
 			return
 		}

@@ -19,4 +19,5 @@ type InboxEntry struct {
 	Path          string `json:"path"`
 	AutoRefinedAt int64  `json:"auto_refined_at,omitempty"`
 	AutoRefinedBy string `json:"auto_refined_by,omitempty"`
+	RepoID        string `json:"repo_id,omitempty"`
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"path/filepath"
 
 	"github.com/zsiec/squad/internal/items"
 )
@@ -28,18 +29,67 @@ type itemListRow struct {
 	EvidenceRequired []string `json:"evidence_required"`
 	ClaimedBy        string   `json:"claimed_by"`
 	LastTouch        int64    `json:"last_touch"`
+	RepoID           string   `json:"repo_id"`
 }
 
-// walkAll returns all active + done items below s.cfg.SquadDir.
-func (s *Server) walkAll() ([]items.Item, error) {
-	w, err := items.Walk(s.cfg.SquadDir)
+// itemWithRepo carries a parsed Item alongside the repo it was walked
+// from. In single-repo mode RepoID matches s.cfg.RepoID; in workspace
+// mode it's the per-repo identifier from the global DB's `repos` table.
+type itemWithRepo struct {
+	items.Item
+	RepoID string
+}
+
+// walkAll returns all active + done items in the configured scope.
+// Single-repo mode (cfg.RepoID set): walks s.cfg.SquadDir.
+// Workspace mode (cfg.RepoID empty): enumerates every repo from the
+// global DB's `repos` table and walks each repo's `<root>/.squad/`,
+// tagging items with their per-repo identifier so the API/SPA can
+// disambiguate.
+func (s *Server) walkAll() ([]itemWithRepo, error) {
+	if s.cfg.RepoID != "" {
+		w, err := items.Walk(s.cfg.SquadDir)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]itemWithRepo, 0, len(w.Active)+len(w.Done))
+		for _, it := range w.Active {
+			out = append(out, itemWithRepo{Item: it, RepoID: s.cfg.RepoID})
+		}
+		for _, it := range w.Done {
+			out = append(out, itemWithRepo{Item: it, RepoID: s.cfg.RepoID})
+		}
+		return out, nil
+	}
+	rows, err := s.db.Query(`SELECT id, COALESCE(root_path, '') FROM repos`)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]items.Item, 0, len(w.Active)+len(w.Done))
-	out = append(out, w.Active...)
-	out = append(out, w.Done...)
-	return out, nil
+	defer rows.Close()
+	var out []itemWithRepo
+	for rows.Next() {
+		var id, root string
+		if err := rows.Scan(&id, &root); err != nil {
+			continue
+		}
+		if root == "" {
+			continue
+		}
+		w, err := items.Walk(filepath.Join(root, ".squad"))
+		if err != nil {
+			// Skip repos whose .squad/ is unreadable rather than failing the
+			// whole aggregation — operators see partial data instead of an
+			// opaque 500 when one repo is missing.
+			continue
+		}
+		for _, it := range w.Active {
+			out = append(out, itemWithRepo{Item: it, RepoID: id})
+		}
+		for _, it := range w.Done {
+			out = append(out, itemWithRepo{Item: it, RepoID: id})
+		}
+	}
+	return out, rows.Err()
 }
 
 func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
@@ -49,22 +99,34 @@ func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	type claimKey struct{ Repo, Item string }
 	type claimInfo struct {
 		Agent     string
 		LastTouch int64
 	}
-	claimByItem := map[string]claimInfo{}
-	rows, err := s.db.QueryContext(r.Context(),
-		`SELECT item_id, agent_id, last_touch FROM claims WHERE repo_id = ?`, s.cfg.RepoID)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+	claimByItem := map[claimKey]claimInfo{}
+	// Workspace mode (cfg.RepoID == "") needs all repos' claims; single-repo
+	// mode keeps the existing scoped query.
+	var (
+		rows *sql.Rows
+		qErr error
+	)
+	if s.cfg.RepoID == "" {
+		rows, qErr = s.db.QueryContext(r.Context(),
+			`SELECT repo_id, item_id, agent_id, last_touch FROM claims`)
+	} else {
+		rows, qErr = s.db.QueryContext(r.Context(),
+			`SELECT repo_id, item_id, agent_id, last_touch FROM claims WHERE repo_id = ?`, s.cfg.RepoID)
+	}
+	if qErr != nil {
+		writeErr(w, http.StatusInternalServerError, qErr.Error())
 		return
 	}
 	for rows.Next() {
-		var id, agent string
+		var repoID, id, agent string
 		var lt int64
-		if err := rows.Scan(&id, &agent, &lt); err == nil {
-			claimByItem[id] = claimInfo{Agent: agent, LastTouch: lt}
+		if err := rows.Scan(&repoID, &id, &agent, &lt); err == nil {
+			claimByItem[claimKey{Repo: repoID, Item: id}] = claimInfo{Agent: agent, LastTouch: lt}
 		}
 	}
 	rows.Close()
@@ -93,8 +155,9 @@ func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
 			Created: it.Created, Updated: it.Updated,
 			ACTotal: it.ACTotal, ACChecked: it.ACChecked, Progress: it.ProgressPct(),
 			Epic: it.Epic, DependsOn: deps, Parallel: it.Parallel, EvidenceRequired: evReq,
+			RepoID: it.RepoID,
 		}
-		if c, ok := claimByItem[it.ID]; ok {
+		if c, ok := claimByItem[claimKey{Repo: it.RepoID, Item: it.ID}]; ok {
 			row.ClaimedBy = c.Agent
 			row.LastTouch = c.LastTouch
 		}
@@ -110,10 +173,14 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var it *items.Item
+	var (
+		it     *items.Item
+		repoID string
+	)
 	for i := range all {
 		if all[i].ID == id {
-			it = &all[i]
+			it = &all[i].Item
+			repoID = all[i].RepoID
 			break
 		}
 	}
@@ -124,9 +191,16 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 
 	var currentClaim any
 	var lastTouch int64
+	// Workspace mode (cfg.RepoID == "") binds the claim lookup to the repo
+	// the item was found in; single-repo mode preserves the existing
+	// behavior.
+	claimRepo := s.cfg.RepoID
+	if claimRepo == "" {
+		claimRepo = repoID
+	}
 	row := s.db.QueryRowContext(r.Context(),
 		`SELECT agent_id, COALESCE(intent, ''), claimed_at, last_touch, COALESCE(worktree, '') FROM claims WHERE item_id = ? AND repo_id = ?`,
-		id, s.cfg.RepoID)
+		id, claimRepo)
 	var cc struct {
 		AgentID   string `json:"agent_id"`
 		Intent    string `json:"intent"`
@@ -176,5 +250,6 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 		"parallel":          it.Parallel,
 		"evidence_required": evReq,
 		"last_touch":        lastTouch,
+		"repo_id":           repoID,
 	})
 }

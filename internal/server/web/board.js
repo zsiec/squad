@@ -163,7 +163,7 @@ function renderBoard() {
       hdr.className = 'section-header';
       hdr.innerHTML = `<td colspan="5">${p} — ${byPri[p].length}</td>`;
       boardBody.appendChild(hdr);
-      for (const it of byPri[p]) boardBody.appendChild(itemRow(it, claimByItem));
+      for (const it of byPri[p]) boardBody.appendChild(itemRow(it, claimByItem, multiRepo(rows)));
     }
     // priorities outside P0-P3
     for (const p of Object.keys(byPri)) {
@@ -172,17 +172,30 @@ function renderBoard() {
       hdr.className = 'section-header';
       hdr.innerHTML = `<td colspan="5">${escapeHtml(p || 'unprioritized')} — ${byPri[p].length}</td>`;
       boardBody.appendChild(hdr);
-      for (const it of byPri[p]) boardBody.appendChild(itemRow(it, claimByItem));
+      for (const it of byPri[p]) boardBody.appendChild(itemRow(it, claimByItem, multiRepo(rows)));
     }
   } else {
-    for (const it of rows) boardBody.appendChild(itemRow(it, claimByItem));
+    for (const it of rows) boardBody.appendChild(itemRow(it, claimByItem, multiRepo(rows)));
   }
 
   // re-apply selection
   if (selectedId) setSelected(selectedId);
 }
 
-function itemRow(it, claimByItem) {
+// multiRepo returns true when `rows` carry items from more than one
+// distinct repo_id. The repo-id badge is rendered on every row only in
+// that case so the single-repo dashboard stays uncluttered while the
+// daemon-spawned-by-launchd workspace view shows where each item lives.
+function multiRepo(rows) {
+  const seen = new Set();
+  for (const r of rows) {
+    if (r && r.repo_id) seen.add(r.repo_id);
+    if (seen.size > 1) return true;
+  }
+  return false;
+}
+
+function itemRow(it, claimByItem, showRepo = false) {
   const tr = document.createElement('tr');
   tr.dataset.item = it.id;
   const claim = it.claim || claimByItem.get(it.id);
@@ -192,6 +205,7 @@ function itemRow(it, claimByItem) {
   const pct = it.progress_pct || 0;
   const pri = priClass(it.priority);
   const badges = [];
+  if (showRepo && it.repo_id) badges.push(`<span class="row-badge repo" title="repo">${escapeHtml(it.repo_id)}</span>`);
   if (it.epic)              badges.push(`<span class="row-badge epic" title="epic">${escapeHtml(it.epic)}</span>`);
   if (it.parallel)          badges.push(`<span class="row-badge parallel" title="parallel-safe">∥</span>`);
   const evCount = (it.evidence_required || []).length;

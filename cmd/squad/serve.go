@@ -133,6 +133,14 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir string, out inter
 	}
 	defer db.Close()
 
+	// Repo discovery is best-effort. Single-repo mode lights up when the
+	// daemon's cwd is inside a squad repo (foreground `squad serve` from a
+	// repo dir). If discovery fails — the launchd / systemd-user case where
+	// the daemon's cwd is `/` or the user's home — fall through to
+	// workspace mode: cfg.RepoID stays empty, the server enumerates repos
+	// via the global DB on each request and aggregates. The default `.squad`
+	// path becomes meaningless in that mode and is reset to "" so handlers
+	// can branch off the empty value rather than a misleading relative.
 	repoID := ""
 	repoRoot := ""
 	if wd, werr := os.Getwd(); werr == nil {
@@ -145,6 +153,9 @@ func runServeCtx(ctx context.Context, port int, bind, squadDir string, out inter
 				}
 			}
 		}
+	}
+	if repoID == "" && squadDir == ".squad" {
+		squadDir = ""
 	}
 
 	binaryPath, _ := os.Executable()
