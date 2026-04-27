@@ -51,7 +51,7 @@ func TestDone_BlockedWhenEvidenceMissing(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-done-blocked")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()
@@ -101,7 +101,7 @@ func TestDone_ProceedsWhenEvidenceSatisfied(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-done-satisfied")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()
@@ -156,7 +156,7 @@ func TestDone_Force_RecordsManualAttestation(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-done-force-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()

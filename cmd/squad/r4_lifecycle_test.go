@@ -37,7 +37,7 @@ func TestR4_FullLifecycle(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-r4-lifecycle-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	run := func(args ...string) (string, error) {
@@ -147,7 +147,7 @@ func TestR4_DoctorFlagsForceClosedItemThatLatersLosesAttestation(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-r4-tamper-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	run := func(args ...string) (string, error) {

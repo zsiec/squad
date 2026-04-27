@@ -70,7 +70,7 @@ func TestAttest_TestKind_HappyPath(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-attest-1")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()
@@ -129,7 +129,7 @@ func TestAttest_PositionalItemID(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-attest-positional")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()
@@ -188,7 +188,7 @@ func TestAttest_BadKind(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-attest-2")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()
@@ -227,7 +227,7 @@ func TestAttest_Review_BlockingFindingsRecordsExit1(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-attest-review-blocking")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()
@@ -289,7 +289,7 @@ func TestAttest_Review_CleanFindingsRecordsExit0(t *testing.T) {
 	t.Setenv("SQUAD_HOME", state)
 	t.Setenv("SQUAD_SESSION_ID", "test-attest-review-clean")
 	t.Setenv("SQUAD_AGENT", "")
-	gitInitDir(t, repoDir)
+	gitInitDirCommittedMain(t, repoDir)
 	t.Chdir(repoDir)
 
 	initCmd := newInitCmd()

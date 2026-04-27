@@ -10,12 +10,35 @@ import (
 	"testing"
 )
 
+// gitInitDir initialises a fresh repo with `main` as the unborn default
+// branch — no commits. Tests that only exercise `squad init` or that
+// deliberately need a commitless-main scenario use this. For tests that
+// run `squad claim`, use gitInitDirCommittedMain — worktree-per-claim
+// is the scaffold default and `git worktree add main` will fail if main
+// has no commit yet.
 func gitInitDir(t *testing.T, dir string) {
 	t.Helper()
 	cmd := exec.Command("git", "init", "-b", "main")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git init: %v: %s", err, out)
+	}
+}
+
+// gitInitDirCommittedMain initialises a repo with main pointing at an
+// empty initial commit, mirroring the state real users have when they
+// run `squad init` in a normal project. Required for tests that run
+// `squad claim` since CHORE-014 made worktree-per-claim the scaffold
+// default.
+func gitInitDirCommittedMain(t *testing.T, dir string) {
+	t.Helper()
+	gitInitDir(t, dir)
+	cmd := exec.Command("git",
+		"-c", "user.email=test@example.com", "-c", "user.name=test",
+		"commit", "--allow-empty", "-m", "initial")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git initial commit: %v: %s", err, out)
 	}
 }
 
