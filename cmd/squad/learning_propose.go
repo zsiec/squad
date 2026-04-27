@@ -41,6 +41,11 @@ type LearningProposeArgs struct {
 	SessionID string   `json:"session_id,omitempty"`
 	Paths     []string `json:"paths,omitempty"`
 	CreatedBy string   `json:"created_by"`
+	// Via, when non-empty, injects a `> captured via squad learning <via>`
+	// marker line above the kind-specific section template. Used by the
+	// `quick` shorthand so reviewers can see at a glance which proposals
+	// still need their template sections filled in.
+	Via string `json:"via,omitempty"`
 
 	Now func() time.Time `json:"-"`
 }
@@ -80,7 +85,7 @@ func LearningPropose(_ context.Context, args LearningProposeArgs) (*LearningProp
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, clock())
+	body := stubBody(kind, args.Slug, args.Title, args.Area, args.CreatedBy, args.SessionID, args.Paths, args.Via, clock())
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return nil, err
 	}
@@ -144,7 +149,7 @@ func validSlug(s string) bool {
 	return true
 }
 
-func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, now time.Time) string {
+func stubBody(k learning.Kind, slug, title, area, agent, session string, paths []string, via string, now time.Time) string {
 	if len(paths) == 0 {
 		paths = []string{"internal/" + area + "/**"}
 	}
@@ -158,6 +163,9 @@ func stubBody(k learning.Kind, slug, title, area, agent, session string, paths [
 	}
 	fmt.Fprintf(&sb, "created: %s\ncreated_by: %s\nsession: %s\nstate: proposed\nevidence: []\nrelated_items: []\n---\n\n",
 		now.UTC().Format("2006-01-02"), agent, session)
+	if via != "" {
+		fmt.Fprintf(&sb, "> captured via squad learning %s\n\n", via)
+	}
 	switch k {
 	case learning.KindGotcha:
 		sb.WriteString("## Looks like\n\n_What it appears to be on first read._\n\n")

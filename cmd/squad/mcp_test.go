@@ -39,7 +39,7 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_ask", "squad_tick", "squad_progress", "squad_review_request",
 		"squad_list_items", "squad_get_item",
 		"squad_attest", "squad_attestations",
-		"squad_learning_propose", "squad_learning_list", "squad_learning_approve", "squad_learning_reject",
+		"squad_learning_propose", "squad_learning_quick", "squad_learning_list", "squad_learning_approve", "squad_learning_reject",
 		"squad_learning_agents_md_suggest", "squad_learning_agents_md_approve", "squad_learning_agents_md_reject",
 		"squad_handoff", "squad_knock", "squad_answer",
 		"squad_force_release", "squad_reassign", "squad_archive",
@@ -339,6 +339,77 @@ func TestMCP_ClaimResponseOmitsTipsForLowStakesItem(t *testing.T) {
 	// then assert on a separate suppressed call that it does NOT appear.
 	if !strings.Contains(lines[1], `"tips"`) {
 		t.Errorf("expected tips field in JSON output, got: %s", lines[1])
+	}
+}
+
+// TestMCP_LearningQuickRoundTrip exercises the MCP-side parity for
+// `squad learning quick` — agents using MCP tools (per BUG-019 lineage) must
+// see the same follow-up nudge the cobra path writes to stderr, surfaced as
+// the Tips slice on the structured response.
+func TestMCP_LearningQuickRoundTrip(t *testing.T) {
+	env := newTestEnv(t)
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "")
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_learning_quick","arguments":{"one_liner":"interface{} in claims store breaks Go 1.25","agent_id":"agent-mcp-quick"}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines:\n%s", len(lines), out.String())
+	}
+	var resp struct {
+		Result struct {
+			StructuredContent struct {
+				Path string   `json:"path"`
+				Tips []string `json:"tips"`
+			} `json:"structuredContent"`
+			IsError bool `json:"isError"`
+		} `json:"result"`
+		Error *struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
+		t.Fatalf("decode: %v\nraw: %s", err, lines[1])
+	}
+	if resp.Error != nil {
+		t.Fatalf("rpc error: code=%d msg=%q", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result.IsError {
+		t.Fatalf("tool error: %s", lines[1])
+	}
+	wantSlug := "interface-in-claims-store-breaks-go-1-25"
+	if !strings.Contains(resp.Result.StructuredContent.Path, wantSlug) {
+		t.Errorf("path = %q, want it to contain %q", resp.Result.StructuredContent.Path, wantSlug)
+	}
+	if got, err := os.ReadFile(resp.Result.StructuredContent.Path); err != nil {
+		t.Fatalf("stub not on disk: %v", err)
+	} else if !strings.Contains(string(got), "> captured via squad learning quick") {
+		t.Errorf("stub missing via marker:\n%s", got)
+	}
+	tips := resp.Result.StructuredContent.Tips
+	if len(tips) != 1 || !strings.Contains(tips[0], "edit the stub") {
+		t.Errorf("tips = %v, want one line mentioning 'edit the stub'", tips)
+	}
+}
+
+func TestMCP_LearningQuickRoundTripSilenced(t *testing.T) {
+	env := newTestEnv(t)
+	t.Setenv("SQUAD_NO_CADENCE_NUDGES", "1")
+
+	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"squad_learning_quick","arguments":{"one_liner":"silent capture path","agent_id":"agent-silent-quick"}}}` + "\n")
+	var out bytes.Buffer
+	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out); err != nil {
+		t.Fatalf("runMCP: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if strings.Contains(lines[1], `"tips"`) {
+		t.Errorf("env=1 should suppress tips entirely (json:omitempty), got: %s", lines[1])
 	}
 }
 

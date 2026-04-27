@@ -105,3 +105,20 @@ func printWorktreeNudge(w io.Writer, path string) {
 		fmt.Fprintln(w, t)
 	}
 }
+
+// quickFollowupNudgeText returns the one-line reminder that the auto-derived
+// stub from `squad learning quick` still has placeholder sections worth
+// filling in when the agent has a moment. Empty when silenced. The print
+// wrapper adds the newline; MCP carries the bare line into Tips.
+func quickFollowupNudgeText() string {
+	if cadenceNudgesSilenced() {
+		return ""
+	}
+	return "  tip: edit the stub when you can — sections are placeholders · silence with SQUAD_NO_CADENCE_NUDGES=1"
+}
+
+func printQuickFollowupNudge(w io.Writer) {
+	if t := quickFollowupNudgeText(); t != "" {
+		fmt.Fprintln(w, t)
+	}
+}

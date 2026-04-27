@@ -439,6 +439,25 @@ squad learning propose gotcha retry-on-503 --area "http-retries" --title "retry 
 squad learning propose dead-end dont-mock-the-db --area "db" --title "do not mock the db"
 ```
 
+### `squad learning quick`
+
+Frictionless one-line capture. Auto-derives the slug from the one-liner, defaults `--kind` to `gotcha`, and infers `--area` from the most recently closed item in this repo (falls back to `general`). Use this when the surprise is fresh and the ceremony of `propose` would let it slip; edit the stub later.
+
+```bash
+squad learning quick "interface{} in claims store breaks Go 1.25"
+squad learning quick "use channel-of-done to fan out workers" --kind pattern
+```
+
+| Default | Source |
+|---|---|
+| `kind` | `gotcha` (override with `--kind {gotcha,pattern,dead-end}`) |
+| `slug` | derived from the one-liner (lowercase, kebab, max 60 chars) |
+| `title` | the one-liner verbatim |
+| `area` | most-recently-modified item under `.squad/done/`, else `general` |
+| `paths` | `internal/<area>/**` (same default as `propose`) |
+
+If the derived slug already exists, `quick` walks `slug-2`, `slug-3`, … through `slug-9` before giving up — a one-liner that collides nine times is too generic. The stub body carries a `> captured via squad learning quick` marker so a reviewer can spot proposals that still have placeholder sections to fill in. Suppress the follow-up reminder with `SQUAD_NO_CADENCE_NUDGES=1`.
+
 ### `squad learning list`
 
 List learning artifacts. Filter by area, state, or kind.

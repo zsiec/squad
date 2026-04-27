@@ -27,7 +27,7 @@ squad done $ARGS --summary "<one-line outcome>"
 
 ### After running squad done
 
-**Learning capture (bug/feat/task only)** — follow-through, not a precondition. After `squad done` runs, the CLI prints a one-line learning nudge tailored to the item type (gotcha-shaped for `bug`, generic for `feature`/`task`; silent for chore/tech-debt/bet). File `squad learning propose ...` while the surprise is still fresh — the Stop-hook prompt fires too late in multi-item sessions, by which time the detail has rotted. If nothing surprised you, ignore the nudge.
+**Learning capture (bug/feat/task only)** — follow-through, not a precondition. After `squad done` runs, the CLI prints a one-line learning nudge tailored to the item type (gotcha-shaped for `bug`, generic for `feature`/`task`; silent for chore/tech-debt/bet). The lowest-friction capture is `squad learning quick "<one-liner>"` — auto-derives slug, defaults kind to gotcha, infers area from the most recently closed item, edit the stub later. Use `squad learning propose <kind> <slug>` when you want full control. Either way, file it while the surprise is still fresh — the Stop-hook prompt fires too late in multi-item sessions, by which time the detail has rotted. If nothing surprised you, ignore the nudge.
 
 Then:
 - Update the item file: `status: done`, `updated:` to today, add `## Resolution` section.

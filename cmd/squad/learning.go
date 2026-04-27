@@ -11,6 +11,7 @@ func newLearningCmd() *cobra.Command {
 AGENTS.md follows a stricter gate: agents propose changes via a unified diff; only humans apply them.`,
 	}
 	cmd.AddCommand(newLearningProposeCmd())
+	cmd.AddCommand(newLearningQuickCmd())
 	cmd.AddCommand(newLearningListCmd())
 	cmd.AddCommand(newLearningApproveCmd())
 	cmd.AddCommand(newLearningRejectCmd())
