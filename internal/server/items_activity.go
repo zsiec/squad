@@ -22,6 +22,11 @@ import (
 func (s *Server) handleItemActivity(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	q := r.URL.Query()
+	repoID, _, statusCode, rerr := s.resolveItemRepo(r.Context(), id, q.Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
 	limit := 100
 	if lv := q.Get("limit"); lv != "" {
 		if n, err := strconv.Atoi(lv); err == nil && n > 0 && n <= 500 {
@@ -36,12 +41,8 @@ func (s *Server) handleItemActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sqlq := `SELECT id, ts, agent_id, kind, COALESCE(body, ''), COALESCE(mentions, '[]'), repo_id
-		FROM messages WHERE thread = ?`
-	args := []any{id}
-	if s.cfg.RepoID != "" {
-		sqlq += " AND repo_id = ?"
-		args = append(args, s.cfg.RepoID)
-	}
+		FROM messages WHERE thread = ? AND repo_id = ?`
+	args := []any{id, repoID}
 	if beforeTS > 0 {
 		sqlq += " AND ts < ?"
 		args = append(args, beforeTS)

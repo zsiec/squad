@@ -168,19 +168,28 @@ func (s *Server) handleItemsList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	all, err := s.walkAll()
+	// resolveItemRepo scopes the lookup to a single repo so collisions
+	// across repos surface as 409 AmbiguousRepoError instead of silently
+	// returning the first match in walk order.
+	repoID, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	walk, err := items.Walk(squadDir)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var (
-		it     *items.Item
-		repoID string
-	)
-	for i := range all {
-		if all[i].ID == id {
-			it = &all[i].Item
-			repoID = all[i].RepoID
+	var it *items.Item
+	for _, group := range [][]items.Item{walk.Active, walk.Done} {
+		for i := range group {
+			if group[i].ID == id {
+				it = &group[i]
+				break
+			}
+		}
+		if it != nil {
 			break
 		}
 	}
@@ -191,16 +200,9 @@ func (s *Server) handleItemDetail(w http.ResponseWriter, r *http.Request) {
 
 	var currentClaim any
 	var lastTouch int64
-	// Workspace mode (cfg.RepoID == "") binds the claim lookup to the repo
-	// the item was found in; single-repo mode preserves the existing
-	// behavior.
-	claimRepo := s.cfg.RepoID
-	if claimRepo == "" {
-		claimRepo = repoID
-	}
 	row := s.db.QueryRowContext(r.Context(),
 		`SELECT agent_id, COALESCE(intent, ''), claimed_at, last_touch, COALESCE(worktree, '') FROM claims WHERE item_id = ? AND repo_id = ?`,
-		id, claimRepo)
+		id, repoID)
 	var cc struct {
 		AgentID   string `json:"agent_id"`
 		Intent    string `json:"intent"`

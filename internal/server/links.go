@@ -1,10 +1,12 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
 
 	"github.com/zsiec/squad/internal/commitlog"
+	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/prmark"
 )
 
@@ -28,26 +30,20 @@ type linksResponse struct {
 func (s *Server) handleItemLinks(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
-	all, err := s.walkAll()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+	repoID, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
 		return
 	}
-	var (
-		found    bool
-		repoID   string
-		squadDir string
-	)
-	for _, it := range all {
-		if it.ID == id {
-			found = true
-			repoID = it.RepoID
-			squadDir = filepath.Dir(filepath.Dir(it.Path))
-			break
+	// Single-repo mode resolveItemRepo short-circuits without checking item
+	// existence, so verify the item file is on disk before continuing.
+	// Workspace mode already validates via the items-table query.
+	if _, _, ferr := items.FindByID(squadDir, id); ferr != nil {
+		if errors.Is(ferr, items.ErrItemNotFound) {
+			writeErr(w, http.StatusNotFound, "no item "+id)
+			return
 		}
-	}
-	if !found {
-		writeErr(w, http.StatusNotFound, "no item "+id)
+		writeErr(w, http.StatusInternalServerError, ferr.Error())
 		return
 	}
 
