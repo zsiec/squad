@@ -44,9 +44,11 @@ const (
 )
 
 // Opts parameterises Detect. The window is [ClaimedAt, ReleasedAt]
-// inclusive on both ends. AgentID is the claimant — chat-message
-// counting is per-agent (peer chatter doesn't suppress a postmortem
-// for an agent who left no notes themselves).
+// inclusive on both ends. AgentID names the claimant (used in the
+// dispatched-prompt body and the signal Detail strings); chat
+// counting and learning-artifact detection both ignore authorship —
+// any durable record on the thread or under .squad/learnings/
+// suppresses dispatch, regardless of who wrote it.
 type Opts struct {
 	DB              *sql.DB
 	RepoID          string

@@ -110,6 +110,38 @@ func TestRunPostmortem_DisabledShortCircuits(t *testing.T) {
 	}
 }
 
+// TestLoadLastReleaseFor_PrefersNonDone covers H1: an item with both
+// a released-without-done row AND a later `done` row must surface the
+// FORMER. The postmortem flow only scans windows where the lesson
+// might have been lost; a trailing `done` means the lesson got
+// resolved by the re-claim and the postmortem is moot.
+func TestLoadLastReleaseFor_PrefersNonDone(t *testing.T) {
+	env := newTestEnv(t)
+	itemID := "FEAT-Q"
+	first := time.Now().Add(-3 * time.Hour).Unix()
+	if _, err := env.DB.Exec(`INSERT INTO claim_history (repo_id, item_id, agent_id,
+		claimed_at, released_at, outcome) VALUES (?, ?, 'agent-x', ?, ?, 'released')`,
+		env.RepoID, itemID, first, first+3600); err != nil {
+		t.Fatal(err)
+	}
+	later := time.Now().Add(-1 * time.Hour).Unix()
+	if _, err := env.DB.Exec(`INSERT INTO claim_history (repo_id, item_id, agent_id,
+		claimed_at, released_at, outcome) VALUES (?, ?, 'agent-y', ?, ?, 'done')`,
+		env.RepoID, itemID, later, later+1800); err != nil {
+		t.Fatal(err)
+	}
+	gotAgent, gotClaimed, _, err := loadLastReleaseFor(context.Background(), env.DB, env.RepoID, itemID)
+	if err != nil {
+		t.Fatalf("loadLastReleaseFor: %v", err)
+	}
+	if gotAgent != "agent-x" {
+		t.Errorf("agent=%q want agent-x (the released-without-done row, NOT the trailing done)", gotAgent)
+	}
+	if gotClaimed != first {
+		t.Errorf("claimed_at=%d want %d (the earlier released-row window)", gotClaimed, first)
+	}
+}
+
 // TestRunPostmortem_InjectedDispatcher verifies the test-only
 // dispatcher hook works and is invoked when Decision.Dispatch is
 // true and PrintOnly is false. AC#5's "agent invocation" half is

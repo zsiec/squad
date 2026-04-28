@@ -237,6 +237,13 @@ func newPostmortemCmd() *cobra.Command {
 	return cmd
 }
 
+// loadLastReleaseFor returns the most recent CLOSED-WITHOUT-DONE
+// release for itemID. The postmortem is about claims that ended
+// without `outcome=done`; an item that was released and later
+// re-claimed-and-done would otherwise pick the `done` row and the
+// detector would scan the wrong window. A trailing `done` after a
+// premature release means the lesson has been resolved by the
+// re-claim — no postmortem warranted.
 func loadLastReleaseFor(ctx context.Context, db *sql.DB, repoID, itemID string) (string, int64, int64, error) {
 	var agent string
 	var claimedAt, releasedAt int64
@@ -244,12 +251,13 @@ func loadLastReleaseFor(ctx context.Context, db *sql.DB, repoID, itemID string) 
 		SELECT agent_id, claimed_at, released_at
 		FROM claim_history
 		WHERE repo_id = ? AND item_id = ?
+		  AND (outcome IS NULL OR outcome != 'done')
 		ORDER BY released_at DESC, id DESC
 		LIMIT 1
 	`, repoID, itemID).Scan(&agent, &claimedAt, &releasedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", 0, 0, fmt.Errorf("%s: no claim_history rows — item never claimed/released", itemID)
+			return "", 0, 0, fmt.Errorf("%s: no closed-without-done claim_history rows — item never released without 'done', or never claimed", itemID)
 		}
 		return "", 0, 0, err
 	}
