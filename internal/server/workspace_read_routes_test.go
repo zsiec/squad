@@ -11,8 +11,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/zsiec/squad/internal/items"
 )
 
 // seedWorkspaceRepos materializes two repo roots on disk and registers
@@ -114,15 +112,19 @@ func TestHandleMessagesList_SingleRepoModeStillScopes(t *testing.T) {
 	}
 }
 
-func TestHandleItemActivity_WorkspaceModeReturnsThreadAcrossRepos(t *testing.T) {
+func TestHandleItemActivity_WorkspaceModeScopesToResolvedRepo(t *testing.T) {
 	db := newTestDB(t)
-	seedWorkspaceRepos(t, db)
-	insertMessageRepo(t, db, "repo-A", "BUG-700", "agent-a", "say", "from A", 100)
-	insertMessageRepo(t, db, "repo-B", "BUG-700", "agent-b", "say", "from B", 200)
+	repoA, _ := seedWorkspaceRepos(t, db)
+	idA := seedItemInRepo(t, db, repoA, "repo-A", "BUG", "title in repo A here today")
+	// Two message rows under different repos for the same item id.
+	// Post-disambiguation, /api/items/{id}/activity scopes to the repo
+	// that owns the items row, not aggregated across all repos.
+	insertMessageRepo(t, db, "repo-A", idA, "agent-a", "say", "from A", 100)
+	insertMessageRepo(t, db, "repo-B", idA, "agent-b", "say", "from B", 200)
 
 	s := New(db, "", Config{RepoID: ""})
 	t.Cleanup(s.Close)
-	req := httptest.NewRequest(http.MethodGet, "/api/items/BUG-700/activity", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/items/"+idA+"/activity", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 
@@ -131,13 +133,11 @@ func TestHandleItemActivity_WorkspaceModeReturnsThreadAcrossRepos(t *testing.T) 
 	}
 	var rows []map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &rows)
-	if len(rows) != 2 {
-		t.Fatalf("activity should aggregate the thread across repos, got %d rows: %v", len(rows), rows)
+	if len(rows) != 1 {
+		t.Fatalf("activity should scope to the resolved repo (one items row in repo-A), got %d rows: %v", len(rows), rows)
 	}
-	for _, r := range rows {
-		if r["repo_id"] == nil || r["repo_id"] == "" {
-			t.Errorf("row missing repo_id: %v", r)
-		}
+	if rows[0]["repo_id"] != "repo-A" {
+		t.Errorf("repo_id=%v want repo-A", rows[0]["repo_id"])
 	}
 }
 
@@ -174,15 +174,19 @@ func TestHandleSearch_WorkspaceModeFindsMessagesAcrossRepos(t *testing.T) {
 	}
 }
 
-func TestHandleAttestationsForItem_WorkspaceModeReturnsAcrossRepos(t *testing.T) {
+func TestHandleAttestationsForItem_WorkspaceModeScopesToResolvedRepo(t *testing.T) {
 	db := newTestDB(t)
-	seedWorkspaceRepos(t, db)
-	insertAttestationDirect(t, db, "repo-A", "BUG-800", "test", 0, "aaa1", 100)
-	insertAttestationDirect(t, db, "repo-B", "BUG-800", "review", 0, "bbb2", 200)
+	repoA, _ := seedWorkspaceRepos(t, db)
+	idA := seedItemInRepo(t, db, repoA, "repo-A", "BUG", "title in repo A here today")
+	// Two attestation rows under different repos for the same item id.
+	// Post-disambiguation, /api/items/{id}/attestations is scoped to the
+	// repo that owns the items row, not aggregated across all repos.
+	insertAttestationDirect(t, db, "repo-A", idA, "test", 0, "aaa1", 100)
+	insertAttestationDirect(t, db, "repo-B", idA, "review", 0, "bbb2", 200)
 
 	s := New(db, "", Config{RepoID: ""})
 	t.Cleanup(s.Close)
-	req := httptest.NewRequest(http.MethodGet, "/api/items/BUG-800/attestations", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/items/"+idA+"/attestations", nil)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 
@@ -191,8 +195,11 @@ func TestHandleAttestationsForItem_WorkspaceModeReturnsAcrossRepos(t *testing.T)
 	}
 	var rows []map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &rows)
-	if len(rows) != 2 {
-		t.Fatalf("attestations should aggregate across repos, got %d: %v", len(rows), rows)
+	if len(rows) != 1 {
+		t.Fatalf("attestations should scope to the resolved repo (one items row in repo-A), got %d: %v", len(rows), rows)
+	}
+	if rows[0]["repo_id"] != "repo-A" {
+		t.Errorf("repo_id=%v want repo-A", rows[0]["repo_id"])
 	}
 }
 
@@ -481,15 +488,10 @@ func TestHandleEpicDetail_RepoIDDisambiguates(t *testing.T) {
 func TestHandleItemLinks_WorkspaceModeFindsItemAcrossRepos(t *testing.T) {
 	db := newTestDB(t)
 	repoA, _ := seedWorkspaceRepos(t, db)
-	// Materialize one item in repo-A so walkAll can find it.
-	if _, err := items.NewWithOptions(filepath.Join(repoA, ".squad"), "BUG", "alpha bravo charlie delta echo foxtrot", items.Options{Area: "test"}); err != nil {
-		t.Fatalf("create item: %v", err)
-	}
-	walk, err := items.Walk(filepath.Join(repoA, ".squad"))
-	if err != nil || len(walk.Active) == 0 {
-		t.Fatalf("locate item: walk err=%v active=%d", err, len(walk.Active))
-	}
-	itemID := walk.Active[0].ID
+	// Materialize the item in both filesystem AND items table — the new
+	// resolveItemRepo path uses the items table to disambiguate, matching
+	// real squad usage where every captured item is persisted.
+	itemID := seedItemInRepo(t, db, repoA, "repo-A", "BUG", "alpha bravo charlie delta echo foxtrot")
 
 	s := New(db, "", Config{RepoID: ""})
 	t.Cleanup(s.Close)
