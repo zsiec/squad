@@ -1,0 +1,43 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — BUG-052
+
+## Verdict: clean
+
+learnings.js + sidebar.js detail-load paths now thread `?repo_id=`
+from the row's `data-repo-id` into the fetch URL when present.
+Single-repo mode unaffected (empty `repo_id` → no param appended).
+
+## Disprove-loop verification (reviewer)
+
+Reverted `openSpecDetail` to drop `?repo_id=`, re-ran the test:
+`web/sidebar.js` subtest failed with the expected localized
+message. `web/learnings.js` subtest still passed. Restored, both
+green. Full server-package suite green.
+
+## Suggestions noted (none applied — none blocking)
+
+- `dataset.repoId` already coerces empty attributes to `''`; the
+  `|| ''` default is redundant. Kept for read-clarity.
+- `escapeHtml(l.repo_id || '')` is theoretical defense-in-depth
+  (repo_id is hex by construction). Kept for uniformity.
+- The 600-byte window in the fallback substring check is
+  permissive but correct given the absence of `/* repo_id ... */`
+  comments anywhere near the endpoints today.
+
+## AC interpretation
+
+Reviewer confirmed: `specs.js` and `epics.js` don't exist as
+separate files. Spec detail lives in `sidebar.js:openSpecDetail`
+(fixed). Epic detail has no SPA caller — sidebar.js inlines the
+epic LIST under each spec, no detail pane to fix. Decision to
+no-op the epic side and not file follow-up is the correct read
+of the AC.
+
+## Findings
+
+None blocking.

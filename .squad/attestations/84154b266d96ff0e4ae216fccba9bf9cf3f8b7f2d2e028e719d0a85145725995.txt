@@ -1,0 +1,82 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — BUG-051 (final)
+
+## Verdict: clean after fixes
+
+Initial review (ab9ea1424c30ae5f8) flagged 6 findings: 2 important
+(AC#3 deviation, silent fall-through on malformed config), 4
+suggestions / confirmations. All addressed.
+
+## Fixes applied
+
+### Finding 4 (AC#3 deviation) — re-ordered fold before claims.Done
+
+The reviewer's preferred option (a): fold runs FIRST, before
+`claims.Done` does the item-file rewrite + move + claim release.
+On a merge conflict the fold returns early and:
+
+- the item file stays in `.squad/items/` (test asserts via
+  `os.Stat(itemPath)` and absence in `.squad/done/`);
+- the claim is still held (test asserts via SQL row count);
+- the per-claim branch survives.
+
+This matches the AC's literal "item file is not yet moved to
+.squad/done/" promise. Test
+`TestDone_LeavesItemAndBranchOnConflict` updated; the candid
+"AC deviation" comment in the test body removed.
+
+### Finding 3 (silent fallthrough on malformed config) — warning to stderr
+
+`loadMergeTargetBranch` now writes a stderr warning when
+`repo.Discover` or `config.Load` errors before falling back to
+`DefaultMergeTargetBranch`. Format:
+`warning: merge_target_branch fell back to "main" — <reason>: <err>`.
+The fallback itself is preserved (don't block `squad done` on a
+broken config), but the user gets an audit signal at the moment
+of the failure.
+
+### Finding 1 (call-ordering comment) — corrected
+
+The comment in `done.go` claimed the fold-then-cleanup ordering
+was needed "so the branch carries the commits over to the target."
+That was wrong — the branch is a ref independent of the worktree
+dir. The actual reason (per the re-order in finding 4) is
+recoverability: fold first so a conflict bails out before any
+destructive teardown. New comment reflects that.
+
+### Finding 2 (foldDeleteBranch redundancy) — kept with corrected comment
+
+`foldDeleteBranch` is largely redundant with `worktree.Cleanup`'s
+own branch-deletion arm — but it uses `git branch -d` (refuses
+unmerged) where Cleanup uses `-D` (force). Kept as belt-and-
+suspenders for the edge case where Cleanup's branch arm doesn't
+fire; the code comment in `done.go` now documents why (Cleanup's
+`branchAndBaseFor` may return empty for a corrupted worktree
+metadata, or `branchHasNewCommits` may surprise us).
+
+### Finding 6 (dead `merge --abort` in test) — removed
+
+The trailing `_, _ = runGit(env.Root, "merge", "--abort")` in
+`TestDone_LeavesItemAndBranchOnConflict` was dead code — the
+implementation already aborts the merge on the conflict path,
+and each test gets a fresh `t.TempDir()`. Removed.
+
+### Finding 5 + 7 — confirmations only
+
+- `currentBranch != target` errors instead of auto-switching:
+  reviewer confirmed the right call. No change.
+- `commit.gpgsign=false` in the test fixture: confirmed correct.
+  No change.
+
+## Disagreements
+
+None — every finding either applied or confirmed.
+
+## Findings
+
+None blocking.

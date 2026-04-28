@@ -1,0 +1,29 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — BUG-043
+
+## Verdict: clean
+
+`.row-badge.repo` adds steel-blue (`#6b8bb0`/`#3d556e`), distinct
+from the three existing row-badge variants. Reviewer confirmed
+RED-then-GREEN bracket empirically (revert → fail, restore → pass).
+Two non-blocking suggestions both applied:
+
+- `extractRowBadgeColors` no longer takes `*testing.T` — it's a
+  pure function and the unused `t.Helper()` was misleading.
+- The trailing comment at `style.css:2322` updated from
+  `(epic / parallel / evidence)` to include `repo`.
+
+Reviewer also probed and chose to keep literal hex over
+`var(--info)` — `--info` is reused for chat/agent identity and
+toasts, coupling the row-badge to it pre-emptively would drag
+the chip color along on any future re-theme of those callers.
+That reasoning is correct; literal hex stays.
+
+## Findings
+
+None blocking.

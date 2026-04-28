@@ -4,7 +4,7 @@ title: style the repo row badge in the SPA so it is visually distinct from defau
 type: bug
 priority: P2
 area: dashboard
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
