@@ -9,6 +9,7 @@ let panelEl, bodyEl, windowSelectEl;
 let chartjsLoaded = null;
 let currentWindow = '168h';
 const charts = [];
+let renderToken = {};
 
 const WINDOW_OPTIONS_HTML = `
   <option value="24h">last 24 hours</option>
@@ -93,6 +94,7 @@ export function close() {
 }
 
 export async function renderInsights(container) {
+  const myToken = (renderToken = {});
   destroyCharts();
   container.innerHTML = `<div class="insights-loading">loading…</div>`;
   try {
@@ -100,6 +102,7 @@ export async function renderInsights(container) {
       fetchJSON('/api/stats?window=' + encodeURIComponent(currentWindow)),
       ensureChartJs(),
     ]);
+    if (renderToken !== myToken) return;
     container.innerHTML = TPL;
     drawVerify(
       container.querySelector('#chart-verify'),
@@ -142,6 +145,7 @@ export async function renderInsights(container) {
       snap.by_capability || [],
     );
   } catch (err) {
+    if (renderToken !== myToken) return;
     container.innerHTML = `<div class="insights-error">error: ${escapeHtml(err.message || String(err))}</div>`;
   }
 }

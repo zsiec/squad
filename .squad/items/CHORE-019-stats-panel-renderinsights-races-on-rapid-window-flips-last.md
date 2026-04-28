@@ -65,14 +65,14 @@ charts or crashes, and recovers on the next user interaction.
 
 ## Acceptance criteria
 
-- [ ] `renderInsights` captures a render-token sentinel before
+- [x] `renderInsights` captures a render-token sentinel before
       its `await` and bails out post-await if the module-scoped
       token has changed (a newer call has started).
-- [ ] Rapid window-selector flips (24h → 7d → 30d clicked
+- [x] Rapid window-selector flips (24h → 7d → 30d clicked
       faster than the fetch settles) produce the LATEST
       window's data on screen, not whichever fetch resolved
       last.
-- [ ] No stale chart instances accumulate across flips —
+- [x] No stale chart instances accumulate across flips —
       `charts` array does not grow unboundedly.
 
 ## Notes
