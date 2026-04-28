@@ -40,18 +40,18 @@ similar prefix) indicating "this peer is asking for you".
 
 ## Acceptance criteria
 
-- [ ] When the mailbox has unread mentions of the current agent,
+- [x] When the mailbox has unread mentions of the current agent,
       the `peers:` block at `squad go` lists those peers first,
       with a marker that disambiguates them from regular last-
       touch entries.
-- [ ] Peers without unread mentions still show in the original
+- [x] Peers without unread mentions still show in the original
       last-touch order below.
-- [ ] Cap and `+N more` truncation behavior is preserved
+- [x] Cap and `+N more` truncation behavior is preserved
       (mention-prioritized peers count toward the cap; the
       overflow first drops non-mention peers).
-- [ ] Test: seed a fixture ledger with two active peers (one
+- [x] Test: seed a fixture ledger with two active peers (one
       with an unread mention, one without) and assert ordering.
-- [ ] Test: seven peers, three with mentions; verify the three
+- [x] Test: seven peers, three with mentions; verify the three
       land at the top and the cap-of-six rule still holds.
 
 ## Notes
@@ -63,4 +63,54 @@ similar prefix) indicating "this peer is asking for you".
   session start tightens the loop.
 
 ## Resolution
-(Filled in when status → done.)
+
+`cmd/squad/peer_digest.go`:
+
+- `peerRow` carries a new `HasMention bool`.
+- `annotateMentions` runs one EXISTS query per peer
+  (`messages JOIN reads`) checking for unread `body LIKE
+  '%@<myAgentID>%'` rows in the peer's thread, mirroring the
+  body-substring detection used in `internal/chat/digest.go`.
+  Self-posts are excluded (`m.agent_id != ?`) so the caller's
+  own `@me` reminders don't trigger.
+- `sortByMentionThenLastTouch` does a stable partition: mentioned
+  peers first, then non-mention; within each group the
+  `last_touch DESC` ordering from the loader is preserved.
+- `renderPeerDigest` adds a single `*` (or space) marker prefix
+  per row. Both formats are 4 chars before `@`, so columns align.
+
+Mention prioritization counts toward the cap-of-six. Overflow
+drops non-mention rows first.
+
+Tests:
+
+- `TestPeerDigest_MentionedPeerSurfacesFirstWithMarker`: two-peer
+  fixture where the mentioned peer was touched 9m ago and the
+  non-mention peer 1m ago; mention surfaces first with `*`.
+- `TestPeerDigest_SevenPeersThreeMentionsLandAtTop`: 7 peers with
+  the 3 oldest carrying mentions; mention prioritization pulls
+  them above the cap, `+1 more` collapses one of the non-mention
+  rows.
+- `TestPeerDigest_ReadMentionDoesNotPrioritize`: a mention past
+  the agent's `reads.last_msg_id` does not prioritize. The
+  unread bound is load-bearing — without it every old `@me`
+  resurfaces forever.
+- Pre-existing `TestPeerDigest_SevenPeersTruncatedToSixPlusOne`
+  was counting rows via `\n  @` substring; updated to count via
+  line iteration since the row prefix changed.
+
+Coordination: @agent-afcd was concurrently editing
+`cmd/squad/peer_digest.go` for CHORE-020 (removing `answer`
+from `humanVerbKinds`); we acked via `squad ask` chain — diffs
+touch different lines, fold cleanly.
+
+Verification:
+
+- `go test ./... -race -count=1` — every package `ok`.
+- `golangci-lint run` — `0 issues.`
+
+Code review: 0 blocking findings; one Low note about substring
+agent-id collision (e.g. `@agent-meta` triggering for
+`agent-me`) accepted for parity with the existing chat-digest
+detector. Worth a follow-up CHORE if mention-detection is ever
+hardened ledger-wide.
