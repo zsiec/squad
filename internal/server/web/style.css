@@ -2319,7 +2319,7 @@ a.item-chip:hover {
   padding-top: 8px;
 }
 
-/* board row badges (epic / parallel / evidence) */
+/* board row badges (epic / parallel / evidence / repo) */
 .row-badges { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: baseline; }
 .row-badge {
   font: 500 10px/1 var(--font-mono);
@@ -2332,6 +2332,7 @@ a.item-chip:hover {
 .row-badge.epic     { color: #c8a0e0; border-color: #6b4d80; }
 .row-badge.parallel { color: var(--accent); border-color: var(--accent-dim); }
 .row-badge.evidence { color: #8acfa0; border-color: #4d8a4d; }
+.row-badge.repo     { color: #6b8bb0; border-color: #3d556e; }
 
 /* meta-cell extras */
 .meta-value.meta-epic { color: #c8a0e0; }
