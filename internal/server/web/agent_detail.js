@@ -100,6 +100,11 @@ async function fetchAndRenderDiff(agentId) {
     if (targetEl && res.merge_target) targetEl.textContent = res.merge_target;
     const files = Array.isArray(res.files) ? res.files : [];
     if (metaEl) metaEl.textContent = files.length ? `${files.length} file${files.length === 1 ? '' : 's'}` : 'no changes';
+    // The drawer widens when there's anything to look at. Without files
+    // the timeline-only width is plenty; with files the unified diff
+    // wraps painfully under 720px.
+    const panel = modalEl?.querySelector('.action-modal-panel');
+    if (panel) panel.dataset.mode = files.length ? 'diff' : '';
     if (files.length === 0) {
       filesEl.innerHTML = `<div class="agent-detail-diff-empty">no changes vs ${escapeHtml(res.merge_target || 'main')}</div>`;
       return;
@@ -120,13 +125,50 @@ async function fetchAndRenderDiff(agentId) {
 function renderDiffFile(f) {
   const status = f.status || 'modified';
   const statusClass = `agent-detail-diff-status status-${escapeHtml(status)}`;
-  return `<div class="agent-detail-diff-file">
+  return `<div class="agent-detail-diff-file" data-status="${escapeHtml(status)}">
     <button class="agent-detail-diff-filehead" data-toggle-file aria-label="Toggle file">
       <span class="${statusClass}">${escapeHtml(status)}</span>
       <span class="agent-detail-diff-filepath">${escapeHtml(f.path || '')}</span>
+      <span class="agent-detail-diff-toggle" aria-hidden="true">▾</span>
     </button>
-    <pre class="agent-detail-diff-hunks">${escapeHtml(f.hunks || '')}</pre>
+    <div class="agent-detail-diff-hunks">${renderDiffLines(f.hunks || '')}</div>
   </div>`;
+}
+
+// renderDiffLines splits the unified-diff body into per-line elements
+// keyed by leading character. The class drives the +/- background tint
+// and the hunk/file-header accents the watcher uses to scan the diff at
+// a glance. Empty body is rendered as a single dim "(empty)" placeholder
+// rather than collapsing the whole block — keeps the layout stable when
+// a file row exists but its hunks string is unexpectedly missing.
+function renderDiffLines(body) {
+  if (!body) {
+    return '<div class="diff-line diff-empty">(empty)</div>';
+  }
+  return body.split('\n').map(diffLineHTML).join('');
+}
+
+function diffLineHTML(line) {
+  const klass = diffLineClass(line);
+  return `<div class="diff-line ${klass}">${escapeHtml(line || ' ')}</div>`;
+}
+
+function diffLineClass(line) {
+  if (line.startsWith('diff --git') ||
+      line.startsWith('index ') ||
+      line.startsWith('--- ') ||
+      line.startsWith('+++ ') ||
+      line.startsWith('new file mode') ||
+      line.startsWith('deleted file mode') ||
+      line.startsWith('similarity index') ||
+      line.startsWith('rename from') ||
+      line.startsWith('rename to')) {
+    return 'diff-file-header';
+  }
+  if (line.startsWith('@@')) return 'diff-hunk-header';
+  if (line.startsWith('+')) return 'diff-addition';
+  if (line.startsWith('-')) return 'diff-deletion';
+  return 'diff-context';
 }
 
 // startLiveStream opens a dedicated EventSource for the open drawer. The

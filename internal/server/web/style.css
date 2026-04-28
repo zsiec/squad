@@ -2808,12 +2808,88 @@ a.agent-detail-claim:hover {
 .agent-detail-diff-filepath { flex: 1; word-break: break-all; }
 .agent-detail-diff-hunks {
   margin: 0;
-  padding: 8px 14px 12px;
+  padding: 0;
   font: 11px/1.5 var(--font-mono);
-  white-space: pre-wrap;
-  word-break: break-word;
   color: var(--fg);
   background: var(--panel-3, var(--bg));
+}
+/* Per-line rendering. Each line is its own block so background tints
+   don't bleed across lines, and the watcher can scan +/- counts at a
+   glance without re-parsing the leading character. */
+.agent-detail-diff-hunks .diff-line {
+  padding: 1px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 3px solid transparent;
+  min-height: 1.5em;
+}
+.agent-detail-diff-hunks .diff-addition {
+  background: rgba(95, 191, 95, 0.12);
+  border-left-color: #5fbf5f;
+  color: #b6e0b6;
+}
+.agent-detail-diff-hunks .diff-deletion {
+  background: rgba(204, 68, 68, 0.12);
+  border-left-color: #cc4444;
+  color: #e0b6b6;
+}
+.agent-detail-diff-hunks .diff-hunk-header {
+  background: rgba(96, 144, 208, 0.12);
+  border-left-color: #6090d0;
+  color: #88a8d0;
+  font-weight: 500;
+  padding-top: 4px; padding-bottom: 4px;
+}
+.agent-detail-diff-hunks .diff-file-header {
+  color: var(--fg-dim);
+  font-style: italic;
+  opacity: 0.85;
+}
+.agent-detail-diff-hunks .diff-context {
+  color: var(--fg);
+  opacity: 0.92;
+}
+.agent-detail-diff-hunks .diff-empty {
+  padding: 8px 14px;
+  color: var(--fg-dim);
+  font-style: italic;
+}
+.agent-detail-diff-toggle {
+  margin-left: auto;
+  color: var(--fg-dim);
+  transition: transform 0.15s ease;
+}
+.agent-detail-diff-file.collapsed .agent-detail-diff-toggle {
+  transform: rotate(-90deg);
+}
+/* Stronger file separators: each file is its own card with a distinct
+   top edge and a panel-tinted header, so a busy diff reads as a stack
+   instead of a wall of text. Override the existing flat separator from
+   FEAT-054 (single border-bottom) with a full bordered block. */
+.agent-detail-diff-file {
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 4px;
+  margin: 8px 12px;
+  overflow: hidden;
+  background: var(--panel-3, var(--bg));
+}
+.agent-detail-diff-file .agent-detail-diff-filehead {
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  font-weight: 500;
+}
+.agent-detail-diff-file.collapsed .agent-detail-diff-filehead {
+  border-bottom-color: transparent;
+}
+
+/* Wider drawer when the diff section has files. The data-mode attribute
+   is toggled by agent_detail.js's fetchAndRenderDiff; absent attribute
+   keeps the timeline-only default. */
+.agent-detail-drawer .action-modal-panel[data-mode="diff"] {
+  width: min(70vw, 1100px);
+  max-width: 100vw;
 }
 
 /* agent-detail timeline (TASK-027) */
