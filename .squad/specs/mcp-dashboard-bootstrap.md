@@ -10,12 +10,12 @@ motivation: |
   squad already ships a launchd / systemd-user service installer. Wiring the two
   together gives a zero-step first-run UX and a transparent upgrade path.
 acceptance:
-  - "A clean machine with the plugin newly installed: the user opens Claude Code, types anything that triggers an MCP tool call, the dashboard opens automatically in the default browser, and the URL appears as a banner in Claude's reply — without any explicit `squad serve` step."
-  - "Re-opening Claude Code in any subsequent session does not re-open the browser, does not re-install the service, and does not re-emit the banner. The first-run experience happens once per machine."
-  - "After `go install github.com/zsiec/squad/cmd/squad@latest`, the next MCP boot detects version mismatch with the running daemon, calls a token-gated restart endpoint, the daemon exits cleanly, launchd / systemd-user relaunches it on the new binary, and a one-line banner notes the upgrade."
+  - "A clean machine with the plugin newly installed: the user opens Claude Code, types anything that triggers an MCP tool call, the dashboard daemon installs automatically — without any explicit `squad serve` step. The URL is printed by `squad serve` on startup."
+  - "Re-opening Claude Code in any subsequent session does not re-install the service. The first-run experience happens once per machine."
+  - "After `go install github.com/zsiec/squad/cmd/squad@latest`, the next MCP boot detects version mismatch with the running daemon, calls a token-gated restart endpoint, the daemon exits cleanly, launchd / systemd-user relaunches it on the new binary."
   - "If the binary path moves (`os.Executable() != daemon.binary_path`), the next MCP boot reinstalls the service so the plist / unit points at the new path, then performs the version-restart flow."
   - "`squad install-plugin --uninstall` leaves no daemon, no plist / unit, no `~/.squad/.welcomed` sentinel, and no `~/.squad/restart.token`. Repo `.squad/` directories and `~/.squad/global.db` are untouched."
-  - "`SQUAD_NO_AUTO_DAEMON=1` skips the install / restart flow; `SQUAD_NO_BROWSER=1` skips the auto-open but still writes the welcome sentinel."
+  - "`SQUAD_NO_AUTO_DAEMON=1` skips the install / restart flow."
   - "Bootstrap failures (port 7777 in use, plist permission denied, unsupported platform) log a stderr warning and let MCP continue serving tools — squad without a UI is still functional."
 non_goals:
   - "Browser-side cache busting. Out of scope; can be filed separately if it surfaces in practice."
@@ -24,9 +24,8 @@ non_goals:
   - "Auto-launching the OS service across reboots from MCP boot. The OS handles that once installed."
   - "Higher-level daemon health checks beyond the version probe. `squad doctor` already covers that surface."
 integration:
-  - "internal/mcp/bootstrap/ — new package: probe.go, ensure.go, welcome.go, banner.go"
-  - "internal/server/ — two new endpoints: GET /api/version, POST /api/_internal/restart"
-  - "internal/mcp/server.go — banner consume-and-clear hook into first tools/call response"
+  - "internal/mcp/bootstrap/ — package: probe.go, ensure.go, welcome.go"
+  - "internal/server/ — two endpoints: GET /api/version, POST /api/_internal/restart"
   - "cmd/squad/mcp.go — call bootstrap.Ensure() before starting the JSON-RPC loop"
   - "cmd/squad/install_plugin.go — symmetric daemon teardown on --uninstall"
   - "internal/tui/daemon/ — existing infra, called from the new bootstrap path"
@@ -41,10 +40,10 @@ Squad already ships everything we need to fix this. `internal/tui/daemon/` has w
 
 This spec wires the trigger into the MCP server boot path. The MCP server is the right place because it already runs in every Claude Code session, has access to the squad binary it was launched from, and has a structured way to surface output (the first tool response). The flow is:
 
-1. **First MCP boot ever** → no daemon → install service → daemon starts → auto-open browser → banner in first tool response.
+1. **First MCP boot ever** → no daemon → install service → daemon starts → write `~/.squad/.welcomed` sentinel.
 2. **Subsequent boots** → probe daemon → version matches → no-op.
-3. **Boot after binary upgrade** → probe daemon → version mismatch → token-gated restart → poll for new version → upgrade banner.
-4. **Boot after binary path change** → probe daemon → path mismatch → reinstall service → restart → upgrade banner.
+3. **Boot after binary upgrade** → probe daemon → version mismatch → token-gated restart → poll for new version.
+4. **Boot after binary path change** → probe daemon → path mismatch → reinstall service → restart.
 
 The full design (architecture, edge cases, implementation sequence, success criteria) is at `docs/plans/2026-04-27-mcp-driven-dashboard-bootstrap-design.md`.
 

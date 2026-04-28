@@ -55,11 +55,10 @@ func (d *upgradeDaemon) handler() http.Handler {
 
 // TestUpgrade_VersionMismatch_RestartsAndPolls covers the headline
 // scenario from the spec: probe reports daemon version A, configured
-// version is B, restart endpoint flips the daemon to B, poll succeeds,
-// upgrade banner is staged.
+// version is B, restart endpoint flips the daemon to B, post-restart
+// poll observes the new version.
 func TestUpgrade_VersionMismatch_RestartsAndPolls(t *testing.T) {
 	shrinkTimings(t)
-	_ = ConsumeBanner()
 
 	d := newUpgradeDaemon("A", "/old/squad")
 	d.onRestart = func(d *upgradeDaemon) { d.version.Store("B") }
@@ -88,9 +87,6 @@ func TestUpgrade_VersionMismatch_RestartsAndPolls(t *testing.T) {
 	if mgr.installCalls.Load() != 0 || mgr.reinstallCalls.Load() != 0 {
 		t.Errorf("Manager.Install/Reinstall must not run on pure version mismatch")
 	}
-	if got := ConsumeBanner(); !strings.Contains(got, "B") {
-		t.Errorf("banner=%q, want upgrade copy mentioning version B", got)
-	}
 }
 
 // TestUpgrade_BinaryPathDrift_Reinstalls covers `go install` to a new
@@ -99,7 +95,6 @@ func TestUpgrade_VersionMismatch_RestartsAndPolls(t *testing.T) {
 // / unit file) rather than just POST /api/_internal/restart.
 func TestUpgrade_BinaryPathDrift_Reinstalls(t *testing.T) {
 	shrinkTimings(t)
-	_ = ConsumeBanner()
 
 	d := newUpgradeDaemon("A", "/old/squad")
 	ts := httptest.NewServer(d.handler())
@@ -155,7 +150,6 @@ func TestUpgrade_PollTimeout_ReturnsError(t *testing.T) {
 	pollInterval = 20 * time.Millisecond
 	probeTimeout = 50 * time.Millisecond
 	t.Cleanup(func() { pollDeadline, pollInterval, probeTimeout = prevD, prevC, prevT })
-	_ = ConsumeBanner()
 
 	d := newUpgradeDaemon("A", "/old/squad")
 	// onRestart deliberately omitted — version stays "A" forever.

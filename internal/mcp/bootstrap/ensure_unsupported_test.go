@@ -19,8 +19,7 @@ func (errUnsupportedManager) Status() (daemon.Status, error) {
 }
 func (errUnsupportedManager) Reinstall(daemon.InstallOpts) error { return daemon.ErrUnsupported }
 
-func TestEnsure_UnsupportedPlatform_SetsBannerReturnsNil(t *testing.T) {
-	_ = ConsumeBanner()
+func TestEnsure_UnsupportedPlatform_ReturnsNil(t *testing.T) {
 	// Pin probeBase to a refused port so a developer running a real
 	// dashboard on 127.0.0.1:7777 doesn't push this test through the
 	// restart branch (which would error on the unreachable POST) instead
@@ -37,9 +36,5 @@ func TestEnsure_UnsupportedPlatform_SetsBannerReturnsNil(t *testing.T) {
 
 	if err := Ensure(context.Background(), opts); err != nil {
 		t.Fatalf("Ensure should return nil on ErrUnsupported, got %v", err)
-	}
-
-	if got := ConsumeBanner(); got != BannerUnsupported {
-		t.Errorf("banner = %q, want %q", got, BannerUnsupported)
 	}
 }

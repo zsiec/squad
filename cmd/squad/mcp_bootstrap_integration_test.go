@@ -71,13 +71,11 @@ func versionResponder(version, binaryPath string) http.HandlerFunc {
 
 // TestMCP_RealBootstrap_InstallPathHitOnCleanHome wires the real
 // bootstrap.Ensure path (Probe → daemon absent → Install) through
-// runMCP and asserts the daemon.Manager.Install was actually called and
-// the post-install banner reaches the first tools/call response. Pairs
-// with the hook-based wiring tests; this one proves the full
+// runMCP and asserts the daemon.Manager.Install was actually called.
+// Pairs with the hook-based wiring tests; this one proves the full
 // integration composes end-to-end.
 func TestMCP_RealBootstrap_InstallPathHitOnCleanHome(t *testing.T) {
 	env := newTestEnv(t)
-	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
 
 	// httptest.Server stands in for the daemon. /api/version returns 404
 	// the first time (so Ensure's Probe sees Present=false → install
@@ -152,28 +150,14 @@ func TestMCP_RealBootstrap_InstallPathHitOnCleanHome(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 responses, got %d:\n%s", len(lines), out.String())
 	}
-	var resp struct {
-		Result struct {
-			Content []map[string]any `json:"content"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
-		t.Fatalf("decode tools/call: %v", err)
-	}
-	wantBanner := bootstrap.BannerInstalled(7777)
-	if len(resp.Result.Content) < 2 || resp.Result.Content[0]["text"] != wantBanner {
-		t.Errorf("first content block should be install banner %q, got content=%v", wantBanner, resp.Result.Content)
-	}
 }
 
 // TestMCP_RealBootstrap_RerunPath_NoOp covers the steady-state case:
 // daemon already up at the expected version + binary path, .welcomed
-// sentinel already on disk. Bootstrap must do nothing — no Install, no
-// banner — and the first tools/call response must NOT carry a banner.
+// sentinel already on disk. Bootstrap must do nothing — no Install,
+// no Reinstall — and MCP must still answer the tools/call.
 func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 	env := newTestEnv(t)
-	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
-	_ = bootstrap.ConsumeBanner()
 
 	bin := "/test/bin/squad"
 	const ver = "test-version"
@@ -222,21 +206,6 @@ func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("expected 2 responses, got %d:\n%s", len(lines), out.String())
 	}
-	var resp struct {
-		Result struct {
-			Content []map[string]any `json:"content"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal([]byte(lines[1]), &resp); err != nil {
-		t.Fatalf("decode tools/call: %v", err)
-	}
-	// A quiet rerun must produce exactly one content block (the whoami
-	// JSON). server.go prepends a banner block iff ConsumeBanner is
-	// non-empty; a length check is the tighter invariant than scanning
-	// for known banner prefixes.
-	if got := len(resp.Result.Content); got != 1 {
-		t.Errorf("rerun should produce 1 content block, got %d: %v", got, resp.Result.Content)
-	}
 }
 
 // TestMCP_RealBootstrap_NoAutoDaemonEnv_ShortCircuits asserts that
@@ -244,9 +213,6 @@ func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 // a clean home with no daemon reachable. MCP must still serve tools.
 func TestMCP_RealBootstrap_NoAutoDaemonEnv_ShortCircuits(t *testing.T) {
 	env := newTestEnv(t)
-	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
-	_ = bootstrap.ConsumeBanner()
-
 	t.Setenv("SQUAD_NO_AUTO_DAEMON", "1")
 	// No probe server pointed at — the env var must short-circuit
 	// before any HTTP call happens.
@@ -286,8 +252,6 @@ func TestMCP_RealBootstrap_NoAutoDaemonEnv_ShortCircuits(t *testing.T) {
 // still answers initialize and tools/call.
 func TestMCP_RealBootstrap_InstallFailure_MCPStillServes(t *testing.T) {
 	env := newTestEnv(t)
-	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
-	_ = bootstrap.ConsumeBanner()
 
 	// Probe target returns 404 forever so Ensure goes into the install
 	// branch and Manager.Install fails.

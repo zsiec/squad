@@ -118,7 +118,6 @@ func TestEnsure_NoAutoDaemonEnv_ShortCircuits(t *testing.T) {
 
 func TestEnsure_DaemonAbsent_InstallsAndPolls(t *testing.T) {
 	shrinkTimings(t)
-	_ = ConsumeBanner()
 	d := newFakeDaemon("1.2.3", "/usr/local/bin/squad")
 	ts := httptest.NewUnstartedServer(d.handler())
 	t.Cleanup(ts.Close)
@@ -135,9 +134,6 @@ func TestEnsure_DaemonAbsent_InstallsAndPolls(t *testing.T) {
 	}
 	if got := mgr.installCalls.Load(); got != 1 {
 		t.Errorf("Install calls=%d want 1", got)
-	}
-	if got := ConsumeBanner(); !strings.Contains(got, "ready") {
-		t.Errorf("banner=%q, want install copy", got)
 	}
 }
 
@@ -163,7 +159,6 @@ func (i *installFlipper) Install(opts daemon.InstallOpts) error {
 
 func TestEnsure_VersionMismatch_PostsRestartAndPolls(t *testing.T) {
 	shrinkTimings(t)
-	_ = ConsumeBanner()
 	d := newFakeDaemon("0.9.0", "/usr/local/bin/squad")
 	ts := httptest.NewServer(d.handler())
 	defer ts.Close()
@@ -191,14 +186,10 @@ func TestEnsure_VersionMismatch_PostsRestartAndPolls(t *testing.T) {
 	if mgr.installCalls.Load() != 0 || mgr.reinstallCalls.Load() != 0 {
 		t.Errorf("expected no install/reinstall on version mismatch")
 	}
-	if !strings.Contains(ConsumeBanner(), "1.0.0") {
-		t.Error("expected upgrade banner mentioning new version")
-	}
 }
 
 func TestEnsure_BinaryPathMismatch_Reinstalls(t *testing.T) {
 	shrinkTimings(t)
-	_ = ConsumeBanner()
 	d := newFakeDaemon("1.0.0", "/old/path/squad")
 	ts := httptest.NewServer(d.handler())
 	defer ts.Close()
@@ -236,7 +227,6 @@ func (r *reinstallSwap) Reinstall(opts daemon.InstallOpts) error {
 
 func TestEnsure_VersionAndPathMatch_NoOp(t *testing.T) {
 	shrinkTimings(t)
-	_ = ConsumeBanner()
 	d := newFakeDaemon("1.2.3", "/usr/local/bin/squad")
 	ts := httptest.NewServer(d.handler())
 	defer ts.Close()
@@ -251,9 +241,6 @@ func TestEnsure_VersionAndPathMatch_NoOp(t *testing.T) {
 	}
 	if got := d.restartHit.Load(); got != 0 {
 		t.Errorf("restart hit %d times on noop, want 0", got)
-	}
-	if got := ConsumeBanner(); got != "" {
-		t.Errorf("banner=%q on noop, want empty", got)
 	}
 }
 

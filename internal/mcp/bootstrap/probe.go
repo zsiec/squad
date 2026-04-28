@@ -1,6 +1,6 @@
 // Package bootstrap drives the per-connection dashboard daemon lifecycle:
-// probe the running daemon, install or upgrade as needed, run a one-shot
-// welcome flow, and surface a banner in the next MCP tool response.
+// probe the running daemon, install or upgrade as needed, and run a
+// one-shot welcome flow.
 package bootstrap
 
 import (

@@ -14,9 +14,9 @@ const welcomeSentinel = ".welcomed"
 // multi-agent setups the dashboard browser was re-opening mid-session,
 // and although a probe against this code path showed Welcome was not
 // the source, removing the auto-open here narrows the surface for that
-// class of bug — the install banner already prints the URL for anyone
-// who wants to see it. If the symptom persists after this change, the
-// real source is elsewhere.
+// class of bug. The dashboard URL is surfaced by `squad serve` at
+// startup. If the symptom persists after this change, the real source
+// is elsewhere.
 //
 // Sentinel path: opts.SquadHome (preferred — honors SQUAD_HOME drift)
 // falls back to opts.HomeDir/.squad. Stat errors other than ENOENT

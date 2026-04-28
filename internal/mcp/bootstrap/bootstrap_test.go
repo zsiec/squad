@@ -39,25 +39,3 @@ func TestSeamsCallable(t *testing.T) {
 		t.Fatalf("Welcome returned %v, want nil", err)
 	}
 }
-
-func TestBannerSetConsume(t *testing.T) {
-	_ = ConsumeBanner()
-	if got := ConsumeBanner(); got != "" {
-		t.Fatalf("initial ConsumeBanner = %q, want empty", got)
-	}
-
-	SetBanner("hello")
-	if got := ConsumeBanner(); got != "hello" {
-		t.Fatalf("ConsumeBanner after SetBanner = %q, want %q", got, "hello")
-	}
-
-	if got := ConsumeBanner(); got != "" {
-		t.Fatalf("second ConsumeBanner = %q, want empty (consume should clear)", got)
-	}
-
-	SetBanner("first")
-	SetBanner("second")
-	if got := ConsumeBanner(); got != "second" {
-		t.Fatalf("ConsumeBanner after two Sets = %q, want %q (latest wins)", got, "second")
-	}
-}

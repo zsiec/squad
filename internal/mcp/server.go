@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/zsiec/squad/internal/mcp/bootstrap"
 )
 
 // ProtocolVersion advertised in the initialize handshake. Bump when the spec
@@ -73,15 +71,6 @@ func (s *Server) RestrictTo(allow []string) {
 			delete(s.tools, name)
 		}
 	}
-}
-
-// SetBanner stages a one-shot text block for the next successful
-// tools/call response. Thin facade over bootstrap.SetBanner so callers
-// holding a *Server reference don't need to import the bootstrap
-// package; the banner state still lives in the bootstrap package so
-// callTool's existing ConsumeBanner read drains the same value.
-func (s *Server) SetBanner(text string) {
-	bootstrap.SetBanner(text)
 }
 
 type rpcRequest struct {
@@ -259,14 +248,8 @@ func (s *Server) callTool(ctx context.Context, base rpcResponse, raw json.RawMes
 		base.Error = &rpcError{Code: errInternal, Message: err.Error()}
 		return base
 	}
-	content := []map[string]any{
-		{"type": "text", "text": toText(result)},
-	}
-	if banner := bootstrap.ConsumeBanner(); banner != "" {
-		content = append([]map[string]any{{"type": "text", "text": banner}}, content...)
-	}
 	base.Result = map[string]any{
-		"content":           content,
+		"content":           []map[string]any{{"type": "text", "text": toText(result)}},
 		"isError":           false,
 		"structuredContent": result,
 	}

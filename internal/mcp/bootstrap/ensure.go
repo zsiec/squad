@@ -43,9 +43,9 @@ type Options struct {
 // current MCP connection: probes the running version, installs if
 // absent, restarts if stale, reinstalls if the binary path drifted.
 // SQUAD_NO_AUTO_DAEMON=1 short-circuits to nil. ErrUnsupported is a
-// graceful skip — Ensure logs, stages BannerUnsupported, and returns
-// nil so MCP keeps serving tools without the UI. Any other failure is
-// logged and returned wrapped.
+// graceful skip — Ensure logs to stderr and returns nil so MCP keeps
+// serving tools without the UI. Any other failure is logged and
+// returned wrapped.
 func Ensure(ctx context.Context, opts Options) error {
 	if os.Getenv("SQUAD_NO_AUTO_DAEMON") == "1" {
 		return nil
@@ -94,7 +94,6 @@ func ensureInstall(ctx context.Context, opts Options) error {
 	if err := waitUntilPresent(ctx); err != nil {
 		return logAndWrap("wait for daemon", err)
 	}
-	SetBanner(BannerInstalled(opts.Port))
 	return nil
 }
 
@@ -116,7 +115,6 @@ func ensureRestart(ctx context.Context, opts Options) error {
 	if err := waitUntilVersion(ctx, opts.Version); err != nil {
 		return logAndWrap("wait for upgraded daemon", err)
 	}
-	SetBanner(BannerUpgraded(opts.Version))
 	return nil
 }
 
@@ -137,20 +135,18 @@ func ensureReinstall(ctx context.Context, opts Options) error {
 	if err := waitUntilPresent(ctx); err != nil {
 		return logAndWrap("wait for reinstalled daemon", err)
 	}
-	SetBanner(BannerUpgraded(opts.Version))
 	return nil
 }
 
 // handleUnsupported returns true if err is the daemon's
-// "this platform is not supported" sentinel. Side-effects: log a one-line
-// hint to stderr and stage the unsupported banner. Callers treat the true
-// return as "stop, don't retry, surface the banner on the next tool call".
+// "this platform is not supported" sentinel. Side-effect: log a
+// one-line hint to stderr. Callers treat the true return as
+// "stop, don't retry."
 func handleUnsupported(err error) bool {
 	if !errors.Is(err, daemon.ErrUnsupported) {
 		return false
 	}
 	fmt.Fprintln(os.Stderr, `squad: dashboard auto-install not supported on this platform; run "squad serve" manually for the UI`)
-	SetBanner(BannerUnsupported)
 	return true
 }
 
