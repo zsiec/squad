@@ -84,6 +84,13 @@ func ensureClaim(out, errOut io.Writer) error {
 		return err
 	} else if ok {
 		fmt.Fprintf(out, "resuming claim on %s\n", held)
+		// Resume path: surface the peer digest with empty area. The
+		// overlap nudge is most useful at new-claim time when the
+		// agent is choosing — for a resume the choice is already
+		// made, so we skip the nudge but still print the peer list.
+		if perr := printPeerDigest(context.Background(), bc.db, bc.repoID, bc.agentID, held, "", out, time.Now()); perr != nil {
+			fmt.Fprintf(errOut, "warn: peer digest skipped: %v\n", perr)
+		}
 		return printItemAC(out, bc.itemsDir, held)
 	}
 
@@ -121,6 +128,9 @@ func ensureClaim(out, errOut io.Writer) error {
 			fmt.Fprintf(out, "claimed %s: %s\n", it.ID, it.Title)
 			if res.WorktreePath != "" {
 				printWorktreeNudge(errOut, res.WorktreePath)
+			}
+			if perr := printPeerDigest(context.Background(), bc.db, bc.repoID, bc.agentID, it.ID, it.Area, out, time.Now()); perr != nil {
+				fmt.Fprintf(errOut, "warn: peer digest skipped: %v\n", perr)
 			}
 			return printItemAC(out, bc.itemsDir, it.ID)
 		}
