@@ -22,8 +22,7 @@ var (
 )
 
 // Options bundles everything Ensure / Probe / Welcome need to act on the
-// host. Manager and Opener are injected so tests can use fake
-// implementations.
+// host. Manager is injected so tests can use a fake implementation.
 type Options struct {
 	BinaryPath string
 	Bind       string
@@ -38,9 +37,6 @@ type Options struct {
 	SquadHome string
 	Manager   daemon.Manager
 	Version   string
-	// Opener is invoked with the dashboard URL to launch a browser.
-	// nil → defaultOpener (platform open / xdg-open).
-	Opener func(url string) error
 }
 
 // Ensure brings the dashboard daemon to a known-good state for the

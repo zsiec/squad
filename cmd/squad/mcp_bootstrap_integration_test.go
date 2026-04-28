@@ -112,7 +112,6 @@ func TestMCP_RealBootstrap_InstallPathHitOnCleanHome(t *testing.T) {
 
 	mgr := &bootstrapRecordingMgr{}
 	homeDir := t.TempDir()
-	t.Setenv("SQUAD_NO_BROWSER", "1")
 	hook := func(ctx context.Context) {
 		opts := bootstrap.Options{
 			BinaryPath: bin,
@@ -170,8 +169,7 @@ func TestMCP_RealBootstrap_InstallPathHitOnCleanHome(t *testing.T) {
 // TestMCP_RealBootstrap_RerunPath_NoOp covers the steady-state case:
 // daemon already up at the expected version + binary path, .welcomed
 // sentinel already on disk. Bootstrap must do nothing — no Install, no
-// opener, no banner — and the first tools/call response must NOT carry
-// a banner.
+// banner — and the first tools/call response must NOT carry a banner.
 func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 	env := newTestEnv(t)
 	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
@@ -192,7 +190,6 @@ func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 	}
 
 	mgr := &bootstrapRecordingMgr{}
-	var openerCalls atomic.Int32
 	hook := func(ctx context.Context) {
 		opts := bootstrap.Options{
 			BinaryPath: bin,
@@ -201,7 +198,6 @@ func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 			HomeDir:    homeDir,
 			Manager:    mgr,
 			Version:    ver,
-			Opener:     func(string) error { openerCalls.Add(1); return nil },
 		}
 		_ = bootstrap.Ensure(ctx, opts)
 		_ = bootstrap.Welcome(ctx, opts)
@@ -220,9 +216,6 @@ func TestMCP_RealBootstrap_RerunPath_NoOp(t *testing.T) {
 	}
 	if got := mgr.reinstallCalls.Load(); got != 0 {
 		t.Errorf("Reinstall called %d times on rerun, want 0", got)
-	}
-	if got := openerCalls.Load(); got != 0 {
-		t.Errorf("opener called %d times when sentinel present, want 0", got)
 	}
 
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
@@ -255,7 +248,6 @@ func TestMCP_RealBootstrap_NoAutoDaemonEnv_ShortCircuits(t *testing.T) {
 	_ = bootstrap.ConsumeBanner()
 
 	t.Setenv("SQUAD_NO_AUTO_DAEMON", "1")
-	t.Setenv("SQUAD_NO_BROWSER", "1")
 	// No probe server pointed at — the env var must short-circuit
 	// before any HTTP call happens.
 
@@ -287,53 +279,6 @@ func TestMCP_RealBootstrap_NoAutoDaemonEnv_ShortCircuits(t *testing.T) {
 	}
 }
 
-// TestMCP_RealBootstrap_NoBrowserEnv_WritesSentinelNoOpener asserts
-// SQUAD_NO_BROWSER=1 still writes the welcome sentinel (so the
-// once-per-machine invariant holds even without a UI) but does not
-// invoke the opener.
-func TestMCP_RealBootstrap_NoBrowserEnv_WritesSentinelNoOpener(t *testing.T) {
-	env := newTestEnv(t)
-	t.Cleanup(func() { _ = bootstrap.ConsumeBanner() })
-	_ = bootstrap.ConsumeBanner()
-
-	t.Setenv("SQUAD_NO_BROWSER", "1")
-
-	bin := "/test/bin/squad"
-	const ver = "test-version"
-	srv := httptest.NewServer(versionResponder(ver, bin))
-	t.Cleanup(srv.Close)
-	t.Cleanup(bootstrap.SetProbeBaseForTest(srv.URL))
-
-	homeDir := t.TempDir()
-	mgr := &bootstrapRecordingMgr{}
-	var openerCalls atomic.Int32
-	hook := func(ctx context.Context) {
-		opts := bootstrap.Options{
-			BinaryPath: bin,
-			Bind:       "127.0.0.1",
-			Port:       7777,
-			HomeDir:    homeDir,
-			Manager:    mgr,
-			Version:    ver,
-			Opener:     func(string) error { openerCalls.Add(1); return nil },
-		}
-		_ = bootstrap.Ensure(ctx, opts)
-		_ = bootstrap.Welcome(ctx, opts)
-	}
-
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}` + "\n")
-	var out bytes.Buffer
-	if err := runMCP(context.Background(), env.DB, env.RepoID, env.Root, in, &out, WithBootstrap(hook)); err != nil {
-		t.Fatalf("runMCP: %v", err)
-	}
-	if got := openerCalls.Load(); got != 0 {
-		t.Errorf("opener called %d times under SQUAD_NO_BROWSER=1, want 0", got)
-	}
-	if _, err := os.Stat(homeDir + "/.squad/.welcomed"); err != nil {
-		t.Errorf("sentinel not written under SQUAD_NO_BROWSER=1: %v", err)
-	}
-}
-
 // TestMCP_RealBootstrap_InstallFailure_MCPStillServes covers the
 // production invariant from the spec: bootstrap failures never strand
 // the MCP server. Manager.Install errors out → bootstrap.Ensure returns
@@ -352,7 +297,6 @@ func TestMCP_RealBootstrap_InstallFailure_MCPStillServes(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Cleanup(bootstrap.SetProbeBaseForTest(srv.URL))
 
-	t.Setenv("SQUAD_NO_BROWSER", "1")
 	mgr := &failingMgr{err: errors.New("plist permission denied")}
 	homeDir := t.TempDir()
 
