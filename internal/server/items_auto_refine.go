@@ -182,6 +182,7 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 	if res.Err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]any{
 			"error":  res.Err.Error(),
+			"stdout": string(autoRefineTruncate(res.Stdout, 512)),
 			"stderr": string(autoRefineTruncate(res.Stderr, 512)),
 		})
 		return
@@ -196,6 +197,7 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{
 			"error":  "claude exited without drafting; run again",
 			"stdout": string(autoRefineTruncate(res.Stdout, 512)),
+			"stderr": string(autoRefineTruncate(res.Stderr, 512)),
 		})
 		return
 	}

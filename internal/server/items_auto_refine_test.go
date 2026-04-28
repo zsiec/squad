@@ -258,6 +258,70 @@ func TestAutoRefine_NoWriteIncludesStdoutTail(t *testing.T) {
 	}
 }
 
+// TestAutoRefine_NonZeroExitIncludesBothStreams pins that the 502
+// response carries both stdout and stderr. claude -p writes most of its
+// diagnostics — auth failures, MCP init errors, tool denials — to
+// stdout, so a stderr-only response leaves the operator looking at
+// "exit status 1" with no way to know what actually happened.
+func TestAutoRefine_NonZeroExitIncludesBothStreams(t *testing.T) {
+	s, _, itemsDir := newAutoRefineServer(t)
+	writeAutoRefineItem(t, itemsDir, "BUG-714", "captured")
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
+		return autoRefineRunResult{
+			Err:    errors.New("exit status 1"),
+			Stdout: []byte("auth required: please /login"),
+			Stderr: []byte("warn: spawned in non-interactive mode"),
+		}
+	})
+	rec := postJSON(t, s, "/api/items/BUG-714/auto-refine", map[string]any{})
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("response should be JSON: %v\n%s", err, rec.Body.String())
+	}
+	stdout, _ := body["stdout"].(string)
+	stderr, _ := body["stderr"].(string)
+	if !strings.Contains(stdout, "auth required") {
+		t.Errorf("502 body should surface stdout (claude writes diagnostics here); got stdout=%q stderr=%q", stdout, stderr)
+	}
+	if !strings.Contains(stderr, "non-interactive mode") {
+		t.Errorf("502 body should keep stderr; got stdout=%q stderr=%q", stdout, stderr)
+	}
+}
+
+// TestAutoRefine_NoWriteIncludesBothStreams pins the same symmetry on
+// the no-draft 500 path: a runner that exits 0 but didn't advance
+// auto_refined_at must surface both streams so a stderr-only diagnostic
+// (rare but real) doesn't get swallowed.
+func TestAutoRefine_NoWriteIncludesBothStreams(t *testing.T) {
+	s, _, itemsDir := newAutoRefineServer(t)
+	writeAutoRefineItem(t, itemsDir, "BUG-715", "captured")
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
+		return autoRefineRunResult{
+			Stdout: []byte("could not find item; nothing to refine."),
+			Stderr: []byte("debug: mcp tool resolution skipped"),
+		}
+	})
+	rec := postJSON(t, s, "/api/items/BUG-715/auto-refine", map[string]any{})
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("response should be JSON: %v\n%s", err, rec.Body.String())
+	}
+	stdout, _ := body["stdout"].(string)
+	stderr, _ := body["stderr"].(string)
+	if !strings.Contains(stdout, "could not find item") {
+		t.Errorf("500 body should keep stdout; got stdout=%q stderr=%q", stdout, stderr)
+	}
+	if !strings.Contains(stderr, "mcp tool resolution") {
+		t.Errorf("500 body should surface stderr too; got stdout=%q stderr=%q", stdout, stderr)
+	}
+}
+
 // TestAutoRefine_NoWriteTruncatesStdout pins the 512-byte cap so a noisy
 // claude run can't blow up the SPA's drawer.
 func TestAutoRefine_NoWriteTruncatesStdout(t *testing.T) {
