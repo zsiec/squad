@@ -48,13 +48,13 @@ the SPA needs to consume what's now on the wire.
 
 ## Acceptance criteria
 
-- [ ] On a 502 auto-refine response with non-empty `stdout` and empty
+- [x] On a 502 auto-refine response with non-empty `stdout` and empty
       `stderr`, the toast body shows the stdout snippet (truncated to
       ~240 chars) instead of the bare error message.
-- [ ] On a 500 "no-draft" auto-refine response, the toast body shows
+- [x] On a 500 "no-draft" auto-refine response, the toast body shows
       the available diagnostic — preferring `stdout` when present, else
       `stderr`, else the error message.
-- [ ] Structural Go test reading the embedded SPA bytes pins that
+- [x] Structural Go test reading the embedded SPA bytes pins that
       `inbox.js` references both `stdout` and `stderr` payload fields
       in the auto-refine toast switch (same `webFS.ReadFile` pattern as
       `repo_badge_css_test.go`'s `TestRepoBadgeCssIsDistinctlyStyled`).
@@ -66,6 +66,29 @@ recommendation was to scope-split rather than fold into the same item
 since the AC there was strictly server-side. The toast renderer is
 small — the change is roughly two lines per case, plus a structural
 test.
+
+## Resolution
+
+`internal/server/web/inbox.js` `autoRefineToastForStatus` now reads
+both `payload.stdout` and `payload.stderr`, prefers stdout (claude -p
+writes most diagnostics there — auth failures, MCP init errors, tool
+denials), falls back to stderr, falls back to the error string. The
+240-char truncation cap was already in use on the 502 branch and is
+applied uniformly across both error paths via a single shared `diag`
+local. Other status branches (503/504/409/404/default) untouched.
+
+Pin: `internal/server/inbox_auto_refine_toast_test.go` — structural
+test reading the embedded SPA bytes, locates
+`autoRefineToastForStatus` by name, asserts both `stdout` and
+`stderr` appear within the next ~1200 bytes of source. Same
+`webFS.ReadFile` pattern as the AC named.
+
+Verification:
+
+- `go test ./... -race -count=1` — every package `ok`.
+- `golangci-lint run` — `0 issues.`
+- New test fails RED on unfixed inbox.js (verified by reviewer
+  reverting the SPA edit and re-running).
 
 ## Resolution
 (Filled in when status → done.)
