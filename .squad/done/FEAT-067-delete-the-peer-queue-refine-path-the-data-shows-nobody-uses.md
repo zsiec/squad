@@ -4,7 +4,7 @@ title: delete the peer-queue refine path the data shows nobody uses
 type: feature
 priority: P2
 area: server
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

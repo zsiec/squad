@@ -4,7 +4,7 @@ title: standup digest surfaces unread mentions before last touch ordering
 type: chore
 priority: P3
 area: cmd
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: []

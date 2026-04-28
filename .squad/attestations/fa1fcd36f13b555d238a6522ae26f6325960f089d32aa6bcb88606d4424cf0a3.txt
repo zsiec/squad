@@ -1,0 +1,14 @@
+=== RUN   TestPMTraces_NoOpWhenDisabled
+--- PASS: TestPMTraces_NoOpWhenDisabled (0.01s)
+=== RUN   TestPMTraces_PassesClean
+--- PASS: TestPMTraces_PassesClean (0.12s)
+=== RUN   TestPMTraces_FailsOnIDInMessage
+--- PASS: TestPMTraces_FailsOnIDInMessage (0.11s)
+=== RUN   TestPMTraces_FailsOnIDInDiff
+--- PASS: TestPMTraces_FailsOnIDInDiff (0.13s)
+=== RUN   TestPMTraces_SkipsNonBashTools
+--- PASS: TestPMTraces_SkipsNonBashTools (0.06s)
+=== RUN   TestPMTraces_DashLintClean
+--- PASS: TestPMTraces_DashLintClean (0.00s)
+PASS
+ok  	github.com/zsiec/squad/plugin/hooks	1.705s

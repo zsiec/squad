@@ -4,7 +4,7 @@ title: remove unused chat verbs knock and answer
 type: chore
 priority: P3
 area: chat
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: []

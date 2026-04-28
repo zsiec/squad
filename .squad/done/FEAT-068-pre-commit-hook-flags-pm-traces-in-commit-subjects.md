@@ -4,7 +4,7 @@ title: pre-commit hook flags pm traces in commit subjects
 type: feature
 priority: P3
 area: hooks
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
