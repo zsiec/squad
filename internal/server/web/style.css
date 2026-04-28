@@ -2759,6 +2759,63 @@ a.agent-detail-claim:hover {
   text-decoration: underline;
 }
 
+/* worktree diff section under the agent-detail timeline. Polled on a
+   20s cadence while the drawer is open. Each file is collapsible. */
+.agent-detail-diff {
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.agent-detail-diff-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 8px 14px;
+  font: 12px var(--font-mono);
+  color: var(--fg-dim);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--panel-2); z-index: 1;
+}
+.agent-detail-diff-title code { color: var(--accent); }
+.agent-detail-diff-meta { font-size: 11px; opacity: 0.8; }
+.agent-detail-diff-empty,
+.agent-detail-diff-error {
+  padding: 12px 14px;
+  font: 12px var(--font-mono);
+  color: var(--fg-dim);
+}
+.agent-detail-diff-error { color: var(--danger, #c44); }
+.agent-detail-diff-file {
+  border-bottom: 1px solid var(--border);
+}
+.agent-detail-diff-file.collapsed .agent-detail-diff-hunks { display: none; }
+.agent-detail-diff-filehead {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 6px 14px;
+  border: 0; background: transparent; cursor: pointer; text-align: left;
+  font: 12px var(--font-mono);
+  color: var(--fg);
+}
+.agent-detail-diff-filehead:hover { background: var(--panel-3, var(--panel-2)); }
+.agent-detail-diff-status {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 1px 6px; border-radius: 3px;
+  border: 1px solid var(--border);
+}
+.agent-detail-diff-status.status-added    { color: #5fbf5f; border-color: #3a6d3a; }
+.agent-detail-diff-status.status-modified { color: #d0a060; border-color: #806040; }
+.agent-detail-diff-status.status-deleted  { color: #c44; border-color: #6d3a3a; }
+.agent-detail-diff-filepath { flex: 1; word-break: break-all; }
+.agent-detail-diff-hunks {
+  margin: 0;
+  padding: 8px 14px 12px;
+  font: 11px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--fg);
+  background: var(--panel-3, var(--bg));
+}
+
 /* agent-detail timeline (TASK-027) */
 .tl-filters {
   display: flex; flex-wrap: wrap; gap: 6px;
