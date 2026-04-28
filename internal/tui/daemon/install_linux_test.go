@@ -97,6 +97,52 @@ func TestLinux_InstallWritesUnitAndCallsSystemctl(t *testing.T) {
 	}
 }
 
+// TestLinux_InstallBakesPATHIntoUnit covers BUG-046. systemd-user's
+// default PATH is narrower than the user's interactive shell — on some
+// distros it does not include ~/.local/bin or ~/.claude/local, which is
+// where the Anthropic CLI installer drops the `claude` binary. Without a
+// baked PATH the auto-refine handler's exec.LookPath("claude") returns
+// ErrNotFound and the SPA surfaces 503.
+func TestLinux_InstallBakesPATHIntoUnit(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBus(t, tmp)
+	fe := &fakeExec{}
+	m := newWithExec(tmp, fe)
+	if err := m.Install(InstallOpts{
+		BinaryPath: "/usr/local/bin/squad",
+		Bind:       "127.0.0.1",
+		Port:       7777,
+		LogDir:     filepath.Join(tmp, ".squad/logs"),
+		HomeDir:    tmp,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(tmp, ".config", "systemd", "user", "squad-serve.service")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	if !strings.Contains(body, "Environment=PATH=") {
+		t.Fatalf("unit must declare PATH; got:\n%s", body)
+	}
+	for _, want := range []string{
+		"/usr/local/bin",
+		"/usr/bin",
+		"/bin",
+		"/usr/local/sbin",
+		"/usr/sbin",
+		"/sbin",
+		filepath.Join(tmp, ".local/bin"),
+		filepath.Join(tmp, ".claude/local"),
+		filepath.Join(tmp, "go/bin"),
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("unit PATH must include %q; got:\n%s", want, body)
+		}
+	}
+}
+
 func TestLinux_UninstallRemovesUnitAndCallsDisable(t *testing.T) {
 	tmp := t.TempDir()
 	fakeBus(t, tmp)

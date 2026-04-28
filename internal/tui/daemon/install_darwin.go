@@ -32,7 +32,10 @@ const plistTpl = `<?xml version="1.0" encoding="UTF-8"?>
     <key>StandardOutPath</key><string>{{.LogDir}}/serve.out.log</string>
     <key>StandardErrorPath</key><string>{{.LogDir}}/serve.err.log</string>
     <key>EnvironmentVariables</key>
-    <dict><key>SQUAD_HOME</key><string>{{.HomeDir}}/.squad</string></dict>
+    <dict>
+      <key>SQUAD_HOME</key><string>{{.HomeDir}}/.squad</string>
+      <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:{{.HomeDir}}/.claude/local:{{.HomeDir}}/go/bin</string>
+    </dict>
     <key>ProcessType</key><string>Background</string>
   </dict>
 </plist>

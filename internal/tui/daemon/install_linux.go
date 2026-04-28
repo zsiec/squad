@@ -26,6 +26,7 @@ RestartSec=2s
 StandardOutput=append:{{.LogDir}}/serve.out.log
 StandardError=append:{{.LogDir}}/serve.err.log
 Environment=SQUAD_HOME={{.HomeDir}}/.squad
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:{{.HomeDir}}/.local/bin:{{.HomeDir}}/.claude/local:{{.HomeDir}}/go/bin
 
 [Install]
 WantedBy=default.target

@@ -68,6 +68,51 @@ func TestDarwin_InstallWritesPlistAndCallsLaunchctl(t *testing.T) {
 	}
 }
 
+// TestDarwin_InstallBakesPATHIntoPlist covers BUG-046. launchd's default
+// PATH for spawned daemons is `/usr/bin:/bin:/usr/sbin:/sbin`, which
+// excludes /opt/homebrew/bin (Apple Silicon Homebrew), /usr/local/bin
+// (Intel Homebrew / curl-script installs), and the user's ~/.claude/local
+// and ~/go/bin dirs. Without a baked PATH, the auto-refine handler's
+// exec.LookPath("claude") returns ErrNotFound and the dashboard surfaces
+// 503 even when claude is on the user's interactive shell PATH.
+func TestDarwin_InstallBakesPATHIntoPlist(t *testing.T) {
+	tmp := t.TempDir()
+	fe := &fakeExec{}
+	m := newWithExec(tmp, fe)
+	if err := m.Install(InstallOpts{
+		BinaryPath: "/usr/local/bin/squad",
+		Bind:       "127.0.0.1",
+		Port:       7777,
+		LogDir:     filepath.Join(tmp, ".squad/logs"),
+		HomeDir:    tmp,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(tmp, "Library", "LaunchAgents", "sh.squad.serve.plist")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	if !strings.Contains(body, "<key>PATH</key>") {
+		t.Fatalf("plist must declare PATH under EnvironmentVariables; got:\n%s", body)
+	}
+	for _, want := range []string{
+		"/opt/homebrew/bin",
+		"/usr/local/bin",
+		"/usr/bin",
+		"/bin",
+		"/usr/sbin",
+		"/sbin",
+		filepath.Join(tmp, ".claude/local"),
+		filepath.Join(tmp, "go/bin"),
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("plist PATH must include %q; got:\n%s", want, body)
+		}
+	}
+}
+
 func TestDarwin_UninstallRemovesPlistAndCallsBootout(t *testing.T) {
 	tmp := t.TempDir()
 	fe := &fakeExec{}
