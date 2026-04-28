@@ -1,0 +1,46 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — CHORE-018
+
+## Verdict: clean
+
+`?repo_id=` filter on `GET /api/items` mirrors the existing
+`status` and `epic` filter shape exactly. Composition with the
+other filters works via independent early-continue passes; order
+is insensitive.
+
+## Disprove-loop verification (reviewer)
+
+Reverted the 4-line filter, re-ran the new test:
+- `filter_narrows_to_named_repo` failed with `row tagged
+  repo_id="repo-B" with filter repo_id=repo-A`.
+- `unknown_repo_yields_zero_rows_not_404` failed with `got 2`.
+
+Restored, both pass. Tests are load-bearing, not vacuous.
+
+## Single-repo mode behavior
+
+Reviewer confirmed: single-repo mode populates `it.RepoID =
+s.cfg.RepoID` for every item, so the filter passes when the
+param matches and returns `[]` when it doesn't. AC explicitly
+allows either "ignores or short-circuits"; the short-circuit
+path surfaces user intent (asking for a wrong repo and getting
+nothing back is more informative than silently returning the
+configured repo's items).
+
+## Suggestions noted (non-blocking)
+
+- No test for single-repo + `repo_id=` matching/non-matching
+  combinations. The AC's "ignores or short-circuits without
+  breaking existing callers" is met by the structural argument
+  (single-repo callers don't pass the param today; if they
+  start, the filter operates on the upstream-populated repo_id
+  field). Follow-up if a real caller surfaces.
+
+## Findings
+
+None blocking.

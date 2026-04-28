@@ -4,7 +4,7 @@ title: get api items should accept repo_id filter for parity with post
 type: chore
 priority: P3
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: []

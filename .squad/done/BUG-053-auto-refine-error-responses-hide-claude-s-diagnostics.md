@@ -4,7 +4,7 @@ title: auto-refine error responses hide claude's diagnostics
 type: bug
 priority: P2
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

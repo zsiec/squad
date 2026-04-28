@@ -1,0 +1,3 @@
+testing: warning: no tests to run
+PASS
+ok  	github.com/zsiec/squad/internal/server	1.668s [no tests to run]
