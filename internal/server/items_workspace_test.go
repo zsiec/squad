@@ -59,3 +59,65 @@ func TestHandleItemsList_WorkspaceModeAggregatesRepos(t *testing.T) {
 		t.Errorf("expected items tagged with both repo-A and repo-B; got %v", repoIDs)
 	}
 }
+
+// TestHandleItemsList_WorkspaceModeRepoIDFilter covers the parity gap
+// with POST /api/items: GET /api/items?repo_id=<X> must scope the
+// aggregated workspace list to a single repo. Without the filter,
+// callers wanting a per-repo slice would have to pull every item and
+// client-filter on the response's repo_id field — usable but
+// asymmetric with the create endpoint that already honors the param.
+func TestHandleItemsList_WorkspaceModeRepoIDFilter(t *testing.T) {
+	db := newTestDB(t)
+	tmp := t.TempDir()
+	repoARoot := filepath.Join(tmp, "repoA")
+	repoBRoot := filepath.Join(tmp, "repoB")
+	for _, root := range []string{repoARoot, repoBRoot} {
+		if err := os.MkdirAll(filepath.Join(root, ".squad", "items"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := items.NewWithOptions(filepath.Join(root, ".squad"), "BUG", "alpha bravo charlie delta echo foxtrot", items.Options{Area: "test"}); err != nil {
+			t.Fatalf("create item: %v", err)
+		}
+	}
+	insertRepo(t, db, "repo-A", repoARoot, "")
+	insertRepo(t, db, "repo-B", repoBRoot, "")
+	s := New(db, "", Config{RepoID: "", SquadDir: ""})
+	t.Cleanup(s.Close)
+
+	t.Run("filter narrows to named repo", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/items?repo_id=repo-A", nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if len(rows) == 0 {
+			t.Fatal("filter narrowed too aggressively — repo-A should have items")
+		}
+		for _, r := range rows {
+			if rid, _ := r["repo_id"].(string); rid != "repo-A" {
+				t.Errorf("row tagged repo_id=%q with filter repo_id=repo-A; expected only repo-A rows", rid)
+			}
+		}
+	})
+
+	t.Run("unknown repo yields zero rows not 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/items?repo_id=does-not-exist", nil)
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s; unknown repo_id should return 200 with empty list, not error", rec.Code, rec.Body.String())
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if len(rows) != 0 {
+			t.Errorf("unknown repo_id should yield zero rows; got %d", len(rows))
+		}
+	})
+}
