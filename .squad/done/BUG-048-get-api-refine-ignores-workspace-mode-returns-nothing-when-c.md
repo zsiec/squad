@@ -4,7 +4,7 @@ title: GET /api/refine ignores workspace mode — returns nothing when cfg.RepoI
 type: bug
 priority: P2
 area: internal/server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
