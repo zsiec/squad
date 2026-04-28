@@ -77,7 +77,7 @@ func TestComputeClaimDurationPercentiles(t *testing.T) {
 
 // TestComputeWorkspaceModeAggregatesAcrossRepos pins the "" sentinel:
 // stats.Compute called with ComputeOpts.RepoID == "" must aggregate
-// items / claims across every repo, not silently filter to repo_id = ''.
+// items / claims across every repo, not silently filter to repo_id = ”.
 // The dashboard daemon takes this path when no repo is discovered.
 func TestComputeWorkspaceModeAggregatesAcrossRepos(t *testing.T) {
 	db := openTestDB(t)

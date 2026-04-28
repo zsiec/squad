@@ -95,8 +95,8 @@ func LearningAgentsMdApprove(ctx context.Context, args LearningAgentsMdApproveAr
 	}
 
 	res := &LearningAgentsMdApproveResult{Branch: branch}
-	switch reason := pushAndOpenPR(ctx, args.RepoRoot, branch, args.ID, res); {
-	case reason == "":
+	switch reason := pushAndOpenPR(ctx, args.RepoRoot, branch, args.ID, res); reason {
+	case "":
 		// PR opened successfully.
 	default:
 		res.PRSkippedReason = reason

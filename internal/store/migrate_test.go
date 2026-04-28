@@ -293,7 +293,7 @@ func TestMigrate_BootstrapsLegacyDBWithoutIntakeColumns(t *testing.T) {
 // a fully-migrated DB whose migration_versions row got dropped. The
 // missing v5/v7 markers cause migration 5 (claims RENAME-and-recreate)
 // to re-run, dropping live worktree values, and migration 7 to re-add
-// the column with default ''. Asserts the column survives and that
+// the column with default ”. Asserts the column survives and that
 // bootstrap leaves migration_versions with all 9 rows.
 func TestMigrate_BootstrapPreservesWorktreeAndSeedsAllVersions(t *testing.T) {
 	db := openEmptyDBNoMigrate(t)

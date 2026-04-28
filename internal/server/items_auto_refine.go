@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,13 +38,17 @@ var errClaudeNotFound = errors.New("claude CLI not found on PATH")
 
 // autoRefineRunResult captures the subprocess outcome for the handler.
 type autoRefineRunResult struct {
-	Stderr  []byte
-	Err     error
+	Stdout   []byte
+	Stderr   []byte
+	Err      error
 	TimedOut bool
 }
 
 // autoRefineRunner is the seam tests inject to bypass the real subprocess.
-type autoRefineRunner func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult
+// repoRoot is the resolved repo's root directory; the default runner sets
+// it as cmd.Dir so the spawned `squad mcp` subprocess can find the repo
+// via repo.Discover instead of walking up from the daemon's cwd.
+type autoRefineRunner func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult
 
 // autoRefineMCPServerName is the key under which the narrow MCP config
 // registers the squad server; the spawned claude addresses tools by the
@@ -72,38 +77,40 @@ func autoRefineAllowedToolsArg() string {
 //   - SQUAD_NO_HOOKS=1 in env: the squad Stop hook runs `squad listen
 //     --max 24h`, which holds the subprocess open after the response
 //     prints. Without the opt-out the spawned claude never exits.
-func autoRefineCommand(ctx context.Context, prompt, mcpConfigPath string) *exec.Cmd {
+func autoRefineCommand(ctx context.Context, prompt, mcpConfigPath, repoRoot string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "claude", "-p", prompt,
 		"--mcp-config", mcpConfigPath,
 		"--strict-mcp-config",
 		"--allowedTools", autoRefineAllowedToolsArg(),
 	)
 	cmd.Env = append(os.Environ(), "SQUAD_NO_HOOKS=1")
+	cmd.Dir = repoRoot
 	autoRefineSetProcessGroup(cmd)
 	return cmd
 }
 
 // autoRefineDefaultRunner spawns `claude -p` with the narrow MCP config and
 // a process group so timeout-kill takes any spawned helpers with it.
-var autoRefineDefaultRunner autoRefineRunner = func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+// Stdout is captured (not discarded) so the no-draft 500 path can surface
+// what claude actually said — the operator otherwise has no signal beyond
+// "run again."
+var autoRefineDefaultRunner autoRefineRunner = func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 	if _, err := exec.LookPath("claude"); err != nil {
 		return autoRefineRunResult{Err: errClaudeNotFound}
 	}
-	cmd := autoRefineCommand(ctx, prompt, mcpConfigPath)
-	// Output() captures stderr into *exec.ExitError on non-zero exit, which
-	// is the path we care about; stdout is incidental and discarded.
-	if _, err := cmd.Output(); err != nil {
-		res := autoRefineRunResult{Err: err}
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			res.Stderr = exitErr.Stderr
-		}
+	cmd := autoRefineCommand(ctx, prompt, mcpConfigPath, repoRoot)
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	err := cmd.Run()
+	res := autoRefineRunResult{Stdout: stdoutBuf.Bytes(), Stderr: stderrBuf.Bytes()}
+	if err != nil {
+		res.Err = err
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			res.TimedOut = true
 		}
-		return res
 	}
-	return autoRefineRunResult{}
+	return res
 }
 
 // SetAutoRefineRunner overrides the subprocess runner for this server
@@ -132,6 +139,7 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 		writeResolveErr(w, statusCode, rerr)
 		return
 	}
+	repoRoot := filepath.Dir(squadDir)
 	path, _, err := items.FindByID(squadDir, id)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "item not found")
@@ -160,7 +168,7 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	runner := s.autoRefineRunnerOrDefault()
-	res := runner(ctx, prompt, cfgPath)
+	res := runner(ctx, prompt, cfgPath, repoRoot)
 
 	if res.TimedOut {
 		writeErr(w, http.StatusGatewayTimeout,
@@ -185,7 +193,10 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if after.AutoRefinedAt <= before.AutoRefinedAt {
-		writeErr(w, http.StatusInternalServerError, "claude exited without drafting; run again")
+		writeJSON(w, http.StatusInternalServerError, map[string]any{
+			"error":  "claude exited without drafting; run again",
+			"stdout": string(autoRefineTruncate(res.Stdout, 512)),
+		})
 		return
 	}
 
@@ -213,7 +224,6 @@ func autoRefineEntry(it items.Item) map[string]any {
 		"body_markdown":   it.Body,
 	}
 }
-
 
 func (s *Server) autoRefineRunnerOrDefault() autoRefineRunner {
 	s.autoRefineMu.Lock()
@@ -297,4 +307,3 @@ If the item's frontmatter "area" is the placeholder "<fill-in>" (or empty), choo
 
 Call squad_auto_refine_apply(item_id="%s", new_body=..., area=...) exactly once with the drafted body and the area when needed, then stop. Do not call any other write tools.`, itemID, itemID)
 }
-

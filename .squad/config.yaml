@@ -41,6 +41,12 @@ verification:
       evidence: "ok\\s.*\\s[0-9.]+s"
     - cmd: "go vet ./..."
       evidence: ""
+    # CI runs golangci-lint and rejects PRs on gofmt / staticcheck drift.
+    # Mirror that locally so an item cannot reach `done` with lint debt
+    # that would just bounce off CI seconds later. Empty evidence — exit
+    # 0 is the contract; non-zero output IS the failure surface.
+    - cmd: "golangci-lint run"
+      evidence: ""
 
 # Hygiene sweep. Reclaims stale claims, marks ghost agents, validates the
 # items/done file tree. Disable per-invocation with SQUAD_NO_HYGIENE=1.

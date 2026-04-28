@@ -65,7 +65,7 @@ func TestHandleItemsAutoRefine_WorkspaceMode_FindsItemInResolvedRepo(t *testing.
 
 	s := wsServer(t, db)
 	// Inject a no-op runner so we don't shell out to claude.
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{}
 	})
 
@@ -142,7 +142,7 @@ func TestHandleItemsAutoRefine_WorkspaceMode_RepoIDDisambiguates(t *testing.T) {
 	}
 
 	s := wsServer(t, db)
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{}
 	})
 	rec := httptest.NewRecorder()

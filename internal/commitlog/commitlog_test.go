@@ -82,7 +82,7 @@ func TestRecordSinceClaim_NoCommitsInWindow(t *testing.T) {
 
 // TestListForItem_WorkspaceModeAggregatesAllRepos pins the "" sentinel:
 // when the caller passes repoID == "", ListForItem must return rows for
-// the given item id from every repo, not silently filter to repo_id = ''.
+// the given item id from every repo, not silently filter to repo_id = ”.
 // The dashboard's links handler takes this path in workspace mode.
 func TestListForItem_WorkspaceModeAggregatesAllRepos(t *testing.T) {
 	repoA, db := newFixture(t)

@@ -87,6 +87,10 @@ The TUI's view modules (`internal/tui/views/**`) must NOT import storage-layer p
 
 Every "tests pass" / "build green" / "CI green" claim must be backed by the actual output line pasted into the conversation. Bare assertions are worth zero. The author and the reviewer both need to see the green line. This is non-negotiable — a silent pass is indistinguishable from a fabrication.
 
+### Lint before every commit
+
+CI runs `golangci-lint run` and rejects PRs on gofmt / staticcheck drift. Run it locally before commit (or at minimum before `squad done`). `gofmt -l . | xargs gofmt -w` auto-fixes the formatting issues; staticcheck issues need manual attention. The squad-done verification gate runs `golangci-lint run` so an item with lint debt cannot reach `done` — but that gate is a safety net, not the first line of defense. Catching it locally saves the round-trip.
+
 ### Code review before every commit
 
 Every meaningful change goes through `superpowers:code-reviewer` before commit. Even one-line fixes. The cost is about thirty seconds; the cost of a bug reaching a user is hours of their time and yours. Review catches what tests do not.

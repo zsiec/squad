@@ -71,7 +71,7 @@ func writeAutoRefineItem(t *testing.T, itemsDir, id, status string) string {
 //     which holds the subprocess open after the response prints. Without
 //     this, the spawned claude never exits and the handler always 504s.
 func TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks(t *testing.T) {
-	cmd := autoRefineCommand(context.Background(), "the-prompt", "/tmp/cfg.json")
+	cmd := autoRefineCommand(context.Background(), "the-prompt", "/tmp/cfg.json", "/repo/root")
 
 	wantArgs := []string{
 		"claude", "-p", "the-prompt",
@@ -95,11 +95,24 @@ func TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks(t *testing.T) {
 	}
 }
 
+// TestAutoRefineCommand_SetsCmdDirToRepoRoot pins the BUG-047 fix: the
+// spawned `claude -p` must run with cwd at the resolved repo root so the
+// downstream `squad mcp` subprocess (which calls repo.Discover) finds
+// the repo. Without this the handler 500s on "claude exited without
+// drafting" in workspace mode every time.
+func TestAutoRefineCommand_SetsCmdDirToRepoRoot(t *testing.T) {
+	cmd := autoRefineCommand(context.Background(), "p", "/tmp/cfg", "/abs/repo/root")
+	if cmd.Dir != "/abs/repo/root" {
+		t.Fatalf("cmd.Dir=%q, want %q (BUG-047: subprocess inherits daemon cwd otherwise)",
+			cmd.Dir, "/abs/repo/root")
+	}
+}
+
 func TestAutoRefine_HappyPath(t *testing.T) {
 	s, squadDir, itemsDir := newAutoRefineServer(t)
 	path := writeAutoRefineItem(t, itemsDir, "BUG-700", "captured")
 
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		if err := items.AutoRefineApply(squadDir, "BUG-700", autoRefineCleanBody, "", "claude"); err != nil {
 			return autoRefineRunResult{Err: err}
 		}
@@ -142,7 +155,7 @@ func TestAutoRefine_HappyPath(t *testing.T) {
 func TestAutoRefine_ClaudeNotFoundReturns503(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-701", "captured")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{Err: errClaudeNotFound}
 	})
 	rec := postJSON(t, s, "/api/items/BUG-701/auto-refine", map[string]any{})
@@ -157,7 +170,7 @@ func TestAutoRefine_ClaudeNotFoundReturns503(t *testing.T) {
 func TestAutoRefine_TimeoutReturns504(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-702", "captured")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{Err: errors.New("deadline"), TimedOut: true}
 	})
 	rec := postJSON(t, s, "/api/items/BUG-702/auto-refine", map[string]any{})
@@ -172,7 +185,7 @@ func TestAutoRefine_TimeoutReturns504(t *testing.T) {
 func TestAutoRefine_NonZeroExitReturns502(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-703", "captured")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{Err: errors.New("exit status 1"), Stderr: []byte("some failure detail")}
 	})
 	rec := postJSON(t, s, "/api/items/BUG-703/auto-refine", map[string]any{})
@@ -190,7 +203,7 @@ func TestAutoRefine_NonZeroExitTruncatesStderr(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-704", "captured")
 	huge := strings.Repeat("x", 10000)
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{Err: errors.New("exit status 1"), Stderr: []byte(huge)}
 	})
 	rec := postJSON(t, s, "/api/items/BUG-704/auto-refine", map[string]any{})
@@ -207,7 +220,7 @@ func TestAutoRefine_NonZeroExitTruncatesStderr(t *testing.T) {
 func TestAutoRefine_NoWriteReturns500(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-705", "captured")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{}
 	})
 	rec := postJSON(t, s, "/api/items/BUG-705/auto-refine", map[string]any{})
@@ -219,10 +232,55 @@ func TestAutoRefine_NoWriteReturns500(t *testing.T) {
 	}
 }
 
+// TestAutoRefine_NoWriteIncludesStdoutTail pins the BUG-047 second fix:
+// when claude exits 0 without advancing auto_refined_at, the operator
+// gets the captured stdout tail in the 500 body so they can see what
+// claude actually said (e.g. "I couldn't find item BUG-XXX") instead
+// of guessing at "run again".
+func TestAutoRefine_NoWriteIncludesStdoutTail(t *testing.T) {
+	s, _, itemsDir := newAutoRefineServer(t)
+	writeAutoRefineItem(t, itemsDir, "BUG-712", "captured")
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
+		return autoRefineRunResult{Stdout: []byte("could not find item; nothing to refine.")}
+	})
+	rec := postJSON(t, s, "/api/items/BUG-712/auto-refine", map[string]any{})
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("response should be JSON: %v\n%s", err, rec.Body.String())
+	}
+	stdout, _ := body["stdout"].(string)
+	if !strings.Contains(stdout, "could not find item") {
+		t.Errorf("500 body should surface the runner's stdout tail; got %v", body)
+	}
+}
+
+// TestAutoRefine_NoWriteTruncatesStdout pins the 512-byte cap so a noisy
+// claude run can't blow up the SPA's drawer.
+func TestAutoRefine_NoWriteTruncatesStdout(t *testing.T) {
+	s, _, itemsDir := newAutoRefineServer(t)
+	writeAutoRefineItem(t, itemsDir, "BUG-713", "captured")
+	huge := strings.Repeat("y", 10000)
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
+		return autoRefineRunResult{Stdout: []byte(huge)}
+	})
+	rec := postJSON(t, s, "/api/items/BUG-713/auto-refine", map[string]any{})
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("code=%d", rec.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if got := len(body["stdout"].(string)); got != 512 {
+		t.Errorf("stdout length=%d want 512 (truncated)", got)
+	}
+}
+
 func TestAutoRefine_NonCapturedReturns409(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-706", "open")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		t.Fatalf("runner must not be called for non-captured items")
 		return autoRefineRunResult{}
 	})
@@ -249,7 +307,7 @@ func TestAutoRefine_ConcurrentClickReturns409(t *testing.T) {
 
 	released := make(chan struct{})
 	first := make(chan struct{})
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		close(first)
 		<-released
 		if err := items.AutoRefineApply(squadDir, "BUG-707", autoRefineCleanBody, "", "claude"); err != nil {
@@ -290,7 +348,7 @@ func TestAutoRefine_PublishesInboxChanged(t *testing.T) {
 	sub := s.Bus().Subscribe()
 	defer s.Bus().Unsubscribe(sub)
 
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		if err := items.AutoRefineApply(squadDir, "BUG-708", autoRefineCleanBody, "", "claude"); err != nil {
 			return autoRefineRunResult{Err: err}
 		}
@@ -321,7 +379,7 @@ func TestAutoRefine_PublishesInboxChanged(t *testing.T) {
 func TestAutoRefine_SlotReleasedAfterFailure(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-709", "captured")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 		return autoRefineRunResult{Err: errClaudeNotFound}
 	})
 	for i := 0; i < 3; i++ {

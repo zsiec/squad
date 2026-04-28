@@ -120,7 +120,7 @@ func TestRenderAgentRatioTable_OrderingAndZeroRelease(t *testing.T) {
 	idxHigh := strings.Index(out, "agent-high")
 	idxLow := strings.Index(out, "agent-low")
 	idxClean := strings.Index(out, "agent-clean")
-	if !(idxHigh < idxLow && idxLow < idxClean) {
+	if idxHigh >= idxLow || idxLow >= idxClean {
 		t.Errorf("ratio sort wrong (want high<low<clean):\n%s", out)
 	}
 	// Zero-release agent renders ratio as "-", not "0" or "NaN".

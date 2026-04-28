@@ -100,7 +100,7 @@ func TestIntegration_AutoRefine(t *testing.T) {
 		assertTemplatePlaceholderViolation(t, path)
 
 		var seenPrompt, seenConfigPath string
-		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 			seenPrompt = prompt
 			seenConfigPath = mcpConfigPath
 			if err := items.AutoRefineApply(squadDir, "FEAT-100", intAutoRefineDraftedBody, "", "claude"); err != nil {
@@ -166,7 +166,7 @@ func TestIntegration_AutoRefine(t *testing.T) {
 			fmt.Sprintf(intAutoRefineTemplateItem, "FEAT-101"))
 		before := mustReadIntegrationFile(t, path)
 
-		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 			return autoRefineRunResult{}
 		})
 		rec := postJSON(t, s, "/api/items/FEAT-101/auto-refine", map[string]any{})
@@ -190,7 +190,7 @@ func TestIntegration_AutoRefine(t *testing.T) {
 
 		first := make(chan struct{})
 		release := make(chan struct{})
-		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 			close(first)
 			<-release
 			if err := items.AutoRefineApply(squadDir, "FEAT-102", intAutoRefineDraftedBody, "", "claude"); err != nil {
@@ -228,7 +228,7 @@ func TestIntegration_AutoRefine(t *testing.T) {
 			fmt.Sprintf(intAutoRefineTemplateItem, "FEAT-103"),
 			"status: captured", "status: open", 1)
 		writeIntegrationItem(t, itemsDir, "FEAT-103", body)
-		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath string) autoRefineRunResult {
+		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
 			t.Fatalf("runner must not be invoked for non-captured items")
 			return autoRefineRunResult{}
 		})
@@ -253,4 +253,3 @@ func mustReadIntegrationFile(t *testing.T, path string) []byte {
 	}
 	return b
 }
-

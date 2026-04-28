@@ -363,7 +363,7 @@ func TestLedger_Verify_MissingFile(t *testing.T) {
 
 // TestLedger_ListForItem_WorkspaceModeAggregatesAllRepos pins the
 // "" sentinel: a Ledger constructed with repoID == "" must list rows
-// from every repo, not silently filter to repo_id = ''. The dashboard
+// from every repo, not silently filter to repo_id = ”. The dashboard
 // daemon takes this path when no repo is discovered at startup.
 func TestLedger_ListForItem_WorkspaceModeAggregatesAllRepos(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "g.db"))

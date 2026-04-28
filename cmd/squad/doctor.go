@@ -83,9 +83,9 @@ func proposeDoctorLearnings(ctx context.Context, repoRoot string, findings []hyg
 			}
 		}
 		_, perr := LearningPropose(ctx, LearningProposeArgs{
-			RepoRoot:     repoRoot,
-			Kind:         "gotcha",
-			Slug:         "doctor-" + slugCode + "-" + date,
+			RepoRoot: repoRoot,
+			Kind:     "gotcha",
+			Slug:     "doctor-" + slugCode + "-" + date,
 			// No colon in the title — stubBody emits frontmatter as
 			// unquoted YAML scalars, and "key: value: extra" is not a
 			// valid plain scalar. An unparseable artifact silently breaks

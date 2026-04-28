@@ -9,8 +9,9 @@ import (
 	"time"
 )
 
-// Status stays `captured` on success — the human Accept click remains the
-// only path from captured to open.
+// AutoRefineApply rewrites the body of a captured item in-place and stamps
+// the auto-refine audit fields. Status stays `captured` on success — the
+// human Accept click remains the only path from captured to open.
 //
 // area is optional. When non-empty the frontmatter `area` field is rewritten
 // alongside the body — this lets the auto-refine flow heal items captured

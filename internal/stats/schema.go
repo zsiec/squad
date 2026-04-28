@@ -11,15 +11,15 @@ package stats
 const CurrentSchemaVersion = 1
 
 type Snapshot struct {
-	SchemaVersion int          `json:"schema_version"`
-	GeneratedAt   int64        `json:"generated_at"`
-	RepoID        string       `json:"repo_id"`
-	Window        Window       `json:"window"`
-	Items         Items        `json:"items"`
-	Claims        Claims       `json:"claims"`
-	Verification  Verification `json:"verification"`
-	Learnings     Learnings    `json:"learnings"`
-	Tokens        Tokens       `json:"tokens"`
+	SchemaVersion int             `json:"schema_version"`
+	GeneratedAt   int64           `json:"generated_at"`
+	RepoID        string          `json:"repo_id"`
+	Window        Window          `json:"window"`
+	Items         Items           `json:"items"`
+	Claims        Claims          `json:"claims"`
+	Verification  Verification    `json:"verification"`
+	Learnings     Learnings       `json:"learnings"`
+	Tokens        Tokens          `json:"tokens"`
 	ByAgent       []AgentRow      `json:"by_agent"`
 	ByEpic        []EpicRow       `json:"by_epic"`
 	ByCapability  []CapabilityRow `json:"by_capability"`
@@ -89,15 +89,15 @@ type Tokens struct {
 }
 
 type AgentRow struct {
-	AgentID                string   `json:"agent_id"`
-	DisplayName            string   `json:"display_name"`
-	ClaimsCompleted        int64    `json:"claims_completed"`
+	AgentID         string `json:"agent_id"`
+	DisplayName     string `json:"display_name"`
+	ClaimsCompleted int64  `json:"claims_completed"`
 	// ReleaseCount is the count of claim_history rows with outcome='released'
 	// for this agent in the same window. Together with ClaimsCompleted (the
 	// 'done' count) it gives the "are they finishing or spinning" signal.
 	// Voluntary self-release only — force_released and reclaimed are
 	// operator/reaper-driven and don't reflect agent quality.
-	ReleaseCount           int64    `json:"release_count"`
+	ReleaseCount int64 `json:"release_count"`
 	// Ratio is ClaimsCompleted / ReleaseCount when ReleaseCount > 0, nil
 	// otherwise. nil renders as "-" in the CLI breakdown — zero releases is
 	// a different signal from a poor ratio and the two should not collapse.
