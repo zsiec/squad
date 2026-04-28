@@ -1,0 +1,70 @@
+=== RUN   TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks
+--- PASS: TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks (0.00s)
+=== RUN   TestAutoRefineCommand_SetsCmdDirToRepoRoot
+--- PASS: TestAutoRefineCommand_SetsCmdDirToRepoRoot (0.00s)
+=== RUN   TestAutoRefine_HappyPath
+--- PASS: TestAutoRefine_HappyPath (0.22s)
+=== RUN   TestAutoRefine_ClaudeNotFoundReturns503
+--- PASS: TestAutoRefine_ClaudeNotFoundReturns503 (0.22s)
+=== RUN   TestAutoRefine_TimeoutReturns504
+--- PASS: TestAutoRefine_TimeoutReturns504 (0.24s)
+=== RUN   TestAutoRefine_NonZeroExitReturns502
+--- PASS: TestAutoRefine_NonZeroExitReturns502 (0.24s)
+=== RUN   TestAutoRefine_NonZeroExitTruncatesStderr
+--- PASS: TestAutoRefine_NonZeroExitTruncatesStderr (0.22s)
+=== RUN   TestAutoRefine_NoWriteReturns500
+--- PASS: TestAutoRefine_NoWriteReturns500 (0.22s)
+=== RUN   TestAutoRefine_NoWriteIncludesStdoutTail
+--- PASS: TestAutoRefine_NoWriteIncludesStdoutTail (0.22s)
+=== RUN   TestAutoRefine_NonZeroExitIncludesBothStreams
+--- PASS: TestAutoRefine_NonZeroExitIncludesBothStreams (0.23s)
+=== RUN   TestAutoRefine_NoWriteIncludesBothStreams
+--- PASS: TestAutoRefine_NoWriteIncludesBothStreams (0.22s)
+=== RUN   TestAutoRefine_NoWriteTruncatesStdout
+--- PASS: TestAutoRefine_NoWriteTruncatesStdout (0.22s)
+=== RUN   TestAutoRefine_NonCapturedReturns409
+--- PASS: TestAutoRefine_NonCapturedReturns409 (0.22s)
+=== RUN   TestAutoRefine_UnknownItemReturns404
+--- PASS: TestAutoRefine_UnknownItemReturns404 (0.21s)
+=== RUN   TestAutoRefine_ConcurrentClickReturns409
+--- PASS: TestAutoRefine_ConcurrentClickReturns409 (0.21s)
+=== RUN   TestAutoRefine_PublishesInboxChanged
+--- PASS: TestAutoRefine_PublishesInboxChanged (0.21s)
+=== RUN   TestAutoRefine_SlotReleasedAfterFailure
+--- PASS: TestAutoRefine_SlotReleasedAfterFailure (0.22s)
+PASS
+ok  	github.com/zsiec/squad/internal/server	5.086s
+=== RUN   TestAutoRefineApply_HappyPath
+--- PASS: TestAutoRefineApply_HappyPath (0.01s)
+=== RUN   TestAutoRefineApply_WritesAreaWhenSupplied
+--- PASS: TestAutoRefineApply_WritesAreaWhenSupplied (0.01s)
+=== RUN   TestAutoRefineApply_PreservesAreaWhenEmpty
+--- PASS: TestAutoRefineApply_PreservesAreaWhenEmpty (0.00s)
+=== RUN   TestAutoRefineApply_RefusesNonCapturedStatus
+--- PASS: TestAutoRefineApply_RefusesNonCapturedStatus (0.00s)
+=== RUN   TestAutoRefineApply_RefusesEmptyBody
+--- PASS: TestAutoRefineApply_RefusesEmptyBody (0.00s)
+=== RUN   TestAutoRefineApply_RefusesDoRFailingBody
+=== RUN   TestAutoRefineApply_RefusesDoRFailingBody/placeholder_template_AC
+=== RUN   TestAutoRefineApply_RefusesDoRFailingBody/no_AC_checkbox
+--- PASS: TestAutoRefineApply_RefusesDoRFailingBody (0.00s)
+    --- PASS: TestAutoRefineApply_RefusesDoRFailingBody/placeholder_template_AC (0.00s)
+    --- PASS: TestAutoRefineApply_RefusesDoRFailingBody/no_AC_checkbox (0.00s)
+=== RUN   TestAutoRefineApply_RefusesUnknownItem
+--- PASS: TestAutoRefineApply_RefusesUnknownItem (0.00s)
+=== RUN   TestAutoRefineApply_RefusesItemAlreadyInDone
+--- PASS: TestAutoRefineApply_RefusesItemAlreadyInDone (0.00s)
+=== RUN   TestAutoRefineApply_ConcurrentCallsSerialize
+--- PASS: TestAutoRefineApply_ConcurrentCallsSerialize (0.02s)
+PASS
+ok  	github.com/zsiec/squad/internal/items	1.441s
+=== RUN   TestMCP_AutoRefineApply_HappyPath
+--- PASS: TestMCP_AutoRefineApply_HappyPath (0.30s)
+=== RUN   TestMCP_AutoRefineApply_AreaArgRewritesFrontmatter
+--- PASS: TestMCP_AutoRefineApply_AreaArgRewritesFrontmatter (0.26s)
+=== RUN   TestMCP_AutoRefineApply_RejectsDoRFailingBody
+--- PASS: TestMCP_AutoRefineApply_RejectsDoRFailingBody (0.27s)
+=== RUN   TestMCP_AutoRefineApply_RejectsNonCapturedStatus
+--- PASS: TestMCP_AutoRefineApply_RejectsNonCapturedStatus (0.27s)
+PASS
+ok  	github.com/zsiec/squad/cmd/squad	3.365s

@@ -4,7 +4,7 @@ title: squad retro generates weekly digest of failure modes and process suggesti
 type: feature
 priority: P2
 area: stats
-status: open
+status: done
 estimate: 1d
 risk: low
 evidence_required: [test]

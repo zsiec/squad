@@ -4,7 +4,7 @@ title: If there is an idle agent, there should be a way in the SPA for me to cli
 type: feature
 priority: P1
 area: web
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

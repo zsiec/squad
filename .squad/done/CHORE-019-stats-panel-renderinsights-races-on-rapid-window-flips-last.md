@@ -4,7 +4,7 @@ title: stats panel renderInsights races on rapid window flips — last-fetch-win
 type: chore
 priority: P2
 area: web
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: []

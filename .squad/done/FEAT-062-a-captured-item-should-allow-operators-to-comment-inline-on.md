@@ -4,7 +4,7 @@ title: A captured item should allow operators to comment inline on selected rang
 type: feature
 priority: P1
 area: web, server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
