@@ -77,8 +77,8 @@ func TestSession_CtrlKCyclesKind(t *testing.T) {
 	}
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
 	m = updated.(SessionModel)
-	if m.Kind() != "knock" {
-		t.Errorf("after ctrl-k×2, kind=%q want knock", m.Kind())
+	if m.Kind() != "fyi" {
+		t.Errorf("after ctrl-k×2, kind=%q want fyi", m.Kind())
 	}
 }
 

@@ -34,18 +34,3 @@ func TestRunAsk_StoresAskKindAndMention(t *testing.T) {
 		t.Fatalf("mentions=%q", mentions)
 	}
 }
-
-func TestRunAnswer_PrependsReRef(t *testing.T) {
-	f := newChatFixture(t)
-	if code := runSayBody(context.Background(), f.chat, f.agentID, sayCmdFlags{Body: "first ask"}, &bytes.Buffer{}); code != 0 {
-		t.Fatalf("setup say exit=%d", code)
-	}
-	if code := runAnswerBody(context.Background(), f.chat, f.agentID, []string{"1", "my", "reply"}); code != 0 {
-		t.Fatalf("answer exit=%d", code)
-	}
-	var body string
-	_ = f.db.QueryRow(`SELECT body FROM messages WHERE kind='answer'`).Scan(&body)
-	if !strings.HasPrefix(body, "re:1 ") {
-		t.Fatalf("body=%q", body)
-	}
-}

@@ -54,7 +54,7 @@ Posts the request to the item thread via `squad review-request $ARGS` first.
 
 ## `/tick`
 
-Diagnostic-only: manually surface mentions, file conflicts, and knocks. Chat is normally delivered continuously via the `Stop` listen + post-tool-flush + user-prompt-tick hooks, so `/tick` is for cases where you suspect a hook miss or want to advance the read cursor explicitly.
+Diagnostic-only: manually surface mentions and file conflicts. Chat is normally delivered continuously via the `Stop` listen + post-tool-flush + user-prompt-tick hooks, so `/tick` is for cases where you suspect a hook miss or want to advance the read cursor explicitly.
 
 ```
 /tick

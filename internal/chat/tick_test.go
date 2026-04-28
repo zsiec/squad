@@ -52,19 +52,19 @@ func TestTick_BumpsHeartbeat(t *testing.T) {
 	}
 }
 
-func TestTick_KnockNotRepeatedAfterRead(t *testing.T) {
+func TestTick_MentionNotRepeatedAfterRead(t *testing.T) {
 	c, db := newTestChat(t)
 	ctx := context.Background()
 	_ = registerTestAgent(ctx, db, "repo-test", "agent-b", "B", c.nowUnix())
 
-	_ = c.Knock(ctx, "agent-a", "agent-b", "ping")
+	_ = c.Ask(ctx, "agent-a", ThreadGlobal, "agent-b", "ping")
 	_, _ = c.Tick(ctx, "agent-b")
 
 	dg, err := c.Tick(ctx, "agent-b")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(dg.Knocks) != 0 {
-		t.Fatalf("knock should not reappear after read: %+v", dg.Knocks)
+	if len(dg.Mentions) != 0 {
+		t.Fatalf("mention should not reappear after read: %+v", dg.Mentions)
 	}
 }

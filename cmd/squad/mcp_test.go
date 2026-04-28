@@ -45,7 +45,7 @@ func TestMCP_ListsAllTools(t *testing.T) {
 		"squad_attest", "squad_attestations",
 		"squad_learning_propose", "squad_learning_quick", "squad_learning_list", "squad_learning_approve", "squad_learning_reject",
 		"squad_learning_agents_md_suggest", "squad_learning_agents_md_approve", "squad_learning_agents_md_reject",
-		"squad_handoff", "squad_knock", "squad_answer",
+		"squad_handoff",
 		"squad_force_release", "squad_reassign", "squad_archive",
 		"squad_history", "squad_who", "squad_status",
 		"squad_touch", "squad_untouch", "squad_touches_list_others",

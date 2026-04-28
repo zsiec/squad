@@ -19,7 +19,7 @@ const pillEl       = document.getElementById('chat-scroll-end');
 const anchor = attachScrollAnchor(msgEl, pillEl);
 
 const KIND_TAGS = new Set([
-  'thinking', 'stuck', 'milestone', 'fyi', 'knock', 'ask', 'answer', 'review_req', 'handoff',
+  'thinking', 'stuck', 'milestone', 'fyi', 'ask', 'review_req', 'handoff',
 ]);
 
 function currentUser() {

@@ -333,22 +333,6 @@ Ask a question of a specific agent.
 squad ask @agent-blue "did the deep-copy change merge yet?"
 ```
 
-### `squad answer`
-
-Answer a previous message by id.
-
-```bash
-squad answer 1234 "yes, merged at 09:42"
-```
-
-### `squad knock`
-
-High-priority directed message — interrupts the recipient's tick.
-
-```bash
-squad knock @agent-blue "main is broken on your last commit, please look"
-```
-
 ### `squad say`
 
 Plain chat — escape hatch when no verb fits.
@@ -396,7 +380,7 @@ squad history FEAT-001
 
 ### `squad standup`
 
-Per-agent digest over a lookback window: what shipped, what was lost (reclaimed or force-released), the currently-open claim (with age + intent), stuck signals you posted, asks you sent that nobody answered, and the file touches you still hold. Defaults to a 24-hour window.
+Per-agent digest over a lookback window: what shipped, what was lost (reclaimed or force-released), the currently-open claim (with age + intent), stuck signals you posted, and the file touches you still hold. Defaults to a 24-hour window.
 
 ```bash
 squad standup                   # last 24h, human-readable
@@ -734,10 +718,10 @@ Run an MCP server over stdio (Claude Code transport). Registered in `~/.claude/p
 squad mcp
 ```
 
-Exposes 36 tools to Claude Code, covering the full agent-driving surface so MCP-only callers don't have to shell out:
+Exposes the full agent-driving surface to Claude Code so MCP-only callers don't have to shell out:
 
 - **Lifecycle:** `squad_register`, `squad_whoami`, `squad_next`, `squad_claim`, `squad_release`, `squad_done`, `squad_blocked`, `squad_progress`, `squad_review_request`.
-- **Chat:** `squad_say`, `squad_ask`, `squad_answer`, `squad_knock`, `squad_handoff`, `squad_tick`.
+- **Chat:** `squad_say`, `squad_ask`, `squad_handoff`, `squad_tick`.
 - **Coordination:** `squad_force_release`, `squad_reassign`, `squad_archive`.
 - **Inspection:** `squad_get_item`, `squad_list_items`, `squad_status`, `squad_who`, `squad_history`.
 - **Touch tracking:** `squad_touch`, `squad_untouch`, `squad_touches_list_others`.

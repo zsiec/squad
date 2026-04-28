@@ -694,13 +694,11 @@ details.body-section summary:hover { color: var(--fg); }
 .activity-row .a-kind.blocked   { color: var(--danger); }
 .activity-row .a-kind.chat      { color: var(--fg-dim); }
 .activity-row .a-kind.say       { color: var(--fg-dim); }
-.activity-row .a-kind.knock     { color: var(--danger); }
 .activity-row .a-kind.thinking  { color: var(--violet); }
 .activity-row .a-kind.stuck     { color: var(--danger); }
 .activity-row .a-kind.milestone { color: var(--ok); }
 .activity-row .a-kind.fyi       { color: var(--info); }
 .activity-row .a-kind.ask       { color: var(--warn); }
-.activity-row .a-kind.answer    { color: var(--info); }
 .activity-row .a-kind.review_req{ color: var(--accent); }
 
 .load-older {
@@ -861,7 +859,6 @@ details.body-section summary:hover { color: var(--fg); }
 .messages li .kind-tag.stuck     { color: var(--danger); border-color: var(--danger); }
 .messages li .kind-tag.milestone { color: var(--ok);     border-color: var(--ok); }
 .messages li .kind-tag.fyi       { color: var(--info);   border-color: var(--info); }
-.messages li .kind-tag.knock     { color: var(--danger); border-color: var(--danger); background: rgba(216,80,80,0.08); }
 .messages li .kind-tag.ask       { color: var(--warn);   border-color: var(--warn); }
 .messages li .kind-tag.handoff   { color: var(--accent); border-color: var(--accent-dim); background: rgba(224,168,96,0.08); }
 .messages li .kind-tag.review_req{ color: var(--accent); border-color: var(--accent-dim); }
@@ -1235,7 +1232,6 @@ details.body-section summary:hover { color: var(--fg); }
 .toast.clickable { cursor: pointer; }
 .toast.clickable:hover { border-color: var(--accent); }
 .toast-mention { border-left-color: var(--accent); }
-.toast-knock   { border-left-color: var(--danger); background: linear-gradient(180deg, rgba(216,80,80,0.08) 0%, var(--panel) 60%); }
 .toast-info    { border-left-color: var(--info); }
 .toast-ok      { border-left-color: var(--ok); }
 .toast-warn    { border-left-color: var(--warn); }
@@ -1253,7 +1249,6 @@ details.body-section summary:hover { color: var(--fg); }
   border: 1px solid var(--border);
 }
 .toast-mention .toast-kind { color: var(--accent); border-color: var(--accent-dim); }
-.toast-knock .toast-kind   { color: var(--danger); border-color: var(--danger); }
 .toast-ok .toast-kind      { color: var(--ok); border-color: var(--ok); }
 .toast-title {
   flex: 1;

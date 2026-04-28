@@ -170,7 +170,7 @@ Long items drift. Every meaningful chunk (~30–60 min of focused work), pause a
 3. **Did anything new surface that should be a separate item?** File the BUG/CHORE now while it's fresh.
 4. **Are you still working on the smallest possible diff that meets the contract?** If sprawling, split: land the minimum first, file the rest as follow-ups.
 
-Mentions, knocks, and file conflicts arrive continuously through hooks — address any that surface before the four questions above. A correction at hour 2 is much cheaper than at hour 6.
+Mentions and file conflicts arrive continuously through hooks — address any that surface before the four questions above. A correction at hour 2 is much cheaper than at hour 6.
 
 ### Test before claiming done
 
@@ -245,7 +245,7 @@ If you can't write a done-contract assertion for the item, the AC are too vague 
 
 **Default to parallel.** If 2+ ready items are in different subsystems with no shared state and no dependency between them, dispatch in parallel. Sequencing them out of habit wastes wall-clock time.
 
-Subagents can't see chat — before spawning, the parent must bake any unaddressed mentions or knocks into the sub-brief. Continuous hooks deliver chat to the parent, so the freshest state is whatever is already in your context.
+Subagents can't see chat — before spawning, the parent must bake any unaddressed mentions into the sub-brief. Continuous hooks deliver chat to the parent, so the freshest state is whatever is already in your context.
 
 **Do not** dispatch parallel agents for items in the same file/directory (merge conflicts), items where one's findings might change another's approach, or exploratory work (a single focused investigation is faster).
 
@@ -299,6 +299,7 @@ The backlog is durable; chat is where the team stays in sync while that durable 
 | `squad fyi <msg>` | Heads-up — direction change, surprise, discovery. |
 | `squad ask @agent <msg>` | Directed question to one agent. |
 | `squad say <msg>` | Plain chat — escape hatch when no verb fits. |
+| `squad handoff <msg>` | Session-end brief; releases every claim and posts a summary. |
 
 **Cadence.** Post on claim, on direction change, on AC complete, on commit, on surprise, on blocker, on session pause. **Too much?** If the post is just "starting" / "resuming" / "still working" with no new information, cut it. The goal is *visibility into non-obvious state*, not a change log.
 

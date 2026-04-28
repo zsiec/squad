@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/zsiec/squad/internal/chat"
 )
 
 func TestTick_PureReturnsDigest(t *testing.T) {
@@ -12,7 +14,7 @@ func TestTick_PureReturnsDigest(t *testing.T) {
 	if err := registerTestAgentInFixture(t, f, "agent-b", "B"); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.chat.Knock(ctx, "agent-b", f.agentID, "open up"); err != nil {
+	if err := f.chat.Ask(ctx, "agent-b", chat.ThreadGlobal, f.agentID, "open up"); err != nil {
 		t.Fatal(err)
 	}
 	res, err := Tick(ctx, TickArgs{Chat: f.chat, AgentID: f.agentID})
@@ -22,12 +24,12 @@ func TestTick_PureReturnsDigest(t *testing.T) {
 	if res == nil {
 		t.Fatal("nil result")
 	}
-	if len(res.Digest.Knocks) == 0 {
-		t.Fatalf("expected knock in digest: %+v", res.Digest)
+	if len(res.Digest.Mentions) == 0 {
+		t.Fatalf("expected mention in digest: %+v", res.Digest)
 	}
-	body := strings.ToLower(res.Digest.Knocks[0].Body)
+	body := strings.ToLower(res.Digest.Mentions[0].Body)
 	if !strings.Contains(body, "open up") {
-		t.Fatalf("knock body=%q", body)
+		t.Fatalf("mention body=%q", body)
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 	"github.com/zsiec/squad/internal/tui/client"
 )
 
-var sessionKinds = []string{"say", "ask", "knock", "fyi"}
+var sessionKinds = []string{"say", "ask", "fyi"}
 
 type SessionExitMsg struct{}
 

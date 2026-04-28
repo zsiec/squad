@@ -111,12 +111,11 @@ func loadPeerRows(ctx context.Context, db *sql.DB, repoID, myAgentID, myItemID s
 
 // humanVerbKinds is the set of chat verbs the digest considers
 // "human-typed" — surfaceable as a meaningful excerpt of what the
-// peer is up to. Sourced from squad-chat-cadence's verb taxonomy plus
-// `answer` (a directed reply that's still human-authored). Excludes
-// `done` / `progress` / `handoff` / `knock` / `system` / `review_req`
+// peer is up to. Sourced from squad-chat-cadence's verb taxonomy.
+// Excludes `done` / `progress` / `handoff` / `system` / `review_req`
 // because those are framework-emitted or otherwise structural rather
 // than a peer status update.
-var humanVerbKinds = []string{"thinking", "milestone", "stuck", "fyi", "ask", "say", "answer"}
+var humanVerbKinds = []string{"thinking", "milestone", "stuck", "fyi", "ask", "say"}
 
 func latestHumanVerbExcerpt(ctx context.Context, db *sql.DB, repoID, itemID string) (string, error) {
 	placeholders := strings.Repeat("?,", len(humanVerbKinds))

@@ -80,10 +80,10 @@ Chat messages: typed verbs, plain say, system notifications.
 | `ts` | INTEGER NOT NULL | unix seconds |
 | `agent_id` | TEXT NOT NULL | who posted (or `system` for system messages) |
 | `thread` | TEXT NOT NULL | item ID, `global`, or other thread label |
-| `kind` | TEXT NOT NULL | `say` \| `thinking` \| `milestone` \| `stuck` \| `fyi` \| `ask` \| `answer` \| `knock` \| `done` \| `handoff` \| ... |
+| `kind` | TEXT NOT NULL | `say` \| `thinking` \| `milestone` \| `stuck` \| `fyi` \| `ask` \| `done` \| `handoff` \| ... (legacy `answer` / `knock` rows may persist; they are no longer produced) |
 | `body` | TEXT | message body |
 | `mentions` | TEXT | comma-joined list of `@agent` mentions (for fast lookup) |
-| `priority` | TEXT NOT NULL DEFAULT 'normal' | `normal` \| `high` (for knocks) |
+| `priority` | TEXT NOT NULL DEFAULT 'normal' | `normal` (only value produced today; legacy `high` rows may persist) |
 
 Indexes:
 - `idx_messages_thread_ts ON messages(thread, ts)` — for tail / history

@@ -106,13 +106,11 @@ function pickDetail(e) {
     case 'untouch':  return e.path || '';
     case 'say':
     case 'chat':
-    case 'knock':
     case 'thinking':
     case 'stuck':
     case 'milestone':
     case 'fyi':
     case 'ask':
-    case 'answer':
     case 'review_req':
                      return e.body || '';
     default:         return e.body || e.detail || '';

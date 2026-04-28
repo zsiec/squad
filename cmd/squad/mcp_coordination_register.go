@@ -14,11 +14,11 @@ import (
 )
 
 // registerCoordinationTools wires the rest of squad's CLI surface into MCP:
-// chat-side coordination (handoff, knock, answer), claim ownership
-// (force-release, reassign), read-only views (history, who, status), file
-// touches (touch, untouch, touches list-others), the chat archive, and the
-// PR integration verbs (pr-link, pr-close). All of these used to require
-// shelling out to the CLI.
+// chat-side coordination (handoff), claim ownership (force-release,
+// reassign), read-only views (history, who, status), file touches (touch,
+// untouch, touches list-others), the chat archive, and the PR integration
+// verbs (pr-link, pr-close). All of these used to require shelling out to
+// the CLI.
 func registerCoordinationTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	srv.Register(mcp.Tool{
 		Name:        "squad_handoff",
@@ -65,60 +65,6 @@ func registerCoordinationTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot str
 				ProposeFromSurprises: args.ProposeFromSurprises,
 				DryRun:               args.DryRun,
 				MaxProposals:         args.MaxProposals,
-			})
-		},
-	})
-
-	srv.Register(mcp.Tool{
-		Name:        "squad_knock",
-		Description: "High-priority directed message that interrupts the recipient's tick.",
-		InputSchema: json.RawMessage(schemaKnock),
-		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
-			var args struct {
-				Target  string `json:"target"`
-				Body    string `json:"body"`
-				AgentID string `json:"agent_id"`
-			}
-			if err := json.Unmarshal(raw, &args); err != nil {
-				return nil, err
-			}
-			if err := requireRepo(repoRoot, repoID); err != nil {
-				return nil, err
-			}
-			agent, err := resolveAgentID(args.AgentID)
-			if err != nil {
-				return nil, err
-			}
-			return Knock(ctx, KnockArgs{
-				Chat: newChatService(db, repoID), AgentID: agent,
-				Target: args.Target, Body: args.Body,
-			})
-		},
-	})
-
-	srv.Register(mcp.Tool{
-		Name:        "squad_answer",
-		Description: "Reply to a previous message by id.",
-		InputSchema: json.RawMessage(schemaAnswer),
-		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
-			var args struct {
-				Ref     int64  `json:"ref"`
-				Body    string `json:"body"`
-				AgentID string `json:"agent_id"`
-			}
-			if err := json.Unmarshal(raw, &args); err != nil {
-				return nil, err
-			}
-			if err := requireRepo(repoRoot, repoID); err != nil {
-				return nil, err
-			}
-			agent, err := resolveAgentID(args.AgentID)
-			if err != nil {
-				return nil, err
-			}
-			return Answer(ctx, AnswerArgs{
-				Chat: newChatService(db, repoID), AgentID: agent,
-				Ref: args.Ref, Body: args.Body,
 			})
 		},
 	})

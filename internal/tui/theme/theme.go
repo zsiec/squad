@@ -35,8 +35,6 @@ var (
 	// Chat kind accents (for the session pane and chat tail views)
 	KindSay       = lipgloss.NewStyle()
 	KindQuestion  = lipgloss.NewStyle().Foreground(Warn)
-	KindAnswer    = lipgloss.NewStyle().Foreground(Success)
-	KindKnock     = lipgloss.NewStyle().Foreground(Danger)
 	KindHandoff   = lipgloss.NewStyle().Foreground(lipgloss.Color("#AF87FF"))
 	KindProgress  = lipgloss.NewStyle().Foreground(Primary)
 	KindMilestone = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF87FF"))

@@ -16,13 +16,13 @@ func TestRunTick_ZeroExitOnEmpty(t *testing.T) {
 	}
 }
 
-func TestRunTick_PrintsKnocks(t *testing.T) {
+func TestRunTick_PrintsMentions(t *testing.T) {
 	f := newChatFixture(t)
 	ctx := context.Background()
 	if err := registerTestAgentInFixture(t, f, "agent-b", "B"); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.chat.Knock(ctx, "agent-b", f.agentID, "open up"); err != nil {
+	if err := f.chat.Ask(ctx, "agent-b", chat.ThreadGlobal, f.agentID, "open up"); err != nil {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
@@ -30,8 +30,8 @@ func TestRunTick_PrintsKnocks(t *testing.T) {
 		t.Fatalf("exit=%d", code)
 	}
 	out := buf.String()
-	if !strings.Contains(strings.ToUpper(out), "KNOCK") {
-		t.Fatalf("expected knock in output, got %q", out)
+	if !strings.Contains(strings.ToUpper(out), "MENTIONS") {
+		t.Fatalf("expected mention section in output, got %q", out)
 	}
 }
 

@@ -18,7 +18,6 @@ type DigestMessage struct {
 type Digest struct {
 	Agent       string
 	NowTS       int64
-	Knocks      []DigestMessage
 	Mentions    []DigestMessage
 	YourThreads []DigestMessage
 	Global      []DigestMessage
@@ -59,8 +58,6 @@ func (c *Chat) Digest(ctx context.Context, agentID string) (Digest, error) {
 	mentionTag := "@" + agentID
 	for _, m := range globalMsgs {
 		switch {
-		case m.Kind == KindKnock && m.Priority == PriorityHigh:
-			dg.Knocks = append(dg.Knocks, m)
 		case m.Kind == KindHandoff:
 			dg.Handoffs = append(dg.Handoffs, m)
 		case strings.Contains(m.Body, mentionTag):

@@ -32,7 +32,7 @@ func (c *Chat) Tick(ctx context.Context, agentID string) (Digest, error) {
 		return err
 	}
 
-	globalAll := append(append([]DigestMessage(nil), dg.Knocks...), dg.Mentions...)
+	globalAll := append([]DigestMessage(nil), dg.Mentions...)
 	globalAll = append(globalAll, dg.Handoffs...)
 	globalAll = append(globalAll, dg.Global...)
 	if err := updateRead(ThreadGlobal, globalAll); err != nil {

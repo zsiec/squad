@@ -536,7 +536,7 @@ func registerInspectionTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot strin
 
 	srv.Register(mcp.Tool{
 		Name:        "squad_standup",
-		Description: "Per-agent activity rollup over a recent window: closed claims, lost claims, current open claim, stuck signals, unanswered asks, active touches.",
+		Description: "Per-agent activity rollup over a recent window: closed claims, lost claims, current open claim, stuck signals, active touches.",
 		InputSchema: json.RawMessage(schemaStandup),
 		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var args struct {

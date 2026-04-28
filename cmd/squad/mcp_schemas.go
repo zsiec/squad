@@ -386,30 +386,6 @@ const schemaHandoff = `{
   "additionalProperties": false
 }`
 
-const schemaKnock = `{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "required": ["target", "body"],
-  "properties": {
-    "target":   {"type": "string", "description": "Target agent id (with or without leading @)."},
-    "body":     {"type": "string", "minLength": 1},
-    "agent_id": {"type": "string"}
-  },
-  "additionalProperties": false
-}`
-
-const schemaAnswer = `{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "required": ["ref", "body"],
-  "properties": {
-    "ref":      {"type": "integer", "minimum": 1, "description": "Message id this is replying to."},
-    "body":     {"type": "string", "minLength": 1},
-    "agent_id": {"type": "string"}
-  },
-  "additionalProperties": false
-}`
-
 const schemaForceRelease = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",

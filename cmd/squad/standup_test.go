@@ -44,12 +44,11 @@ func TestStandup_GathersClosedReclaimedAndOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// One stuck message and one ask, plus an unrelated answer.
+	// One stuck message I posted.
 	if _, err := f.db.Exec(`
 		INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
-		VALUES (?, ?, ?, 'global', 'stuck', 'env mismatch', '[]', 'normal'),
-		       (?, ?, ?, 'FEAT-7', 'ask', 'is the schema settled?', '[]', 'normal')
-	`, f.repoID, hourAgo, f.agentID, f.repoID, hourAgo, f.agentID); err != nil {
+		VALUES (?, ?, ?, 'global', 'stuck', 'env mismatch', '[]', 'normal')
+	`, f.repoID, hourAgo, f.agentID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,35 +82,8 @@ func TestStandup_GathersClosedReclaimedAndOpen(t *testing.T) {
 	if len(r.Stuck) != 1 || r.Stuck[0].Body != "env mismatch" {
 		t.Fatalf("Stuck=%v", r.Stuck)
 	}
-	if len(r.UnansweredAsks) != 1 {
-		t.Fatalf("UnansweredAsks=%v want 1", r.UnansweredAsks)
-	}
 	if len(r.ActiveTouches) != 1 || r.ActiveTouches[0].Path != "cmd/squad/standup.go" {
 		t.Fatalf("ActiveTouches=%v", r.ActiveTouches)
-	}
-}
-
-func TestStandup_AnsweredAskIsExcluded(t *testing.T) {
-	f := newChatFixture(t)
-	ctx := context.Background()
-	now := time.Now().Unix()
-
-	// I post an ask, then someone else answers within the window.
-	if _, err := f.db.Exec(`
-		INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
-		VALUES (?, ?, ?, 'FEAT-1', 'ask', 'when does this ship?', '[]', 'normal'),
-		       (?, ?, 'agent-other', 'FEAT-1', 'answer', 'thursday', '[]', 'normal')
-	`, f.repoID, now-600, f.agentID, f.repoID, now-100); err != nil {
-		t.Fatal(err)
-	}
-
-	bc := &claimContext{db: f.db, agentID: f.agentID, repoID: f.repoID}
-	r, err := buildStandup(ctx, bc, 24*time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(r.UnansweredAsks) != 0 {
-		t.Fatalf("answered ask should not appear in UnansweredAsks: %v", r.UnansweredAsks)
 	}
 }
 
@@ -124,7 +96,7 @@ func TestStandup_EmptyState(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(r.Closed) != 0 || len(r.Reclaimed) != 0 || r.OpenClaim != nil ||
-		len(r.Stuck) != 0 || len(r.UnansweredAsks) != 0 || len(r.ActiveTouches) != 0 {
+		len(r.Stuck) != 0 || len(r.ActiveTouches) != 0 {
 		t.Fatalf("expected all-empty digest, got %+v", r)
 	}
 }

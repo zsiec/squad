@@ -12,7 +12,7 @@ export function initToasts() {
 
 /**
  * toast({ title, body, kind, onClick, ttl })
- *   kind: 'mention' | 'knock' | 'info' | 'ok' | 'warn'
+ *   kind: 'mention' | 'info' | 'ok' | 'warn'
  *   ttl:  ms (default 5000)
  */
 export function toast(opts) {

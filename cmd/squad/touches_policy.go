@@ -65,14 +65,14 @@ func TouchesPolicy(ctx context.Context, args TouchesPolicyArgs) (string, error) 
 	owner := conflicts[0]
 	decision := "ask"
 	msg := fmt.Sprintf(
-		"squad: %s is currently editing %s. Coordinate via squad knock @%s before editing.",
+		"squad: %s is currently editing %s. Coordinate via squad ask @%s before editing.",
 		owner, args.Path, owner,
 	)
 	if args.Cfg.Enforcement == config.TouchEnforcementDeny &&
 		config.AnyGlobMatches(args.Cfg.EnforcementPaths, args.Path) {
 		decision = "deny"
 		msg = fmt.Sprintf(
-			"squad: blocked - %s is editing %s and the touch policy denies concurrent edits on this path. Run squad knock @%s first.",
+			"squad: blocked - %s is editing %s and the touch policy denies concurrent edits on this path. Run squad ask @%s first.",
 			owner, args.Path, owner,
 		)
 	}

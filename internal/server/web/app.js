@@ -261,8 +261,7 @@ function connectSSE() {
     onEvent(d.payload, kind);
     if (d.payload.item_id) recordActivityTs(d.payload.item_id, d.payload.ts || Math.floor(Date.now() / 1000));
     if (d.payload.thread && d.payload.thread !== 'global') recordActivityTs(d.payload.thread, d.payload.ts || Math.floor(Date.now() / 1000));
-    if (kind === 'knock') toastKnock(d.payload);
-    else                  toastMessage(d.payload);
+    toastMessage(d.payload);
   });
 }
 
@@ -297,15 +296,6 @@ function toastMessage(p) {
     },
   });
 }
-function toastKnock(p) {
-  toast({
-    kind: 'knock',
-    title: `KNOCK from ${p.agent_id}`,
-    body: p.body,
-    ttl: 15000,
-  });
-}
-
 let threadRefreshTimer = null;
 function populateThreadsSoon() {
   clearTimeout(threadRefreshTimer);

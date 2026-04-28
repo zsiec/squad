@@ -23,23 +23,3 @@ func TestAsk_StoresAskKindAndForcesMention(t *testing.T) {
 		t.Fatalf("mentions=%q", mentions)
 	}
 }
-
-func TestAnswer_PrependsReRef(t *testing.T) {
-	c, db := newTestChat(t)
-	ctx := context.Background()
-
-	if err := c.Post(ctx, PostRequest{
-		AgentID: "agent-a", Thread: ThreadGlobal, Kind: KindAsk, Body: "first",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.Answer(ctx, "agent-a", 1, "my reply"); err != nil {
-		t.Fatal(err)
-	}
-
-	var body string
-	_ = db.QueryRow(`SELECT body FROM messages WHERE kind='answer'`).Scan(&body)
-	if !strings.HasPrefix(body, "re:1 ") {
-		t.Fatalf("body=%q", body)
-	}
-}

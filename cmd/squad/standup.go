@@ -34,15 +34,14 @@ func Standup(ctx context.Context, args StandupArgs) (*StandupResult, error) {
 }
 
 type standupReport struct {
-	Agent          string                `json:"agent"`
-	Repo           string                `json:"repo"`
-	WindowSeconds  int64                 `json:"window_seconds"`
-	Closed         []standupClaimEvent   `json:"closed"`
-	Reclaimed      []standupClaimEvent   `json:"reclaimed"`
-	OpenClaim      *standupOpenClaim     `json:"open_claim,omitempty"`
-	Stuck          []standupMessage      `json:"stuck"`
-	UnansweredAsks []standupMessage      `json:"unanswered_asks"`
-	ActiveTouches  []standupTouchSummary `json:"active_touches"`
+	Agent         string                `json:"agent"`
+	Repo          string                `json:"repo"`
+	WindowSeconds int64                 `json:"window_seconds"`
+	Closed        []standupClaimEvent   `json:"closed"`
+	Reclaimed     []standupClaimEvent   `json:"reclaimed"`
+	OpenClaim     *standupOpenClaim     `json:"open_claim,omitempty"`
+	Stuck         []standupMessage      `json:"stuck"`
+	ActiveTouches []standupTouchSummary `json:"active_touches"`
 }
 
 type standupClaimEvent struct {
@@ -150,15 +149,6 @@ func buildStandupFor(ctx context.Context, db *sql.DB, repoID, agentID string, wi
 	}
 	r.Stuck = stuck
 
-	// Asks I posted that haven't been answered. Heuristic: my ask body
-	// names a thread; we count it unanswered if there is no later
-	// kind='answer' on the same thread by anyone in the window.
-	asks, err := queryUnansweredAsks(ctx, db, repoID, agentID, cutoff)
-	if err != nil {
-		return nil, err
-	}
-	r.UnansweredAsks = asks
-
 	// Active touches I hold.
 	touches, err := queryActiveTouches(ctx, db, repoID, agentID)
 	if err != nil {
@@ -259,46 +249,6 @@ func queryMyMessages(ctx context.Context, db *sql.DB, repoID, agentID, kind stri
 	return out, nil
 }
 
-func queryUnansweredAsks(ctx context.Context, db *sql.DB, repoID, agentID string, cutoff int64) ([]standupMessage, error) {
-	// Find every ask I posted in the window, then exclude those whose
-	// thread saw an 'answer' kind from anyone afterwards.
-	rows, err := db.QueryContext(ctx, `
-		SELECT id, ts, thread, COALESCE(body,'')
-		FROM messages WHERE repo_id = ? AND agent_id = ? AND kind = 'ask' AND ts >= ?
-		ORDER BY ts
-	`, repoID, agentID, cutoff)
-	if err != nil {
-		return nil, err
-	}
-	asks := []standupMessage{}
-	for rows.Next() {
-		var m standupMessage
-		if err := rows.Scan(&m.ID, &m.TS, &m.Thread, &m.Body); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		asks = append(asks, m)
-	}
-	rows.Close()
-	if len(asks) == 0 {
-		return nil, nil
-	}
-	out := make([]standupMessage, 0, len(asks))
-	for _, a := range asks {
-		var n int
-		if err := db.QueryRowContext(ctx, `
-			SELECT COUNT(*) FROM messages
-			WHERE repo_id = ? AND thread = ? AND kind = 'answer' AND ts > ?
-		`, repoID, a.Thread, a.TS).Scan(&n); err != nil {
-			return nil, err
-		}
-		if n == 0 {
-			out = append(out, a)
-		}
-	}
-	return out, nil
-}
-
 func queryActiveTouches(ctx context.Context, db *sql.DB, repoID, agentID string) ([]standupTouchSummary, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT path, COALESCE(item_id,''), started_at FROM touches
@@ -348,12 +298,6 @@ func renderStandup(w io.Writer, r *standupReport) {
 			fmt.Fprintf(w, "  - #%s  %s\n", m.Thread, trim(m.Body, 80))
 		}
 	}
-	if len(r.UnansweredAsks) > 0 {
-		fmt.Fprintf(w, "\nunanswered asks (%d):\n", len(r.UnansweredAsks))
-		for _, m := range r.UnansweredAsks {
-			fmt.Fprintf(w, "  - #%s  %s\n", m.Thread, trim(m.Body, 80))
-		}
-	}
 	if len(r.ActiveTouches) > 0 {
 		fmt.Fprintf(w, "\nactive touches (%d):\n", len(r.ActiveTouches))
 		for _, t := range r.ActiveTouches {
@@ -361,7 +305,7 @@ func renderStandup(w io.Writer, r *standupReport) {
 		}
 	}
 	if len(r.Closed) == 0 && len(r.Reclaimed) == 0 && r.OpenClaim == nil &&
-		len(r.Stuck) == 0 && len(r.UnansweredAsks) == 0 && len(r.ActiveTouches) == 0 {
+		len(r.Stuck) == 0 && len(r.ActiveTouches) == 0 {
 		fmt.Fprintln(w, "nothing to report.")
 	}
 }
