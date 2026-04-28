@@ -79,6 +79,10 @@ export function setFilter(partial) {
 }
 export function currentFilter() { return filter; }
 
+// dataTransfer.types is read-restricted during dragenter/dragover in
+// some browsers; a same-tab flag is a deterministic gate.
+let dragSourceItemId = null;
+
 function renderBoard() {
   const { items, claims } = cached;
   const claimByItem = new Map(claims.map((c) => [c.item_id, c]));
@@ -209,10 +213,12 @@ function itemRow(it, claimByItem, showRepo = false) {
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', it.id);
       e.dataTransfer.setData('application/x-squad-item', it.id);
+      dragSourceItemId = it.id;
       tr.classList.add('dragging');
       document.body.classList.add('dnd-item-active');
     });
     tr.addEventListener('dragend', () => {
+      dragSourceItemId = null;
       tr.classList.remove('dragging');
       document.body.classList.remove('dnd-item-active');
       agentsList.querySelectorAll('.agent-row[data-drop-target]').forEach((el) => {
@@ -353,36 +359,42 @@ function renderAgents() {
   }
 }
 
-function wireIdleDrop(li, agentId, prettyName) {
+export function wireIdleDrop(li, agentId, prettyName) {
   li.addEventListener('dragenter', (e) => {
-    if (!isItemDrag(e)) return;
+    if (!isItemDrag()) return;
     e.preventDefault();
     li.dataset.dropTarget = 'true';
   });
   li.addEventListener('dragover', (e) => {
-    if (!isItemDrag(e)) return;
+    if (!isItemDrag()) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   });
+  // relatedTarget+contains distinguishes a real exit from a hop into
+  // a descendant; a bare target check flickers the affordance.
   li.addEventListener('dragleave', (e) => {
-    if (e.target !== li) return;
+    if (!isItemDrag()) return;
+    if (e.relatedTarget && li.contains(e.relatedTarget)) return;
     li.removeAttribute('data-drop-target');
   });
   li.addEventListener('drop', (e) => {
-    if (!isItemDrag(e)) return;
+    if (!isItemDrag()) return;
     e.preventDefault();
     li.removeAttribute('data-drop-target');
-    const itemId = e.dataTransfer.getData('application/x-squad-item') ||
+    const itemId = dragSourceItemId ||
+                   e.dataTransfer.getData('application/x-squad-item') ||
                    e.dataTransfer.getData('text/plain');
     if (!itemId) return;
     assignItemToAgent(itemId, agentId, prettyName);
   });
 }
 
-function isItemDrag(e) {
-  const dt = e.dataTransfer;
-  if (!dt) return false;
-  return Array.from(dt.types || []).includes('application/x-squad-item');
+function isItemDrag() {
+  return dragSourceItemId !== null;
+}
+
+export function notifyDragStartForTest(itemId) {
+  dragSourceItemId = itemId;
 }
 
 async function assignItemToAgent(itemId, agentId, agentName) {
