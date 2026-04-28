@@ -109,14 +109,14 @@ function renderList() {
       ${ls.map(rowHtml).join('')}
     </div>`).join('');
   list.querySelectorAll('.learning-row').forEach((row) => {
-    row.addEventListener('click', () => openDetail(row.dataset.slug));
+    row.addEventListener('click', () => openDetail(row.dataset.slug, row.dataset.repoId));
   });
 }
 
 function rowHtml(l) {
   const icon = KIND_ICONS[l.kind] || '·';
   return `
-    <div class="learning-row" data-slug="${escapeHtml(l.slug)}">
+    <div class="learning-row" data-slug="${escapeHtml(l.slug)}" data-repo-id="${escapeHtml(l.repo_id || '')}">
       <span class="learning-icon" title="${escapeHtml(l.kind)}">${icon}</span>
       <span class="learning-slug">${escapeHtml(l.slug)}</span>
       <span class="learning-title">${escapeHtml(l.title || '')}</span>
@@ -124,12 +124,14 @@ function rowHtml(l) {
     </div>`;
 }
 
-async function openDetail(slug) {
+async function openDetail(slug, repoID) {
   const detail = modalEl.querySelector('#learnings-detail');
   detail.hidden = false;
   detail.innerHTML = '<div class="nav-loading">loading…</div>';
   try {
-    const l = await fetchJSON('/api/learnings/' + encodeURIComponent(slug));
+    const url = '/api/learnings/' + encodeURIComponent(slug) +
+      (repoID ? '?repo_id=' + encodeURIComponent(repoID) : '');
+    const l = await fetchJSON(url);
     detail.innerHTML = `
       <div class="learning-detail-head">
         <span class="learning-detail-title">${escapeHtml(l.title || l.slug)}</span>

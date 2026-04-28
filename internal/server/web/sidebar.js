@@ -56,7 +56,7 @@ async function renderSpecs() {
 
 function specRow(s) {
   return `
-    <details class="nav-spec" data-name="${escapeHtml(s.name)}">
+    <details class="nav-spec" data-name="${escapeHtml(s.name)}" data-repo-id="${escapeHtml(s.repo_id || '')}">
       <summary>
         <span class="nav-caret">▸</span>
         <span class="nav-spec-name">${escapeHtml(s.name)}</span>
@@ -68,6 +68,7 @@ function specRow(s) {
 
 function wireSpec(row) {
   const name = row.dataset.name;
+  const repoID = row.dataset.repoId || '';
   const epicsHost = row.querySelector('.nav-epics');
   row.addEventListener('toggle', async () => {
     if (!row.open) return;
@@ -89,7 +90,7 @@ function wireSpec(row) {
   row.querySelector('.nav-spec-view')?.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    await openSpecDetail(name);
+    await openSpecDetail(name, repoID);
   });
 }
 
@@ -139,11 +140,13 @@ function itemRow(it) {
     </div>`;
 }
 
-async function openSpecDetail(name) {
+async function openSpecDetail(name, repoID) {
   detailEl.hidden = false;
   detailEl.innerHTML = '<div class="nav-loading">loading…</div>';
   try {
-    const sp = await fetchJSON('/api/specs/' + encodeURIComponent(name));
+    const url = '/api/specs/' + encodeURIComponent(name) +
+      (repoID ? '?repo_id=' + encodeURIComponent(repoID) : '');
+    const sp = await fetchJSON(url);
     detailEl.innerHTML = `
       <div class="nav-detail-head">
         <span class="nav-detail-title">${escapeHtml(sp.title || sp.name)}</span>
