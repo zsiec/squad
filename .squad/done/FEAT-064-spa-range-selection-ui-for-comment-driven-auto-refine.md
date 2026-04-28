@@ -4,7 +4,7 @@ title: spa range-selection ui for comment-driven auto-refine
 type: feature
 priority: P1
 area: spa
-status: open
+status: done
 estimate: 4h
 risk: low
 evidence_required: [test]

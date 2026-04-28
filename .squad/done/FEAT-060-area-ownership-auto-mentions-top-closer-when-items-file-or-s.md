@@ -4,7 +4,7 @@ title: area ownership auto-mentions top closer when items file or scope splits
 type: feature
 priority: P3
 area: chat
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

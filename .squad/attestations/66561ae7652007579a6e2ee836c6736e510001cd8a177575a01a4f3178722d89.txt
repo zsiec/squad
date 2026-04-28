@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/server	0.307s [no tests to run]

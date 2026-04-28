@@ -4,7 +4,7 @@ title: decide fate of legacy peer-queue refine flow once claude flow ships
 type: feature
 priority: P3
 area: server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

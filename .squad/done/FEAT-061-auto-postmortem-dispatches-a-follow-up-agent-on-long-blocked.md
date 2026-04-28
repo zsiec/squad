@@ -4,7 +4,7 @@ title: auto-postmortem fires when a claim ends without durable learning artifact
 type: feature
 priority: P3
 area: learning
-status: open
+status: done
 estimate: 4h
 risk: low
 evidence_required: [test]
