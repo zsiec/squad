@@ -1,5 +1,5 @@
 ---
-id: CHORE-017
+id: CHORE-018
 title: get api items should accept repo_id filter for parity with post
 type: chore
 priority: P3
