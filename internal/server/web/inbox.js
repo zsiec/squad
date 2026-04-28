@@ -273,7 +273,12 @@ async function runAutoRefine(id) {
 
 function autoRefineToastForStatus(status, payload) {
   const errMsg = (payload && payload.error) || 'unknown error';
+  const stdout = (payload && payload.stdout) || '';
   const stderr = (payload && payload.stderr) || '';
+  // claude -p writes most diagnostics — auth failures, MCP init errors,
+  // tool denials — to stdout; stderr is rare. Prefer stdout so the
+  // operator sees the actual failure text instead of "exit status 1".
+  const diag = (stdout || stderr).slice(0, 240);
   switch (status) {
     case 503:
       toast({ kind: 'error', title: 'Claude CLI not found', body: errMsg });
@@ -282,10 +287,10 @@ function autoRefineToastForStatus(status, payload) {
       toast({ kind: 'error', title: 'Auto-refine timed out', body: errMsg });
       return;
     case 502:
-      toast({ kind: 'error', title: 'Claude failed', body: stderr ? stderr.slice(0, 240) : errMsg });
+      toast({ kind: 'error', title: 'Claude failed', body: diag || errMsg });
       return;
     case 500:
-      toast({ kind: 'error', title: 'Claude exited without drafting', body: errMsg });
+      toast({ kind: 'error', title: 'Claude exited without drafting', body: diag || errMsg });
       return;
     case 409:
       if (errMsg.includes('already in flight')) {
