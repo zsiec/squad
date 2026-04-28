@@ -4,12 +4,12 @@ title: extend workspace mode to mutation routes (auto-refine, recapture, claim, 
 type: bug
 priority: P1
 area: internal/server
-status: captured
+status: done
 estimate: 2h
 risk: medium
 evidence_required: [test]
 created: 2026-04-27
-updated: 2026-04-27
+updated: "2026-04-28"
 captured_by: agent-401f
 captured_at: 1777332416
 accepted_by: ""

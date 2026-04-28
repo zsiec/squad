@@ -1,0 +1,42 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — BUG-045
+
+## Verdict: clean
+
+`ReadRemoteURL` now routes through `gitConfigPath`, which handles
+the worktree `.git`-as-file shape: parses the `gitdir: <path>`
+pointer, follows the modern `commondir` marker if present, falls
+back to the standard `<main-git>/worktrees/<name>` layout (two
+levels up from gitdir) when absent. Non-git dirs and regular
+checkouts continue to work unchanged.
+
+## Disprove-loop verification (reviewer)
+
+- RED-then-GREEN verified empirically. Stashed the diff, ran the
+  worktree tests against pre-fix code: both new tests failed with
+  the exact `not a directory` message the bug report named.
+  Restored, both pass.
+- Edge cases probed: trailing newline / no newline / CRLF / tab
+  after gitdir: / extra spaces, absolute commondir, relative
+  gitdir, `.git` symlink to a regular file, garbage in `.git`
+  pointer. All parse or fall through to the existing graceful
+  paths.
+
+## Suggestions (non-blocking, not applied)
+
+- Strict `HasPrefix("gitdir:")` check on the `.git` file body so a
+  malformed pointer errors loudly instead of falling through to
+  the eventual `ErrNotExist` swallow. Both real callers
+  (`cmd/squad/register.go:120` and `internal/repo/register.go:15`)
+  already treat error and empty as non-fatal, and a non-git tool
+  writing a `.git` file is essentially never going to happen in
+  the wild. Skipped for minimum scope.
+
+## Findings
+
+None blocking.

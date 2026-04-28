@@ -1,0 +1,54 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — BUG-041 (final)
+
+## Verdict: clean
+
+The fix threads `worktreeDefault()` through `ensureClaim` by replacing
+the direct `bc.store.Claim(...)` call with the higher-level `Claim()`
+wrapper that `squad claim` already uses. RED-then-GREEN test pair
+covers both the default-on path (worktree provisioned) and the
+override path (config off → no worktree). Pre-existing `TestGoCmd_*`
+fixtures bumped from `gitInitDir` → `gitInitDirCommittedMain` because
+worktree-per-claim now applies on the recommended `squad go` flow,
+matching the pre-existing helper docstring rule.
+
+## Disprove-loop verification
+
+1. RED test verified empirically — reverted `cmd/squad/go.go` to the
+   pre-fix shape, ran `TestGoCmd_HonorsDefaultWorktreePerClaim`,
+   observed the exact assertion failure the test names. Restored,
+   re-ran, green.
+2. Bulk `gitInitDir → gitInitDirCommittedMain` replace inspected
+   per-test; only test files that drive `squad go` to a claim path
+   were affected. `init_run_test.go` (which legitimately needs
+   unborn-main scaffolding) was not touched.
+3. Config-flip in test #2 disambiguates the comment occurrence from
+   the key by leading two-space indent. Confirmed against
+   `internal/scaffold/templates/config.yaml.tmpl`.
+4. Error-handling parity with `squad claim`: preflight failures,
+   worktree-provision failures, and concurrency-cap errors propagate
+   via `return err`, which is correct for `squad go`.
+
+## Suggestions applied
+
+- **S1 — dead `*ClaimHeldError` branch.** `ClaimHeldError.Unwrap()`
+  returns `claims.ErrClaimTaken`, so `errors.Is(err,
+  claims.ErrClaimTaken)` already matches a `*ClaimHeldError`. The
+  redundant `errors.As` block was dropped.
+- **S2 — worktree-path output UX parity.** `runGo` now calls
+  `printWorktreeNudge(errOut, res.WorktreePath)` (the same helper
+  `squad claim` uses), surfacing the path on stderr with the same
+  phrasing and respecting `SQUAD_NO_CADENCE_NUDGES`. `ensureClaim`
+  signature gained an `errOut io.Writer` arg; only one call site,
+  threaded from `runGo`.
+
+Both changes are stylistic; behavior parity now full.
+
+## Findings
+
+None blocking.

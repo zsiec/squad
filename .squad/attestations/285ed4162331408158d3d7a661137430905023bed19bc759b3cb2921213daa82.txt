@@ -1,0 +1,1 @@
+ok  	github.com/zsiec/squad/internal/tui/daemon	0.392s

@@ -4,7 +4,7 @@ title: squad serve daemon should default to workspace mode (enumerate repos via 
 type: bug
 priority: P2
 area: cmd/squad
-status: open
+status: done
 estimate: 4h
 risk: medium
 evidence_required: [test]
