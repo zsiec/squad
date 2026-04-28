@@ -33,9 +33,14 @@ func (s *Server) handleItemDone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	doneDir := filepath.Join(s.cfg.SquadDir, "done")
+	repoID, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	doneDir := filepath.Join(squadDir, "done")
 
-	itemPath := findItemPathFor(s.cfg.SquadDir, id)
+	itemPath := findItemPathFor(squadDir, id)
 	if itemPath == "" {
 		writeErr(w, http.StatusNotFound, "no item file for "+id)
 		return
@@ -48,7 +53,7 @@ func (s *Server) handleItemDone(w http.ResponseWriter, r *http.Request) {
 
 	required := requiredAttestKinds(parsed.EvidenceRequired)
 	if len(required) > 0 {
-		L := attest.New(s.db, s.cfg.RepoID, nil)
+		L := attest.New(s.db, repoID, nil)
 		missing, mErr := L.MissingKinds(r.Context(), id, required)
 		if mErr != nil {
 			writeErr(w, http.StatusInternalServerError, mErr.Error())
@@ -68,13 +73,13 @@ func (s *Server) handleItemDone(w http.ResponseWriter, r *http.Request) {
 	var claimedAt int64
 	_ = s.db.QueryRowContext(r.Context(),
 		`SELECT claimed_at FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
-		s.cfg.RepoID, id, agent).Scan(&claimedAt)
+		repoID, id, agent).Scan(&claimedAt)
 	var repoRoot string
 	_ = s.db.QueryRowContext(r.Context(),
 		`SELECT COALESCE(root_path, '') FROM repos WHERE id=?`,
-		s.cfg.RepoID).Scan(&repoRoot)
+		repoID).Scan(&repoRoot)
 
-	store := claims.New(s.db, s.cfg.RepoID, nil)
+	store := claims.New(s.db, repoID, nil)
 	derr := store.Done(r.Context(), id, agent, claims.DoneOpts{
 		Summary:  req.Summary,
 		ItemPath: itemPath,
@@ -83,7 +88,7 @@ func (s *Server) handleItemDone(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case derr == nil:
 		if repoRoot != "" && claimedAt > 0 {
-			_, _ = commitlog.RecordSinceClaim(r.Context(), s.db, s.cfg.RepoID, repoRoot, id, agent, claimedAt)
+			_, _ = commitlog.RecordSinceClaim(r.Context(), s.db, repoID, repoRoot, id, agent, claimedAt)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	case errors.Is(derr, claims.ErrNotClaimed):

@@ -16,6 +16,11 @@ type PostRequest struct {
 	Body     string
 	Mentions []string
 	Priority string
+	// RepoID overrides the Chat's stored repoID for this single insert.
+	// Empty falls back to the Chat's default. The dashboard daemon in
+	// workspace mode (cfg.RepoID == "") uses this so per-repo activity
+	// feeds remain meaningful when the SPA posts to an item thread.
+	RepoID string
 }
 
 // MaxPostBodyBytes caps stored message bodies. Mirrors the server-side cap
@@ -50,13 +55,17 @@ func (c *Chat) Post(ctx context.Context, req PostRequest) error {
 		return err
 	}
 
+	repoID := c.repoID
+	if req.RepoID != "" {
+		repoID = req.RepoID
+	}
 	now := c.nowUnix()
 	var id int64
 	err = store.WithTxRetry(ctx, c.db, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx, `
 			INSERT INTO messages (repo_id, ts, agent_id, thread, kind, body, mentions, priority)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, c.repoID, now, req.AgentID, req.Thread, req.Kind, req.Body, string(mjson), req.Priority)
+		`, repoID, now, req.AgentID, req.Thread, req.Kind, req.Body, string(mjson), req.Priority)
 		if err != nil {
 			return err
 		}

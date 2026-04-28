@@ -127,7 +127,12 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 	}
 	defer s.releaseAutoRefineSlot(id)
 
-	path, _, err := items.FindByID(s.cfg.SquadDir, id)
+	_, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	path, _, err := items.FindByID(squadDir, id)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "item not found")
 		return

@@ -32,7 +32,12 @@ func (s *Server) handleItemForceRelease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	store := claims.New(s.db, s.cfg.RepoID, nil)
+	repoID, _, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	store := claims.New(s.db, repoID, nil)
 	prior, err := store.ForceRelease(r.Context(), id, agent, req.Reason)
 	switch {
 	case err == nil:

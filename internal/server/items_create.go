@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/zsiec/squad/internal/config"
@@ -48,7 +47,11 @@ func (s *Server) handleItemsCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		prefix = strings.ToUpper(typ)
 	}
-	repoRoot := s.cfg.LearningsRoot
+	repoID, squadDir, repoRoot, statusCode, rerr := s.resolveCreateRepo(r.Context(), r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
 	cfg, err := config.Load(repoRoot)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "load config: "+err.Error())
@@ -63,10 +66,6 @@ func (s *Server) handleItemsCreate(w http.ResponseWriter, r *http.Request) {
 	capturedBy := body.CapturedBy
 	if capturedBy == "" {
 		capturedBy = "web"
-	}
-	squadDir := s.cfg.SquadDir
-	if squadDir == "" || squadDir == ".squad" {
-		squadDir = filepath.Join(repoRoot, ".squad")
 	}
 	path, err := items.NewWithOptions(squadDir, prefix, body.Title, items.Options{
 		Priority:   nonEmpty(body.Priority, cfg.Defaults.Priority),
@@ -85,7 +84,7 @@ func (s *Server) handleItemsCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "parse: "+err.Error())
 		return
 	}
-	if err := items.Persist(r.Context(), s.db, s.cfg.RepoID, parsed, false); err != nil {
+	if err := items.Persist(r.Context(), s.db, repoID, parsed, false); err != nil {
 		writeErr(w, http.StatusInternalServerError, "persist: "+err.Error())
 		return
 	}

@@ -30,9 +30,14 @@ func (s *Server) handleItemClaim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	store := claims.New(s.db, s.cfg.RepoID, nil)
-	itemsDir := filepath.Join(s.cfg.SquadDir, "items")
-	doneDir := filepath.Join(s.cfg.SquadDir, "done")
+	repoID, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	store := claims.New(s.db, repoID, nil)
+	itemsDir := filepath.Join(squadDir, "items")
+	doneDir := filepath.Join(squadDir, "done")
 	err := store.Claim(r.Context(), id, agent, req.Intent, req.Touches, req.Long,
 		claims.ClaimWithPreflight(itemsDir, doneDir))
 	switch {

@@ -32,8 +32,13 @@ func (s *Server) handleItemBlocked(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemPath := findItemPathFor(s.cfg.SquadDir, id)
-	store := claims.New(s.db, s.cfg.RepoID, nil)
+	repoID, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	itemPath := findItemPathFor(squadDir, id)
+	store := claims.New(s.db, repoID, nil)
 	err := store.Blocked(r.Context(), id, agent, claims.BlockedOpts{
 		Reason:   req.Reason,
 		ItemPath: itemPath,

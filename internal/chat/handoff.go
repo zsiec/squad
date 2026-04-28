@@ -41,6 +41,14 @@ func (h HandoffBody) Summary() string {
 }
 
 func (c *Chat) PostHandoff(ctx context.Context, agentID string, h HandoffBody) error {
+	return c.PostHandoffForRepo(ctx, agentID, "", h)
+}
+
+// PostHandoffForRepo writes the handoff message tagged with the supplied
+// repoID; pass "" to fall back to the Chat's default. The dashboard
+// daemon in workspace mode resolves the relevant repo per-request and
+// passes it here so per-repo activity feeds reflect the handoff.
+func (c *Chat) PostHandoffForRepo(ctx context.Context, agentID, repoID string, h HandoffBody) error {
 	if h.Empty() {
 		return fmt.Errorf("handoff body is empty (need shipped / in-flight / surprised-by / unblocks / note)")
 	}
@@ -53,6 +61,7 @@ func (c *Chat) PostHandoff(ctx context.Context, agentID string, h HandoffBody) e
 		Thread:  ThreadGlobal,
 		Kind:    KindHandoff,
 		Body:    string(payload),
+		RepoID:  repoID,
 	}); err != nil {
 		return err
 	}

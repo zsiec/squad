@@ -35,6 +35,11 @@ func (s *Server) handleItemHandoff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	repoID, _, statusCode, resErr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if resErr != nil {
+		writeResolveErr(w, statusCode, resErr)
+		return
+	}
 	hb := chat.HandoffBody{
 		InFlight: []string{id},
 		Note:     req.Summary,
@@ -45,11 +50,11 @@ func (s *Server) handleItemHandoff(w http.ResponseWriter, r *http.Request) {
 	// Post the handoff message first; it is the user-visible signal.
 	// A failure to reassign (e.g. claim already released) does not
 	// invalidate the post.
-	if perr := s.chat.PostHandoff(r.Context(), agent, hb); perr != nil {
+	if perr := s.chat.PostHandoffForRepo(r.Context(), agent, repoID, hb); perr != nil {
 		writeErr(w, http.StatusInternalServerError, perr.Error())
 		return
 	}
-	store := claims.New(s.db, s.cfg.RepoID, nil)
+	store := claims.New(s.db, repoID, nil)
 	rerr := store.Reassign(r.Context(), id, agent, to)
 	switch {
 	case rerr == nil, errors.Is(rerr, claims.ErrNotClaimed), errors.Is(rerr, claims.ErrNotYours):

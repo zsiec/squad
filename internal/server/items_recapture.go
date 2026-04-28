@@ -19,7 +19,12 @@ func (s *Server) handleItemsRecapture(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := items.Recapture(r.Context(), s.db, s.cfg.RepoID, id, agent)
+	repoID, _, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	err := items.Recapture(r.Context(), s.db, repoID, id, agent)
 	switch {
 	case err == nil:
 		s.publishInboxChanged(id, "recapture")

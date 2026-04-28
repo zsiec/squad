@@ -30,7 +30,12 @@ func (s *Server) handleItemRelease(w http.ResponseWriter, r *http.Request) {
 		req.Outcome = "released"
 	}
 
-	store := claims.New(s.db, s.cfg.RepoID, nil)
+	repoID, _, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	store := claims.New(s.db, repoID, nil)
 	err := store.Release(r.Context(), id, agent, req.Outcome)
 	switch {
 	case err == nil:

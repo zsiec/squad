@@ -152,12 +152,25 @@ func (s *Server) handleMessagesPost(w http.ResponseWriter, r *http.Request) {
 	if mentions == nil {
 		mentions = chat.ParseMentions(req.Body)
 	}
+	// Workspace mode: tag the message with the right repo so per-repo
+	// activity feeds reflect the post. For item threads we resolve via
+	// the items table; for the global thread we honor an explicit
+	// ?repo_id= and otherwise fall back to "" (which the chat layer
+	// turns into the daemon's default — empty in workspace mode).
+	repoOverride := r.URL.Query().Get("repo_id")
+	if s.cfg.RepoID == "" && req.Thread != "global" {
+		resolved, _, _, rerr := s.resolveItemRepo(r.Context(), req.Thread, repoOverride)
+		if rerr == nil {
+			repoOverride = resolved
+		}
+	}
 	if err := s.chat.Post(r.Context(), chat.PostRequest{
 		AgentID:  agent,
 		Thread:   req.Thread,
 		Kind:     req.Kind,
 		Body:     req.Body,
 		Mentions: mentions,
+		RepoID:   repoOverride,
 	}); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

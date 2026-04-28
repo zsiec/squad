@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/zsiec/squad/internal/items"
@@ -32,11 +31,12 @@ func (s *Server) handleItemsReject(w http.ResponseWriter, r *http.Request) {
 	if by == "" {
 		by = "web"
 	}
-	squadDir := s.cfg.SquadDir
-	if squadDir == "" || squadDir == ".squad" {
-		squadDir = filepath.Join(s.cfg.LearningsRoot, ".squad")
+	repoID, squadDir, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
 	}
-	err := items.Reject(r.Context(), s.db, s.cfg.RepoID, id, body.Reason, by, squadDir)
+	err := items.Reject(r.Context(), s.db, repoID, id, body.Reason, by, squadDir)
 	if errors.Is(err, items.ErrItemClaimed) {
 		writeErr(w, http.StatusConflict, err.Error())
 		return

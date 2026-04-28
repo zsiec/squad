@@ -27,7 +27,12 @@ func (s *Server) handleItemsAccept(w http.ResponseWriter, r *http.Request) {
 	if by == "" {
 		by = "web"
 	}
-	err := items.Promote(r.Context(), s.db, s.cfg.RepoID, id, by)
+	repoID, _, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	err := items.Promote(r.Context(), s.db, repoID, id, by)
 	if err == nil {
 		s.publishInboxChanged(id, "accepted")
 		w.WriteHeader(http.StatusNoContent)

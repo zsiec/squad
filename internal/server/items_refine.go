@@ -23,7 +23,12 @@ func (s *Server) handleItemsRefine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := items.Refine(r.Context(), s.db, s.cfg.RepoID, id, body.Comments)
+	repoID, _, statusCode, rerr := s.resolveItemRepo(r.Context(), id, r.URL.Query().Get("repo_id"))
+	if rerr != nil {
+		writeResolveErr(w, statusCode, rerr)
+		return
+	}
+	err := items.Refine(r.Context(), s.db, repoID, id, body.Comments)
 	switch {
 	case err == nil:
 		s.publishInboxChanged(id, "refine")
