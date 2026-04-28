@@ -55,24 +55,30 @@ right detection criterion is *artifact presence*, not duration.
       item-file path. The trigger is the close-out event, not a
       duration threshold.
 - [ ] Detector returns "skip dispatch" when ANY of the following
-      were authored by the claimant during the claim window
-      (`claimed_at` → `released_at`):
+      exist in the claim window (`claimed_at` → `released_at`).
+      Authorship is intentionally ignored: the question is whether
+      the durable record exists, not who wrote it. A peer's analysis
+      captures the lesson just as well as the claimant's would.
       a) any new `## Premise audit`, `## Session log`,
          `## Blocker`, or `## Resolution` section appended to the
          item file (or any non-trivial body addition under an
          existing `## Notes`);
       b) any learning artifact created via `squad learning propose`
          (regardless of approval state);
-      c) ≥`postmortem.min_chat_messages` chat posts by the claimant
-         on the item thread with body length ≥
-         `postmortem.min_chat_chars` (defaults: 2 messages, 50 chars).
+      c) ≥`postmortem.min_chat_messages` chat posts on the item
+         thread with body length ≥ `postmortem.min_chat_chars`
+         (defaults: 2 messages, 50 chars).
+      d) a previously-filed postmortem artifact named
+         `<itemID>-postmortem-*.md` already exists under
+         `.squad/learnings/` — reruns are idempotent.
 - [ ] When the detector returns "dispatch", the system spawns a
       follow-up subagent under a `superpowers:postmortem` role with
       three inputs: the item file path, the full chat thread for the
       item, and the git diff (if any) of the claim window. The agent
       writes a `dead-end` learning artifact in the propose state —
-      auto-slugged from the item title + ISO timestamp — following
-      the standard structure (hypotheses tried, ruled-out causes,
+      auto-slugged as `<itemID>-postmortem-<YYYYMMDD-HHMMSS>` (item
+      ID over title for stability across renames) — following the
+      standard structure (hypotheses tried, ruled-out causes,
       evidence collected, what to do differently).
 - [ ] Configurable in `.squad/config.yaml` under `postmortem:`:
       `enabled: bool` (default true), `min_chat_messages: int`
