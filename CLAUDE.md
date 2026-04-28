@@ -149,6 +149,10 @@ squad claim <ID> --intent "one sentence" [--touches path1,path2]
 
 `claim` exit 1 means already claimed — pick another. The DB is the live lock.
 
+### Worktree workflow
+
+When `squad claim` provisions a per-claim worktree (default per `agent.default_worktree_per_claim`), `cd` into it and stay there for code edits, tests, and commits. The worktree's own branch keeps your `git status` clean from peer agents working in shared territory — the alternative is repeated staging-leak when peers' WIP files appear modified next to yours and end up bundled into your commit. **Exception:** run `squad done` from the parent main checkout, not the worktree. The auto-merge step that folds your branch into `main` needs the parent on `main` to do the merge; if you stay in the worktree you'll get `fold: parent repo is on "<branch>", expected "main"` and the close fails halfway. Easiest pattern: `cd $REPO_ROOT && squad done <ID>` when ready to close.
+
 ### Work the item
 
 1. Read end-to-end. AC is the contract.
