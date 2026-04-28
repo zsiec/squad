@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/chat"
 	"github.com/zsiec/squad/internal/config"
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
@@ -111,7 +112,7 @@ func runNew(args []string, stdout io.Writer, opts items.Options) int {
 		return 4
 	}
 
-	parsed, err := persistNewItem(root, path)
+	parsed, err := persistNewItem(root, path, agentID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 4
@@ -126,7 +127,7 @@ func runNew(args []string, stdout io.Writer, opts items.Options) int {
 	return 0
 }
 
-func persistNewItem(root, path string) (items.Item, error) {
+func persistNewItem(root, path, agentID string) (items.Item, error) {
 	db, err := store.OpenDefault()
 	if err != nil {
 		return items.Item{}, fmt.Errorf("persist new item: open store: %w", err)
@@ -140,9 +141,13 @@ func persistNewItem(root, path string) (items.Item, error) {
 	if err != nil {
 		return items.Item{}, fmt.Errorf("persist new item: parse: %w", err)
 	}
-	if err := items.Persist(context.Background(), db, repoID, parsed, false); err != nil {
+	ctx := context.Background()
+	if err := items.Persist(ctx, db, repoID, parsed, false); err != nil {
 		return items.Item{}, fmt.Errorf("persist new item: %w", err)
 	}
+	body := fmt.Sprintf("new %s in area %s — heads-up, you've been the top closer here recently",
+		parsed.ID, parsed.Area)
+	notifyAreaTopCloser(ctx, db, chat.New(db, repoID), repoID, agentID, parsed.Area, chat.ThreadGlobal, body)
 	return parsed, nil
 }
 

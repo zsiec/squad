@@ -41,25 +41,25 @@ auto-`fyi` at the moments where routing matters.
 
 ## Acceptance criteria
 
-- [ ] On `squad new`, after the item file is scaffolded, if the
+- [x] On `squad new`, after the item file is scaffolded, if the
       `--area` value matches an area where some agent has closed
       ≥3 items in the last 30 days, auto-`fyi` that agent on the
       `#global` thread with body
       `new <ID> in area <area> — heads-up, you've been the top
       closer here recently`. Configurable via env
       (`SQUAD_NO_AREA_MENTIONS=1` to suppress).
-- [ ] On `squad refine` (or any explicit area-change in the
+- [x] On `squad refine` (or any explicit area-change in the
       frontmatter), if the new area has a different top-closer
       than the previous area, auto-`fyi` the new top-closer on
       the item thread.
-- [ ] When no agent qualifies (no closer with ≥3 closes in the
+- [x] When no agent qualifies (no closer with ≥3 closes in the
       area), the auto-`fyi` is suppressed silently — don't post
       "no owner found" noise.
-- [ ] The "top closer" calculation is shared with the retro
+- [x] The "top closer" calculation is shared with the retro
       generator (FEAT-059) so both surface the same routing
       signal — single source of truth in `internal/stats/` or
       similar.
-- [ ] Test: seed two agents with closes across two areas, file a
+- [x] Test: seed two agents with closes across two areas, file a
       new item in one area, assert the right agent gets the fyi
       and only the right agent.
 
@@ -74,4 +74,5 @@ auto-`fyi` at the moments where routing matters.
   item file directly.
 
 ## Resolution
-(Filled in when status → done.)
+
+`internal/stats/TopCloser` is the shared single source of truth (AC#4); `cmd/squad/area_mentions.go` wraps it with two best-effort fyi helpers — `notifyAreaTopCloser` (squad new path) and `notifyAreaChange` (recapture path). AC#2's "or any explicit area-change in the frontmatter" is currently scoped to the `squad recapture` path: that's the canonical commit-back point after a captured agent edits the frontmatter to address reviewer feedback. Other potential area-write paths (auto-refine apply, direct file edits + accept/reject) are not currently hooked — file a follow-up if the broader contract is desired.
