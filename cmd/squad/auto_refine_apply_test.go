@@ -226,9 +226,14 @@ func TestMCP_AutoRefineApply_RejectsDoRFailingBody(t *testing.T) {
 	}
 }
 
-func TestMCP_AutoRefineApply_RejectsNonCapturedStatus(t *testing.T) {
+// TestMCP_AutoRefineApply_RejectsInProgressStatus pins the only
+// remaining rejected status after the comment-driven flow broadened
+// the gate. captured / needs-refinement / open all flow through the
+// MCP tool now; an in_progress item is held by an agent and rewriting
+// its body would race the held claim.
+func TestMCP_AutoRefineApply_RejectsInProgressStatus(t *testing.T) {
 	env := newTestEnv(t)
-	writeAutoRefineFixture(t, env.ItemsDir, "BUG-702", "open")
+	writeAutoRefineFixture(t, env.ItemsDir, "BUG-702", "in_progress")
 
 	lines := mcpCallAutoRefine(t, env, "BUG-702", arDoRCleanBody)
 	resp := decodeAutoRefineResp(t, lines[1])
@@ -237,8 +242,8 @@ func TestMCP_AutoRefineApply_RejectsNonCapturedStatus(t *testing.T) {
 	if msg == "" {
 		t.Fatalf("expected failure response, got success: %s", lines[1])
 	}
-	if !strings.Contains(msg, "open") {
-		t.Errorf("error must include current status %q; got %q", "open", msg)
+	if !strings.Contains(msg, "in_progress") {
+		t.Errorf("error must include current status %q; got %q", "in_progress", msg)
 	}
 }
 

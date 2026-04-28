@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -128,6 +129,14 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var body struct {
+		Comments []AutoRefineComment `json:"comments"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		writeErr(w, http.StatusBadRequest, "decode body: "+err.Error())
+		return
+	}
+
 	if !s.acquireAutoRefineSlot(id) {
 		writeErr(w, http.StatusConflict, fmt.Sprintf("auto-refine already in flight for %s", id))
 		return
@@ -150,9 +159,9 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if before.Status != "captured" {
+	if before.Status == "in_progress" {
 		writeErr(w, http.StatusConflict,
-			fmt.Sprintf("auto-refine only applies to captured items; current status: %s", before.Status))
+			fmt.Sprintf("auto-refine cannot run on in_progress items (held claim risks concurrent body rewrites); current status: %s", before.Status))
 		return
 	}
 
@@ -163,7 +172,7 @@ func (s *Server) handleItemsAutoRefine(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cleanup()
 
-	prompt := autoRefinePromptFor(id)
+	prompt := autoRefinePromptFor(id, body.Comments)
 	ctx, cancel := context.WithTimeout(r.Context(), AutoRefineTimeout)
 	defer cancel()
 
@@ -298,7 +307,23 @@ func autoRefineTruncate(b []byte, n int) []byte {
 	return b[:n]
 }
 
-func autoRefinePromptFor(itemID string) string {
+// AutoRefineComment is one operator-attached span+comment pair the SPA
+// posts alongside an auto-refine request. quoted_span is the text the
+// operator selected from the rendered body; comment is the free-form
+// note. Claude reads the pair as context, not as a textual replace
+// target — byte-perfect alignment with the source markdown is not
+// required.
+type AutoRefineComment struct {
+	QuotedSpan string `json:"quoted_span"`
+	Comment    string `json:"comment"`
+}
+
+// autoRefineLegacyPromptFor is the no-comments prompt — exactly the
+// text the auto-refine button has posted since the feature shipped.
+// Kept as a separate symbol so TestAutoRefinePromptFor_EmptyByteIdentical
+// can pin "no comments → no behavior change" without duplicating the
+// instruction text.
+func autoRefineLegacyPromptFor(itemID string) string {
 	return fmt.Sprintf(`You are auto-refining a captured squad item.
 
 Read the item with squad_get_item(item_id="%s"). Inspect related items via squad_inbox or squad_history if useful for context.
@@ -308,4 +333,22 @@ Replace the item's body with a fresh Problem / Context / Acceptance criteria blo
 If the item's frontmatter "area" is the placeholder "<fill-in>" (or empty), choose a short free-form area string from the title and context (single lowercase word like "dashboard", "auth", "intake") and pass it as the area argument. If the item already has a real area, omit the area argument so the existing value is preserved.
 
 Call squad_auto_refine_apply(item_id="%s", new_body=..., area=...) exactly once with the drafted body and the area when needed, then stop. Do not call any other write tools.`, itemID, itemID)
+}
+
+func autoRefinePromptFor(itemID string, comments []AutoRefineComment) string {
+	legacy := autoRefineLegacyPromptFor(itemID)
+	if len(comments) == 0 {
+		return legacy
+	}
+	var sb strings.Builder
+	sb.WriteString("Operator comments — the operator selected these spans of the item body and attached the notes below. Address each one when drafting the new body.\n\n")
+	for _, c := range comments {
+		sb.WriteString("> ")
+		sb.WriteString(c.QuotedSpan)
+		sb.WriteString("\n")
+		sb.WriteString(c.Comment)
+		sb.WriteString("\n\n")
+	}
+	sb.WriteString(legacy)
+	return sb.String()
 }

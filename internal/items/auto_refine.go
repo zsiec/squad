@@ -9,9 +9,16 @@ import (
 	"time"
 )
 
-// AutoRefineApply rewrites the body of a captured item in-place and stamps
-// the auto-refine audit fields. Status stays `captured` on success — the
-// human Accept click remains the only path from captured to open.
+// AutoRefineApply rewrites the body of an item in-place and stamps the
+// auto-refine audit fields. The status field is preserved — re-refining
+// an `open` item leaves it `open`, re-refining a `needs-refinement`
+// item leaves it `needs-refinement`, etc. The human Accept click is
+// still the only path from captured to open; this function never
+// promotes status.
+//
+// Allowed statuses: captured, needs-refinement, open. Items in
+// in_progress or already in done are rejected — concurrent body edits
+// against a held claim cause data loss, and done items are immutable.
 //
 // area is optional. When non-empty the frontmatter `area` field is rewritten
 // alongside the body — this lets the auto-refine flow heal items captured
@@ -34,8 +41,11 @@ func AutoRefineApply(squadDir, itemID, newBody, area, refinedBy string) error {
 		if err != nil {
 			return err
 		}
-		if it.Status != "captured" {
-			return fmt.Errorf("auto-refine: status is %q (only captured items can be auto-refined)", it.Status)
+		switch it.Status {
+		case "captured", "needs-refinement", "open":
+			// allowed
+		default:
+			return fmt.Errorf("auto-refine: status is %q (only captured, needs-refinement, or open items can be auto-refined)", it.Status)
 		}
 
 		candidate := it
