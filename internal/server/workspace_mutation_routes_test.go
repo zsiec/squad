@@ -400,6 +400,101 @@ func TestHandleItemsCreate_WorkspaceMode_UsesRequestedRepo(t *testing.T) {
 	}
 }
 
+func TestHandleItemsCreate_WorkspaceMode_TwoReposNoLeakage(t *testing.T) {
+	db := newTestDB(t)
+	repoA, repoB := seedWorkspaceRepos(t, db)
+	cfg := []byte("id_prefixes: [BUG, FEAT]\ndefaults:\n  priority: P2\n  estimate: 1h\n  risk: low\n  area: workspace-test\n")
+	for _, root := range []string{repoA, repoB} {
+		if err := os.WriteFile(filepath.Join(root, ".squad", "config.yaml"), cfg, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	s := wsServer(t, db)
+
+	// Create one item per repo via the same workspace-mode handler.
+	postType := func(typ, repoID, title string) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, postJSONReq(http.MethodPost,
+			"/api/items?repo_id="+repoID,
+			map[string]any{"type": typ, "title": title}))
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create in %s: code=%d body=%s", repoID, rec.Code, rec.Body.String())
+		}
+		var resp map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode create response for %s: %v", repoID, err)
+		}
+		return resp
+	}
+	// Use distinct prefixes so the resulting ids diverge — otherwise the
+	// per-repo BUG counters would each emit BUG-001 and "leakage" becomes
+	// indistinguishable from "two legitimate items happen to share an id".
+	respA := postType("bug", "repo-A", "lands in A only")
+	respB := postType("feat", "repo-B", "lands in B only")
+
+	pathA, _ := respA["path"].(string)
+	pathB, _ := respB["path"].(string)
+	if !strings.HasPrefix(pathA, repoA) {
+		t.Errorf("item A path %q should be under repo-A root %q", pathA, repoA)
+	}
+	if !strings.HasPrefix(pathB, repoB) {
+		t.Errorf("item B path %q should be under repo-B root %q", pathB, repoB)
+	}
+	if strings.HasPrefix(pathA, repoB) || strings.HasPrefix(pathB, repoA) {
+		t.Errorf("cross-repo leakage: A=%q B=%q", pathA, pathB)
+	}
+
+	// Items table rows: the item created in each repo must be tagged with
+	// exactly that repo. Item IDs may collide across repos (BUG counter is
+	// per-repo), so the lookup must scope by (item_id, repo_id).
+	idA, _ := respA["id"].(string)
+	idB, _ := respB["id"].(string)
+	for _, c := range []struct{ id, repo string }{{idA, "repo-A"}, {idB, "repo-B"}} {
+		var n int
+		if err := db.QueryRowContext(context.Background(),
+			`SELECT COUNT(*) FROM items WHERE item_id = ? AND repo_id = ?`, c.id, c.repo).Scan(&n); err != nil {
+			t.Fatalf("query items for %s/%s: %v", c.id, c.repo, err)
+		}
+		if n != 1 {
+			t.Errorf("expected exactly one items row tagged %s in %s; got %d", c.id, c.repo, n)
+		}
+	}
+
+	// /api/items in workspace mode aggregates across repos; each new item
+	// must surface tagged with its own repo, never with the other repo's
+	// tag. Pair on (id, repo_id) since IDs collide across repos.
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/items", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	type pair struct{ id, repo string }
+	seen := map[pair]int{}
+	for _, r := range rows {
+		id, _ := r["id"].(string)
+		rid, _ := r["repo_id"].(string)
+		seen[pair{id, rid}]++
+	}
+	if seen[pair{idA, "repo-A"}] != 1 {
+		t.Errorf("listed (%s, repo-A) count=%d want 1", idA, seen[pair{idA, "repo-A"}])
+	}
+	if seen[pair{idB, "repo-B"}] != 1 {
+		t.Errorf("listed (%s, repo-B) count=%d want 1", idB, seen[pair{idB, "repo-B"}])
+	}
+	if seen[pair{idA, "repo-B"}] != 0 {
+		t.Errorf("cross-repo leakage: (%s, repo-B) appeared in list", idA)
+	}
+	if seen[pair{idB, "repo-A"}] != 0 {
+		t.Errorf("cross-repo leakage: (%s, repo-A) appeared in list", idB)
+	}
+}
+
 func TestHandleItemHandoff_WorkspaceMode_TagsMessageWithResolvedRepo(t *testing.T) {
 	db := newTestDB(t)
 	repoA, _ := seedWorkspaceRepos(t, db)
