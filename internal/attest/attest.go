@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 	"time"
 
 	sqlite "modernc.org/sqlite"
@@ -193,6 +194,45 @@ func (l *Ledger) MissingKinds(ctx context.Context, itemID string, required []Kin
 		}
 	}
 	return missing, nil
+}
+
+// DistinctReviewers returns the set of unique reviewer-agent ids that
+// attested kind=review with exit_code=0 for itemID. Reviewer identity
+// lives in the Command field as "review by <agent>" (the format the
+// `squad attest --kind review --reviewer-agent <id>` flow writes).
+// Rows whose Command does not match that prefix are skipped, so a
+// stray manual insert won't inflate the count.
+func (l *Ledger) DistinctReviewers(ctx context.Context, itemID string) ([]string, error) {
+	rows, err := l.db.QueryContext(ctx, `
+		SELECT command FROM attestations
+		WHERE repo_id = ? AND item_id = ? AND kind = ? AND exit_code = 0
+	`, l.repoID, itemID, string(KindReview))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	const prefix = "review by "
+	seen := map[string]struct{}{}
+	var out []string
+	for rows.Next() {
+		var cmd string
+		if err := rows.Scan(&cmd); err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(cmd, prefix) {
+			continue
+		}
+		who := strings.TrimSpace(cmd[len(prefix):])
+		if who == "" {
+			continue
+		}
+		if _, dup := seen[who]; dup {
+			continue
+		}
+		seen[who] = struct{}{}
+		out = append(out, who)
+	}
+	return out, rows.Err()
 }
 
 // ListForItem returns every attestation for itemID. A Ledger with
