@@ -6,7 +6,7 @@
 // All mutations rely on X-Squad-Agent (set on page load via util.setAgentHeader).
 // Visibility rules per cta are encoded in renderItemActions().
 
-import { postJSON, escapeHtml } from './util.js';
+import { postJSON, fetchJSON, escapeHtml } from './util.js';
 import { toast } from './toasts.js';
 import { agentsSnapshot } from './board.js';
 import { displayName } from './names.js';
@@ -247,6 +247,7 @@ function ensureNewItemModal() {
         <button class="icon-btn" data-close aria-label="Close">✕</button>
       </header>
       <form class="action-modal-body" id="new-item-form">
+        <label data-repo-slot hidden></label>
         <label>Type
           <select name="type" required>
             <option value="BUG">BUG</option>
@@ -291,8 +292,10 @@ function ensureNewItemModal() {
       area: fd.get('area') || '',
       priority: fd.get('priority') || 'P2',
     };
+    const repoID = (fd.get('repo_id') || '').toString();
+    const url = '/api/items' + (repoID ? '?repo_id=' + encodeURIComponent(repoID) : '');
     try {
-      const out = await postJSON('/api/items', payload);
+      const out = await postJSON(url, payload);
       toast({ kind: 'ok', title: 'Created ' + (out?.id || payload.type) });
       closeNewItemModal();
       if (out?.id) onMutated(out.id, { open: true });
@@ -304,9 +307,37 @@ function ensureNewItemModal() {
   return newItemModal;
 }
 
+// renderRepoSlot fetches /api/repos and, when the workspace spans more
+// than one repo, paints a labelled <select name="repo_id"> into the
+// reserved slot. With exactly one repo (or zero, in degenerate setups)
+// the slot stays hidden so the single-repo modal looks unchanged —
+// matches the multi-repo gate that board.js uses for the row badge.
+async function renderRepoSlot(form) {
+  const slot = form.querySelector('[data-repo-slot]');
+  slot.hidden = true;
+  slot.innerHTML = '';
+  let repos;
+  try {
+    repos = await fetchJSON('/api/repos');
+  } catch {
+    return;
+  }
+  if (!Array.isArray(repos) || repos.length < 2) return;
+  const opts = repos.map((r, i) => {
+    const id = r?.repo_id || '';
+    const sel = i === 0 ? ' selected' : '';
+    return `<option value="${escapeHtml(id)}"${sel}>${escapeHtml(id)}</option>`;
+  }).join('');
+  slot.innerHTML = `Repo
+    <select name="repo_id" required>${opts}</select>`;
+  slot.hidden = false;
+}
+
 export function openNewItemModal() {
   const el = ensureNewItemModal();
-  el.querySelector('form').reset();
+  const form = el.querySelector('form');
+  form.reset();
+  renderRepoSlot(form);
   el.hidden = false;
   requestAnimationFrame(() => el.classList.add('show'));
   setTimeout(() => el.querySelector('input[name=title]')?.focus(), 50);
