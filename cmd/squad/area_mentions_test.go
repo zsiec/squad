@@ -108,67 +108,6 @@ func TestNotifyAreaTopCloser_SuppressedByEnv(t *testing.T) {
 	}
 }
 
-func TestNotifyAreaChange_PostsFyiOnNewAreaTopCloser(t *testing.T) {
-	f := newChatFixture(t)
-	now := time.Now().Unix()
-	// agent-other dominates "stats". area "chat" has no qualifying closer.
-	for i, id := range []string{"OLD-1", "OLD-2", "OLD-3"} {
-		seedDoneInArea(t, f.db, f.repoID, id, "stats", "agent-other", now-int64(i*60))
-	}
-
-	notifyAreaChange(context.Background(), f.db, f.chat, f.repoID, f.agentID, "chat", "stats", "FEAT-9", "FEAT-9 area changed to stats")
-
-	thread, kind, _, mentions, _ := f.firstMessage(t)
-	if thread != "FEAT-9" {
-		t.Errorf("thread=%q want FEAT-9", thread)
-	}
-	if kind != chat.KindFYI {
-		t.Errorf("kind=%q want fyi", kind)
-	}
-	if !strings.Contains(mentions, "agent-other") {
-		t.Errorf("mentions=%q want agent-other", mentions)
-	}
-}
-
-func TestNotifyAreaChange_NoOpWhenAreaUnchanged(t *testing.T) {
-	f := newChatFixture(t)
-	now := time.Now().Unix()
-	for i, id := range []string{"OLD-1", "OLD-2", "OLD-3"} {
-		seedDoneInArea(t, f.db, f.repoID, id, "chat", "agent-other", now-int64(i*60))
-	}
-	notifyAreaChange(context.Background(), f.db, f.chat, f.repoID, f.agentID, "chat", "chat", "FEAT-9", "noop")
-
-	var n int
-	if err := f.db.QueryRow(`SELECT COUNT(*) FROM messages`).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	if n != 0 {
-		t.Errorf("expected 0 messages on no-area-change, got %d", n)
-	}
-}
-
-func TestNotifyAreaChange_SuppressesIfSameTopCloser(t *testing.T) {
-	f := newChatFixture(t)
-	now := time.Now().Unix()
-	// agent-other tops both areas — no new routing signal, so suppress.
-	for i, id := range []string{"OLD-1", "OLD-2", "OLD-3"} {
-		seedDoneInArea(t, f.db, f.repoID, id, "chat", "agent-other", now-int64(i*60))
-	}
-	for i, id := range []string{"OLD-4", "OLD-5", "OLD-6"} {
-		seedDoneInArea(t, f.db, f.repoID, id, "stats", "agent-other", now-int64(i*60+200))
-	}
-
-	notifyAreaChange(context.Background(), f.db, f.chat, f.repoID, f.agentID, "chat", "stats", "FEAT-9", "x")
-
-	var n int
-	if err := f.db.QueryRow(`SELECT COUNT(*) FROM messages`).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	if n != 0 {
-		t.Errorf("expected 0 messages (same top closer in old & new area), got %d", n)
-	}
-}
-
 func TestNotifyAreaTopCloser_PlaceholderAreaSkipped(t *testing.T) {
 	f := newChatFixture(t)
 	// Even with qualifying closes in area "<fill-in>", placeholder areas

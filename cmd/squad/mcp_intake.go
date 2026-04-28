@@ -224,29 +224,6 @@ func registerIntakeTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string) {
 	})
 
 	srv.Register(mcp.Tool{
-		Name:        "squad_refine",
-		Description: "Send an accepted item back to refinement: write reviewer comments under ## Reviewer feedback and flip status to needs-refinement.",
-		InputSchema: json.RawMessage(schemaRefine),
-		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
-			var args struct {
-				ItemID   string `json:"item_id"`
-				Comments string `json:"comments"`
-				AgentID  string `json:"agent_id"`
-			}
-			if err := json.Unmarshal(raw, &args); err != nil {
-				return nil, err
-			}
-			if err := requireRepo(repoRoot, repoID); err != nil {
-				return nil, err
-			}
-			return Refine(ctx, RefineArgs{
-				DB: db, RepoID: repoID,
-				ItemID: args.ItemID, Comments: args.Comments,
-			})
-		},
-	})
-
-	srv.Register(mcp.Tool{
 		Name:        "squad_reject",
 		Description: "Reject captured items (delete file + write to .squad/rejected.log).",
 		InputSchema: json.RawMessage(schemaReject),

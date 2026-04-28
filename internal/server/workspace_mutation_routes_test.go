@@ -153,22 +153,6 @@ func TestHandleItemsAutoRefine_WorkspaceMode_RepoIDDisambiguates(t *testing.T) {
 	}
 }
 
-func TestHandleItemsRecapture_WorkspaceMode_ResolvesRepo(t *testing.T) {
-	db := newTestDB(t)
-	repoA, _ := seedWorkspaceRepos(t, db)
-	id := seedItemInRepo(t, db, repoA, "repo-A", "BUG", "needs recapture in workspace mode")
-
-	s := wsServer(t, db)
-	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, postJSONReq(http.MethodPost, "/api/items/"+id+"/recapture", map[string]any{}))
-
-	// Status="captured" not "needs-refinement" → ErrWrongStatusForRecapture
-	// (422). Bug under test: workspace-mode lookup MUST NOT 404.
-	if rec.Code == http.StatusNotFound {
-		t.Fatalf("workspace-mode recapture returned 404; lookup is broken: %s", rec.Body.String())
-	}
-}
-
 func TestHandleItemsAccept_WorkspaceMode_ResolvesRepo(t *testing.T) {
 	db := newTestDB(t)
 	repoA, _ := seedWorkspaceRepos(t, db)
@@ -182,21 +166,6 @@ func TestHandleItemsAccept_WorkspaceMode_ResolvesRepo(t *testing.T) {
 	// test is "item not found" in workspace mode; 404 means lookup failed.
 	if rec.Code == http.StatusNotFound {
 		t.Fatalf("workspace-mode accept returned 404; lookup is broken: %s", rec.Body.String())
-	}
-}
-
-func TestHandleItemsRefine_WorkspaceMode_ResolvesRepo(t *testing.T) {
-	db := newTestDB(t)
-	repoA, _ := seedWorkspaceRepos(t, db)
-	id := seedItemInRepo(t, db, repoA, "repo-A", "BUG", "needs refine in workspace mode here")
-
-	s := wsServer(t, db)
-	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, postJSONReq(http.MethodPost, "/api/items/"+id+"/refine",
-		map[string]any{"comments": "AC bullets too vague; tighten and resubmit."}))
-
-	if rec.Code == http.StatusNotFound {
-		t.Fatalf("workspace-mode refine returned 404; lookup is broken: %s", rec.Body.String())
 	}
 }
 

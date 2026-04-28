@@ -140,7 +140,7 @@ New items land in `captured` state — filed but not yet claimable — so you ca
 All three land in `squad inbox`, not in `squad next`. Triage from there:
 
 - `squad accept FEAT-001` — runs the Definition of Ready check (area set, ≥1 AC checkbox, real title or problem). Passing items flip to `status: open` and become claimable.
-- `squad refine FEAT-001 --comments "tighten the AC: which endpoints?"` — sends the item to `needs-refinement` for a sharper pass. Another session (or you, later) claims it, edits the markdown, runs `squad recapture FEAT-001`, and the item is back in the inbox sharper than it left. Reviewer feedback is preserved across rounds under `## Refinement history`. Full walkthrough: [recipes/refining-captured-items.md](recipes/refining-captured-items.md).
+- For sharpening a captured item, use the dashboard's "Send for refinement" button — select passages, attach inline comments, claude redrafts the body. Same flow is available via the MCP `squad_auto_refine_apply` tool.
 - `squad reject FEAT-001 --reason "duplicate of FEAT-003"` — deletes the file; the reason is logged to `.squad/inbox/rejected.log`.
 
 For the full triage loop, see [recipes/triage.md](recipes/triage.md). For larger work that decomposes into many items, see [recipes/decomposition.md](recipes/decomposition.md).

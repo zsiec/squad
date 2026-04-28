@@ -28,7 +28,7 @@ var (
 	ErrIntakeNotFound           = errors.New("intake: session not found")
 	ErrIntakeNotYours           = errors.New("intake: session owned by another agent")
 	ErrIntakeAlreadyClosed      = errors.New("intake: session already closed")
-	ErrIntakeItemNotRefinable   = errors.New("intake: only captured or needs-refinement items can be refined")
+	ErrIntakeItemNotRefinable   = errors.New("intake: only captured items can be refined")
 	ErrIntakeRefineItemMismatch = errors.New("intake: open call's refine_item_id does not match the resumed session")
 )
 
@@ -80,8 +80,8 @@ type Session struct {
 //
 // When Mode == ModeRefine, RefineItemID + SquadDir are required and the
 // item is loaded from disk into ItemSnapshot. The item must exist
-// (items.ErrItemNotFound on miss) and be in captured or needs-refinement
-// status (ErrIntakeItemNotRefinable otherwise). For ModeNew the snapshot
+// (items.ErrItemNotFound on miss) and be in captured status
+// (ErrIntakeItemNotRefinable otherwise). For ModeNew the snapshot
 // return is the zero value.
 //
 // On resume, the call's RefineItemID must match the session's pinned
@@ -154,7 +154,7 @@ func loadItemSnapshot(squadDir, itemID string) (ItemSnapshot, error) {
 	if err != nil {
 		return ItemSnapshot{}, err
 	}
-	if it.Status != "captured" && it.Status != "needs-refinement" {
+	if it.Status != "captured" {
 		return ItemSnapshot{}, fmt.Errorf("%w: %s is %q", ErrIntakeItemNotRefinable, itemID, it.Status)
 	}
 	return ItemSnapshot{

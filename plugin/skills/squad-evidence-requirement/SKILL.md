@@ -73,7 +73,7 @@ The paste is also a forcing function on you. If you cannot paste a green line, y
   ```bash
   cat > /tmp/manual-notes.txt <<EOF
   clicked the Refine button in the inbox modal — composer opened inline,
-  typed feedback, submitted; item flipped from inbox to needs-refinement
+  typed comments on a passage, submitted; item body redrafted by claude
   and SSE pushed inbox_changed within 100ms.
   EOF
 

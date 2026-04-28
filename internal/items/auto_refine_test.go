@@ -104,9 +104,9 @@ func TestAutoRefineApply_PreservesAreaWhenEmpty(t *testing.T) {
 
 // TestAutoRefineApply_RefusesInProgressStatus pins the only remaining
 // rejected status after the comment-driven flow broadened the gate to
-// allow re-refinement on captured / needs-refinement / open. An
-// in_progress item is held by an agent; rewriting its body under the
-// agent's feet causes silent data loss.
+// allow re-refinement on captured / open. An in_progress item is held
+// by an agent; rewriting its body under the agent's feet causes silent
+// data loss.
 func TestAutoRefineApply_RefusesInProgressStatus(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {

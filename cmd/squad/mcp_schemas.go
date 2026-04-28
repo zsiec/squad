@@ -118,17 +118,6 @@ const schemaAutoRefineApply = `{
   "additionalProperties": false
 }`
 
-const schemaRecapture = `{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "required": ["item_id"],
-  "properties": {
-    "item_id":  {"type": "string", "description": "Item identifier of a needs-refinement claim held by the caller."},
-    "agent_id": {"type": "string"}
-  },
-  "additionalProperties": false
-}`
-
 const schemaBlocked = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
@@ -189,18 +178,6 @@ const schemaStats = `{
   "type": "object",
   "properties": {
     "window_seconds": {"type": "integer", "minimum": 0, "description": "Metric window in seconds. 0 = unbounded; default 86400 (24h)."}
-  },
-  "additionalProperties": false
-}`
-
-const schemaRefine = `{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "type": "object",
-  "required": ["item_id", "comments"],
-  "properties": {
-    "item_id":  {"type": "string", "description": "Item identifier of an accepted item to send back for refinement."},
-    "comments": {"type": "string", "minLength": 1, "description": "Reviewer feedback recorded under ## Reviewer feedback in the item body."},
-    "agent_id": {"type": "string"}
   },
   "additionalProperties": false
 }`

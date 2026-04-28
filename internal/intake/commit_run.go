@@ -263,7 +263,7 @@ func supersedeOriginal(
 	if perr != nil {
 		return archiveMove{}, fmt.Errorf("intake commit (refine): parse %s: %w", origPath, perr)
 	}
-	if origItem.Status != "captured" && origItem.Status != "needs-refinement" {
+	if origItem.Status != "captured" {
 		return archiveMove{}, fmt.Errorf("%w: %s is %q", ErrIntakeItemNotRefinable, sess.RefineItemID, origItem.Status)
 	}
 
