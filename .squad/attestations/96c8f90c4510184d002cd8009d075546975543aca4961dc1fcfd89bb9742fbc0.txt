@@ -1,0 +1,6 @@
+=== RUN   TestAutoRefine_NonZeroExitIncludesBothStreams
+--- PASS: TestAutoRefine_NonZeroExitIncludesBothStreams (0.22s)
+=== RUN   TestAutoRefine_NoWriteIncludesBothStreams
+--- PASS: TestAutoRefine_NoWriteIncludesBothStreams (0.22s)
+PASS
+ok  	github.com/zsiec/squad/internal/server	1.850s

@@ -4,7 +4,7 @@ title: I want to be able to click on an agent and see the diff of all the files 
 type: feature
 priority: P0
 area: web
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

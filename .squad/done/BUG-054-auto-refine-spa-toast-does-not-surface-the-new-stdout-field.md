@@ -4,7 +4,7 @@ title: auto-refine spa toast does not surface the new stdout field
 type: bug
 priority: P3
 area: spa
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
