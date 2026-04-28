@@ -4,7 +4,7 @@ title: auto-refine spawns claude with daemon's cwd so squad mcp subprocess canno
 type: bug
 priority: P2
 area: internal/server
-status: open
+status: done
 estimate: 30m
 risk: low
 evidence_required: [test]
