@@ -321,6 +321,10 @@ function replaceRow(id, payload) {
   });
 }
 
+// Persists across server failures so a 502 doesn't lose the operator's
+// work; cleared on successful 200.
+const commentsByItem = new Map();
+
 async function openRefineComposer(id) {
   if (!modalEl) return;
   const host = modalEl.querySelector(`[data-details-for="${cssEscape(id)}"]`);
@@ -329,45 +333,221 @@ async function openRefineComposer(id) {
 
   const existing = host.querySelector('.refine-composer');
   if (existing) {
-    const ta = existing.querySelector('textarea');
-    if (ta) ta.focus();
+    existing.scrollIntoView({ block: 'nearest' });
     return;
   }
 
+  const bodyPanel = host.querySelector('.md');
+  if (!bodyPanel) {
+    toast({ kind: 'warn', title: 'Item has no body to comment on' });
+    return;
+  }
+
+  if (!commentsByItem.has(id)) commentsByItem.set(id, []);
+
   const composer = document.createElement('div');
   composer.className = 'refine-composer';
+  composer.dataset.itemId = id;
   composer.innerHTML = `
-    <textarea rows="4" placeholder="What needs to change? The refining agent will see this verbatim."></textarea>
+    <div class="refine-composer-help">
+      Select text in the body above, then click <strong>Add comment</strong>.
+      Send when you're done — claude will use these notes when redrafting.
+    </div>
+    <ul class="refine-comment-list" data-comment-list></ul>
     <div class="refine-composer-actions">
+      <span class="refine-comment-count" data-comment-count>0 comments</span>
+      <button type="button" class="action-btn" data-refine-add disabled>Add comment</button>
       <button type="button" class="action-btn ghost" data-refine-cancel>Cancel</button>
-      <button type="button" class="action-btn warn" data-refine-send disabled>Send</button>
+      <button type="button" class="action-btn warn" data-refine-send>Send</button>
     </div>`;
   host.appendChild(composer);
 
-  const ta = composer.querySelector('textarea');
+  const addBtn = composer.querySelector('[data-refine-add]');
   const sendBtn = composer.querySelector('[data-refine-send]');
   const cancelBtn = composer.querySelector('[data-refine-cancel]');
 
-  ta.addEventListener('input', () => {
-    sendBtn.disabled = ta.value.trim().length === 0;
+  const refreshAddEnabled = () => {
+    if (!composer.isConnected) {
+      document.removeEventListener('selectionchange', refreshAddEnabled);
+      return;
+    }
+    addBtn.disabled = !selectionInside(bodyPanel);
+  };
+  document.addEventListener('selectionchange', refreshAddEnabled);
+
+  rerenderCommentList(composer, bodyPanel, id);
+
+  addBtn.addEventListener('click', () => {
+    const sel = window.getSelection();
+    const span = sel ? sel.toString().trim() : '';
+    if (!span || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0).cloneRange();
+    openCommentEditor(composer, bodyPanel, id, { quoted_span: span, comment: '', range });
+    sel.removeAllRanges();
+    refreshAddEnabled();
   });
 
   cancelBtn.addEventListener('click', () => {
+    commentsByItem.delete(id);
+    clearHighlights(bodyPanel);
     composer.remove();
   });
 
   sendBtn.addEventListener('click', async () => {
-    sendBtn.disabled = true;
-    try {
-      await postJSON(`/api/items/${encodeURIComponent(id)}/refine`, { comments: ta.value });
-      toast({ kind: 'warn', title: `Sent ${id} for refinement` });
-      onMutated();
-      await renderList();
-    } catch (err) {
-      toast({ kind: 'error', title: 'Refine failed', body: err.message });
-      sendBtn.disabled = false;
-    }
+    await sendRefine(id, composer, bodyPanel, sendBtn);
   });
+}
 
+function selectionInside(host) {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+  if (!sel.toString().trim()) return false;
+  const range = sel.getRangeAt(0);
+  return host.contains(range.startContainer) && host.contains(range.endContainer);
+}
+
+function clearHighlights(bodyPanel) {
+  bodyPanel.querySelectorAll('.refine-highlight').forEach((el) => unwrap(el));
+}
+
+function unwrap(el) {
+  const parent = el.parentNode;
+  if (!parent) return;
+  while (el.firstChild) parent.insertBefore(el.firstChild, el);
+  parent.removeChild(el);
+  parent.normalize();
+}
+
+// wrapRange wraps the live Range in a `.refine-highlight` span. Returns
+// the span on success or null when the selection straddles element
+// boundaries (surroundContents throws for those) — the caller keeps the
+// comment in state without a visible mark in that case.
+function wrapRange(range, idx) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'refine-highlight';
+  wrapper.dataset.commentIdx = String(idx);
+  try {
+    range.surroundContents(wrapper);
+    return wrapper;
+  } catch {
+    return null;
+  }
+}
+
+function renumberHighlights(bodyPanel) {
+  bodyPanel.querySelectorAll('.refine-highlight').forEach((el, i) => {
+    el.dataset.commentIdx = String(i);
+  });
+}
+
+function rerenderCommentList(composer, bodyPanel, id) {
+  const list = composer.querySelector('[data-comment-list]');
+  const count = composer.querySelector('[data-comment-count]');
+  const comments = commentsByItem.get(id) || [];
+  list.innerHTML = comments.map((c, idx) => `
+    <li class="refine-comment-item" data-idx="${idx}">
+      <div class="refine-comment-quote">${escapeHtml(c.quoted_span)}</div>
+      <div class="refine-comment-text">${c.comment ? escapeHtml(c.comment) : '<em>(no note yet)</em>'}</div>
+      <div class="refine-comment-row-actions">
+        <button type="button" class="action-btn small" data-comment-edit="${idx}">Edit</button>
+        <button type="button" class="action-btn small danger" data-comment-delete="${idx}">Delete</button>
+      </div>
+    </li>`).join('');
+  count.textContent = comments.length === 1 ? '1 comment' : `${comments.length} comments`;
+
+  list.querySelectorAll('[data-comment-edit]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const idx = Number(b.dataset.commentEdit);
+      openCommentEditor(composer, bodyPanel, id, { ...comments[idx], _idx: idx });
+    });
+  });
+  list.querySelectorAll('[data-comment-delete]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const idx = Number(b.dataset.commentDelete);
+      const target = bodyPanel.querySelector(`.refine-highlight[data-comment-idx="${idx}"]`);
+      if (target) unwrap(target);
+      comments.splice(idx, 1);
+      renumberHighlights(bodyPanel);
+      rerenderCommentList(composer, bodyPanel, id);
+    });
+  });
+  bodyPanel.querySelectorAll('.refine-highlight').forEach((el) => {
+    el.addEventListener('click', () => {
+      const idx = Number(el.dataset.commentIdx);
+      const item = list.querySelector(`.refine-comment-item[data-idx="${idx}"]`);
+      item?.scrollIntoView({ block: 'nearest' });
+      list.querySelectorAll('.refine-comment-item.focused').forEach((x) => x.classList.remove('focused'));
+      item?.classList.add('focused');
+    });
+  });
+}
+
+function openCommentEditor(composer, bodyPanel, id, draft) {
+  composer.querySelectorAll('.refine-comment-editor').forEach((e) => e.remove());
+  const editor = document.createElement('div');
+  editor.className = 'refine-comment-editor';
+  editor.innerHTML = `
+    <div class="refine-comment-quote">${escapeHtml(draft.quoted_span)}</div>
+    <textarea rows="2" placeholder="What should change about this passage?"></textarea>
+    <div class="refine-comment-editor-actions">
+      <button type="button" class="action-btn ghost small" data-editor-cancel>Cancel</button>
+      <button type="button" class="action-btn small" data-editor-save>Save</button>
+    </div>`;
+  composer.querySelector('[data-comment-list]').insertAdjacentElement('afterend', editor);
+  const ta = editor.querySelector('textarea');
+  ta.value = draft.comment || '';
   setTimeout(() => ta.focus(), 30);
+
+  editor.querySelector('[data-editor-cancel]').addEventListener('click', () => {
+    editor.remove();
+  });
+  editor.querySelector('[data-editor-save]').addEventListener('click', () => {
+    const note = ta.value.trim();
+    if (!note) {
+      ta.focus();
+      return;
+    }
+    const list = commentsByItem.get(id);
+    if (typeof draft._idx === 'number') {
+      list[draft._idx] = { quoted_span: draft.quoted_span, comment: note };
+    } else {
+      const idx = list.length;
+      list.push({ quoted_span: draft.quoted_span, comment: note });
+      if (draft.range) wrapRange(draft.range, idx);
+    }
+    editor.remove();
+    rerenderCommentList(composer, bodyPanel, id);
+  });
+}
+
+async function sendRefine(id, composer, bodyPanel, sendBtn) {
+  const comments = commentsByItem.get(id) || [];
+  const payload = comments.length > 0
+    ? { comments: comments.map((c) => ({ quoted_span: c.quoted_span, comment: c.comment })) }
+    : {};
+  sendBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/items/${encodeURIComponent(id)}/auto-refine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch { body = null; }
+    if (res.ok && body) {
+      commentsByItem.delete(id);
+      clearHighlights(bodyPanel);
+      composer.remove();
+      replaceRow(id, body);
+      toast({ kind: 'ok', title: `Refined ${id}` });
+      onMutated();
+      return;
+    }
+    autoRefineToastForStatus(res.status, body);
+  } catch (err) {
+    toast({ kind: 'error', title: 'Refine failed', body: err.message || String(err) });
+  } finally {
+    sendBtn.disabled = false;
+  }
 }
