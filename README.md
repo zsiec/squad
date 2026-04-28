@@ -60,11 +60,11 @@ Captured items land in `status: captured` — visible in `squad inbox`, **not** 
 
 > *"Accept FEAT-007."* — runs the Definition of Ready check (area set, ≥1 acceptance-criterion checkbox, real title or problem). Passing items flip to `open` and become claimable.
 >
-> *"Refine FEAT-007 with feedback 'tighten the AC: which endpoints, which error codes?'"* — sends the item to `needs-refinement`. Another session claims it, edits the markdown, and runs `squad recapture` to put it back in the inbox. Reviewer feedback is preserved across rounds under `## Refinement history`.
+> *"Send FEAT-007 for refinement"* — opens the dashboard's range-selection composer; select passages, attach inline comments, claude redrafts the body in place.
 >
 > *"Reject FEAT-007 — duplicate of FEAT-003."* — deletes the file; the reason is appended to `.squad/inbox/rejected.log`. Re-file from scratch if you change your mind.
 
-Full walkthrough: [docs/recipes/triage.md](docs/recipes/triage.md). The reasoning behind the two-state model: [docs/concepts/intake.md](docs/concepts/intake.md). Refining stubs: [docs/recipes/refining-captured-items.md](docs/recipes/refining-captured-items.md).
+Full walkthrough: [docs/recipes/triage.md](docs/recipes/triage.md). The reasoning behind the two-state model: [docs/concepts/intake.md](docs/concepts/intake.md).
 
 ## Beyond the quick start
 

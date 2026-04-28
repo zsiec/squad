@@ -65,18 +65,16 @@ func TestAutoRefinePromptFor_RendersComments(t *testing.T) {
 }
 
 // TestAutoRefine_AcceptsAllNonInProgressStatuses pins the broadened
-// precondition: captured, needs-refinement, and open all reach the
-// runner; only in_progress is rejected. The previous gate
-// (captured-only) blocked the use case described in the parent item:
-// re-refining an already-auto-refined draft (status: open) with
-// operator comments.
+// precondition: captured and open both reach the runner; only
+// in_progress is rejected. The previous gate (captured-only) blocked
+// the use case described in the parent item: re-refining an
+// already-auto-refined draft (status: open) with operator comments.
 func TestAutoRefine_AcceptsAllNonInProgressStatuses(t *testing.T) {
 	cases := []struct {
 		status string
 		id     string
 	}{
 		{"captured", "BUG-720"},
-		{"needs-refinement", "BUG-721"},
 		{"open", "BUG-722"},
 	}
 	for _, c := range cases {

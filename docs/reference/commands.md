@@ -90,26 +90,7 @@ squad reject FEAT-009 TASK-022 --reason "merged into FEAT-014"
 
 There is no un-reject. To re-file rejected content, use `squad new`.
 
-### `squad refine`
-
-Send a captured item back for a sharper pass. Flips the item to `status: needs-refinement` and writes the comments under `## Reviewer feedback` in the body. Required `--comments` carries the reviewer's note — there is no anonymous refine.
-
-```bash
-squad refine FEAT-014 --comments "tighten AC: which endpoints, which error codes?"
-squad refine                                      # list items currently in needs-refinement
-```
-
-The item disappears from the regular inbox until an editor runs `squad recapture` to push it back. See [recipes/refining-captured-items.md](../recipes/refining-captured-items.md).
-
-### `squad recapture`
-
-Reverse `squad refine`: flip an item from `needs-refinement` back to `captured`. Rotates `## Reviewer feedback` into `## Refinement history` as a numbered round, preserving the audit trail across multiple passes. Releases the editor's claim.
-
-```bash
-squad recapture FEAT-014
-```
-
-Run from the same agent that holds the claim. The item reappears in the regular inbox, ready for accept / reject / refine again.
+For sharpening a captured item, use the dashboard's "Send for refinement" button (range-select passages → inline comments → claude redrafts) or the MCP `squad_auto_refine_apply` tool.
 
 ### `squad intake`
 

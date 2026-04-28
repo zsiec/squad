@@ -232,34 +232,6 @@ func registerLifecycleTools(srv *mcp.Server, db *sql.DB, repoID, repoRoot string
 	})
 
 	srv.Register(mcp.Tool{
-		Name:        "squad_recapture",
-		Description: "Send a needs-refinement item back to the inbox after editing in response to reviewer feedback.",
-		InputSchema: json.RawMessage(schemaRecapture),
-		Handler: func(ctx context.Context, raw json.RawMessage) (any, error) {
-			var args struct {
-				ItemID  string `json:"item_id"`
-				AgentID string `json:"agent_id"`
-			}
-			if err := json.Unmarshal(raw, &args); err != nil {
-				return nil, err
-			}
-			if err := requireRepo(repoRoot, repoID); err != nil {
-				return nil, err
-			}
-			agent, err := resolveAgentID(args.AgentID)
-			if err != nil {
-				return nil, err
-			}
-			return Recapture(ctx, RecaptureArgs{
-				DB:      db,
-				RepoID:  repoID,
-				AgentID: agent,
-				ItemID:  args.ItemID,
-			})
-		},
-	})
-
-	srv.Register(mcp.Tool{
 		Name:        "squad_auto_refine_apply",
 		Description: "Apply an auto-refined body to a captured item: replace the body, stamp auto_refined_at/auto_refined_by. Refuses non-captured items and bodies that fail DoR. Intended for the auto-refine subprocess flow.",
 		InputSchema: json.RawMessage(schemaAutoRefineApply),

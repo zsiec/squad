@@ -1,6 +1,7 @@
 package items
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -11,14 +12,13 @@ import (
 
 // AutoRefineApply rewrites the body of an item in-place and stamps the
 // auto-refine audit fields. The status field is preserved — re-refining
-// an `open` item leaves it `open`, re-refining a `needs-refinement`
-// item leaves it `needs-refinement`, etc. The human Accept click is
-// still the only path from captured to open; this function never
-// promotes status.
+// an `open` item leaves it `open`, etc. The human Accept click is still
+// the only path from captured to open; this function never promotes
+// status.
 //
-// Allowed statuses: captured, needs-refinement, open. Items in
-// in_progress or already in done are rejected — concurrent body edits
-// against a held claim cause data loss, and done items are immutable.
+// Allowed statuses: captured, open. Items in in_progress or already in
+// done are rejected — concurrent body edits against a held claim cause
+// data loss, and done items are immutable.
 //
 // area is optional. When non-empty the frontmatter `area` field is rewritten
 // alongside the body — this lets the auto-refine flow heal items captured
@@ -42,10 +42,10 @@ func AutoRefineApply(squadDir, itemID, newBody, area, refinedBy string) error {
 			return err
 		}
 		switch it.Status {
-		case "captured", "needs-refinement", "open":
+		case "captured", "open":
 			// allowed
 		default:
-			return fmt.Errorf("auto-refine: status is %q (only captured, needs-refinement, or open items can be auto-refined)", it.Status)
+			return fmt.Errorf("auto-refine: status is %q (only captured or open items can be auto-refined)", it.Status)
 		}
 
 		candidate := it
@@ -89,4 +89,19 @@ func AutoRefineApply(squadDir, itemID, newBody, area, refinedBy string) error {
 		combined := append(append([]byte{}, rewritten[:fmEnd]...), []byte(body)...)
 		return atomicWrite(path, combined)
 	})
+}
+
+func splitRewrittenBody(raw []byte) (fmEnd int, body string, err error) {
+	open := []byte("---\n")
+	closeM := []byte("\n---\n")
+	if !bytes.HasPrefix(raw, open) {
+		return 0, "", fmt.Errorf("rewritten file does not begin with frontmatter")
+	}
+	rest := raw[len(open):]
+	idx := bytes.Index(rest, closeM)
+	if idx < 0 {
+		return 0, "", fmt.Errorf("rewritten file missing closing frontmatter marker")
+	}
+	end := len(open) + idx + len(closeM)
+	return end, string(raw[end:]), nil
 }

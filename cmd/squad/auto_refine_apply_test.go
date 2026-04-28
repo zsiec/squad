@@ -228,9 +228,9 @@ func TestMCP_AutoRefineApply_RejectsDoRFailingBody(t *testing.T) {
 
 // TestMCP_AutoRefineApply_RejectsInProgressStatus pins the only
 // remaining rejected status after the comment-driven flow broadened
-// the gate. captured / needs-refinement / open all flow through the
-// MCP tool now; an in_progress item is held by an agent and rewriting
-// its body would race the held claim.
+// the gate. captured / open both flow through the MCP tool now; an
+// in_progress item is held by an agent and rewriting its body would
+// race the held claim.
 func TestMCP_AutoRefineApply_RejectsInProgressStatus(t *testing.T) {
 	env := newTestEnv(t)
 	writeAutoRefineFixture(t, env.ItemsDir, "BUG-702", "in_progress")

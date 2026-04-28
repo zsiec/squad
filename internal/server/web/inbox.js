@@ -325,11 +325,6 @@ function replaceRow(id, payload) {
 // work; cleared on successful 200.
 const commentsByItem = new Map();
 
-// "Send for refinement" drives the claude redraft flow: operator
-// comments → claude rewrites the body. For a peer-reviewer pass on the
-// markdown itself, use `squad refine <ID>` from the CLI — that path
-// goes to the needs-refinement queue and is intentionally CLI-only so
-// the SPA surface stays single-purpose.
 async function openRefineComposer(id) {
   if (!modalEl) return;
   const host = modalEl.querySelector(`[data-details-for="${cssEscape(id)}"]`);
