@@ -18,6 +18,25 @@ type Config struct {
 	Hygiene      HygieneConfig      `yaml:"hygiene"`
 	Touch        TouchConfig        `yaml:"touch"`
 	Events       EventsConfig       `yaml:"events"`
+	Postmortem   PostmortemConfig   `yaml:"postmortem"`
+}
+
+// PostmortemConfig controls the auto-postmortem detector. Enabled is
+// a pointer so an absent yaml block defaults to true; an explicit
+// `enabled: false` short-circuits the detector regardless of signal
+// presence. Zero-valued numeric fields fall back to the
+// internal/postmortem package defaults.
+type PostmortemConfig struct {
+	Enabled         *bool `yaml:"enabled"`
+	MinChatMessages int   `yaml:"min_chat_messages"`
+	MinChatChars    int   `yaml:"min_chat_chars"`
+}
+
+func (p PostmortemConfig) IsEnabled() bool {
+	if p.Enabled == nil {
+		return true
+	}
+	return *p.Enabled
 }
 
 // EventsConfig controls privacy redaction on rows recorded into agent_events
