@@ -1559,8 +1559,51 @@ a.item-chip:hover {
 .insights .insights-tile:nth-child(3) {
   grid-column: 1 / -1;
 }
+.insights .insights-tile-wide { grid-column: 1 / -1; }
 @media (max-width: 720px) {
   .insights .insights-grid { grid-template-columns: 1fr; }
+}
+
+/* window selector in panel header */
+.insights .insights-window {
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font: 11px var(--font-mono);
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+/* agent leaderboard table */
+.insights .insights-leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 11px var(--font-mono);
+}
+.insights .insights-leaderboard-table th,
+.insights .insights-leaderboard-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.insights .insights-leaderboard-table th {
+  font: 500 10.5px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.insights .insights-leaderboard-table td.num,
+.insights .insights-leaderboard-table th:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.insights .insights-empty {
+  color: var(--fg-mute);
+  text-align: center;
+  padding: 24px 0;
+  font: 11px var(--font-mono);
 }
 
 /* KPIs */
