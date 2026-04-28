@@ -1,10 +1,11 @@
 // board.js — table-mode board + agents rail
 
-import { fetchJSON, escapeHtml, fmtAgo, priClass } from './util.js';
+import { fetchJSON, postJSON, escapeHtml, fmtAgo, priClass } from './util.js';
 import { identicon } from './identicon.js';
 import { displayName } from './names.js';
 import { sparkline, bucketize } from './sparkline.js';
 import { openAgentDetail } from './agent_detail.js';
+import { toast } from './toasts.js';
 
 const boardBody     = document.getElementById('board-body');
 const boardTabs     = document.querySelectorAll('.board-tab');
@@ -201,6 +202,24 @@ function itemRow(it, claimByItem, showRepo = false) {
   const claim = it.claim || claimByItem.get(it.id);
   if (claim) tr.dataset.claimed = 'true';
   if (selectedId === it.id) tr.dataset.selected = 'true';
+  if (activeTab === 'ready' && !claim) {
+    tr.draggable = true;
+    tr.dataset.draggable = 'ready';
+    tr.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', it.id);
+      e.dataTransfer.setData('application/x-squad-item', it.id);
+      tr.classList.add('dragging');
+      document.body.classList.add('dnd-item-active');
+    });
+    tr.addEventListener('dragend', () => {
+      tr.classList.remove('dragging');
+      document.body.classList.remove('dnd-item-active');
+      agentsList.querySelectorAll('.agent-row[data-drop-target]').forEach((el) => {
+        el.removeAttribute('data-drop-target');
+      });
+    });
+  }
 
   const pct = it.progress_pct || 0;
   const pri = priClass(it.priority);
@@ -321,11 +340,58 @@ function renderAgents() {
 
     li.appendChild(icon);
     li.appendChild(body);
+    li.dataset.agentId = agentId;
+    li.dataset.state = dotState;
+    if (dotState === 'idle') {
+      wireIdleDrop(li, agentId, prettyName);
+    }
 
     li.addEventListener('click', () => {
       openAgentDetail(a, claim);
     });
     agentsList.appendChild(li);
+  }
+}
+
+function wireIdleDrop(li, agentId, prettyName) {
+  li.addEventListener('dragenter', (e) => {
+    if (!isItemDrag(e)) return;
+    e.preventDefault();
+    li.dataset.dropTarget = 'true';
+  });
+  li.addEventListener('dragover', (e) => {
+    if (!isItemDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  });
+  li.addEventListener('dragleave', (e) => {
+    if (e.target !== li) return;
+    li.removeAttribute('data-drop-target');
+  });
+  li.addEventListener('drop', (e) => {
+    if (!isItemDrag(e)) return;
+    e.preventDefault();
+    li.removeAttribute('data-drop-target');
+    const itemId = e.dataTransfer.getData('application/x-squad-item') ||
+                   e.dataTransfer.getData('text/plain');
+    if (!itemId) return;
+    assignItemToAgent(itemId, agentId, prettyName);
+  });
+}
+
+function isItemDrag(e) {
+  const dt = e.dataTransfer;
+  if (!dt) return false;
+  return Array.from(dt.types || []).includes('application/x-squad-item');
+}
+
+async function assignItemToAgent(itemId, agentId, agentName) {
+  try {
+    await postJSON('/api/items/' + encodeURIComponent(itemId) + '/assign',
+      { agent_id: agentId });
+    toast({ kind: 'ok', title: 'Assigned', body: itemId + ' → ' + agentName });
+  } catch (err) {
+    toast({ kind: 'warn', title: 'Assign failed', body: String(err.message || err) });
   }
 }
 

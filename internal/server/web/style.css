@@ -182,6 +182,18 @@ body {
   border-left-color: var(--accent);
   background: var(--panel);
 }
+body.dnd-item-active .agent-row[data-state="idle"] {
+  outline: 1px dashed var(--warn);
+  outline-offset: -2px;
+}
+.agent-row[data-drop-target="true"] {
+  background: var(--panel);
+  outline: 2px solid var(--ok);
+  outline-offset: -2px;
+  border-left-color: var(--ok);
+}
+tr[data-draggable="ready"] { cursor: grab; }
+tr[data-draggable="ready"].dragging { opacity: 0.45; }
 .agent-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--fg-mute);
