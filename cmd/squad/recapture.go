@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/zsiec/squad/internal/chat"
 	"github.com/zsiec/squad/internal/identity"
 	"github.com/zsiec/squad/internal/items"
 	"github.com/zsiec/squad/internal/repo"
@@ -91,6 +92,9 @@ func runRecapture(ctx context.Context, id string, stdout, stderr io.Writer) int 
 		return 4
 	}
 
+	var oldArea string
+	_ = db.QueryRowContext(ctx, `SELECT COALESCE(area,'') FROM items WHERE repo_id=? AND item_id=?`, repoID, id).Scan(&oldArea)
+
 	_, err = Recapture(ctx, RecaptureArgs{
 		DB:      db,
 		RepoID:  repoID,
@@ -99,6 +103,10 @@ func runRecapture(ctx context.Context, id string, stdout, stderr io.Writer) int 
 	})
 	switch {
 	case err == nil:
+		var newArea string
+		_ = db.QueryRowContext(ctx, `SELECT COALESCE(area,'') FROM items WHERE repo_id=? AND item_id=?`, repoID, id).Scan(&newArea)
+		body := fmt.Sprintf("%s area changed to %s — heads-up, you've been the top closer here recently", id, newArea)
+		notifyAreaChange(ctx, db, chat.New(db, repoID), repoID, agentID, oldArea, newArea, id, body)
 		fmt.Fprintf(stdout, "recaptured %s\n", id)
 		return 0
 	case errors.Is(err, items.ErrItemNotFound):
