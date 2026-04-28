@@ -4,16 +4,16 @@ title: decide fate of legacy peer-queue refine flow once claude flow ships
 type: feature
 priority: P3
 area: server
-status: captured
+status: open
 estimate: 1h
 risk: low
 evidence_required: [test]
 created: 2026-04-28
-updated: 2026-04-28
+updated: "2026-04-28"
 captured_by: agent-401f
 captured_at: 1777346119
-accepted_by: ""
-accepted_at: 0
+accepted_by: web
+accepted_at: 1777346390
 references: []
 relates-to: []
 blocked-by: [FEAT-062, FEAT-064]

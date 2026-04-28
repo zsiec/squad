@@ -4,7 +4,7 @@ title: If there is an idle agent, there should be a way in the SPA for me to cli
 type: feature
 priority: P1
 area: web
-status: captured
+status: open
 estimate: 1h
 risk: low
 evidence_required: [test]
@@ -12,8 +12,8 @@ created: 2026-04-28
 updated: "2026-04-28"
 captured_by: web
 captured_at: 1777345774
-accepted_by: ""
-accepted_at: 0
+accepted_by: web
+accepted_at: 1777346349
 references: []
 relates-to: []
 blocked-by: []

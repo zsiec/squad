@@ -4,7 +4,7 @@ title: standup digest at squad go shows active peer claims
 type: feature
 priority: P2
 area: cmd
-status: open
+status: done
 estimate: 2h
 risk: low
 evidence_required: [test]

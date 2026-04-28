@@ -4,7 +4,7 @@ title: risk-tiered code review requires two reviewers for p0 and high risk items
 type: feature
 priority: P2
 area: review
-status: open
+status: done
 estimate: 4h
 risk: low
 evidence_required: [test]
