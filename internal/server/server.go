@@ -134,6 +134,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/agents", s.handleAgents)
 	mux.HandleFunc("GET /api/agents/{id}/events", s.handleAgentEvents)
 	mux.HandleFunc("GET /api/agents/{id}/timeline", s.handleAgentTimeline)
+	mux.HandleFunc("GET /api/agents/{id}/diff", s.handleAgentDiff)
 	mux.HandleFunc("GET /api/whoami", s.handleWhoami)
 	mux.HandleFunc("GET /api/claims", s.handleClaims)
 	mux.HandleFunc("GET /api/messages", s.handleMessagesList)

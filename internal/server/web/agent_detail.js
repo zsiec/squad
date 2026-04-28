@@ -48,16 +48,85 @@ export function openAgentDetail(agent, claim) {
   }
   fetchAndCache(agentId);
   startLiveStream(agentId);
+  startDiffPoll(agentId);
 }
 
 function close() {
   if (!modalEl) return;
   stopLiveStream();
+  stopDiffPoll();
   modalEl.classList.remove('show');
   setTimeout(() => {
     if (modalEl) modalEl.hidden = true;
   }, 180);
   currentAgentId = null;
+}
+
+let diffPollTimer = null;
+const DIFF_POLL_MS = 20_000;
+
+// startDiffPoll fetches /api/agents/<id>/diff immediately, then every
+// 20s while the drawer is open. The watcher follows the agent's
+// progress without leaving the browser; a heavier real-time path
+// (SSE-driven) was considered and dropped — 20s is fine for babysitting
+// and keeps the implementation surface small.
+function startDiffPoll(agentId) {
+  stopDiffPoll();
+  fetchAndRenderDiff(agentId);
+  diffPollTimer = setInterval(() => {
+    if (currentAgentId !== agentId) {
+      stopDiffPoll();
+      return;
+    }
+    fetchAndRenderDiff(agentId);
+  }, DIFF_POLL_MS);
+}
+
+function stopDiffPoll() {
+  if (diffPollTimer) {
+    clearInterval(diffPollTimer);
+    diffPollTimer = null;
+  }
+}
+
+async function fetchAndRenderDiff(agentId) {
+  const filesEl = modalEl?.querySelector('#agent-detail-diff-files');
+  const metaEl = modalEl?.querySelector('#agent-detail-diff-meta');
+  const targetEl = modalEl?.querySelector('#agent-detail-diff-target');
+  if (!filesEl) return;
+  try {
+    const res = await fetchJSON(`/api/agents/${encodeURIComponent(agentId)}/diff`);
+    if (currentAgentId !== agentId) return;
+    if (targetEl && res.merge_target) targetEl.textContent = res.merge_target;
+    const files = Array.isArray(res.files) ? res.files : [];
+    if (metaEl) metaEl.textContent = files.length ? `${files.length} file${files.length === 1 ? '' : 's'}` : 'no changes';
+    if (files.length === 0) {
+      filesEl.innerHTML = `<div class="agent-detail-diff-empty">no changes vs ${escapeHtml(res.merge_target || 'main')}</div>`;
+      return;
+    }
+    filesEl.innerHTML = files.map(renderDiffFile).join('');
+    filesEl.querySelectorAll('[data-toggle-file]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const block = e.currentTarget.closest('.agent-detail-diff-file');
+        if (block) block.classList.toggle('collapsed');
+      });
+    });
+  } catch (err) {
+    if (currentAgentId !== agentId) return;
+    filesEl.innerHTML = `<div class="agent-detail-diff-error">couldn't load diff: ${escapeHtml(err.message || String(err))}</div>`;
+  }
+}
+
+function renderDiffFile(f) {
+  const status = f.status || 'modified';
+  const statusClass = `agent-detail-diff-status status-${escapeHtml(status)}`;
+  return `<div class="agent-detail-diff-file">
+    <button class="agent-detail-diff-filehead" data-toggle-file aria-label="Toggle file">
+      <span class="${statusClass}">${escapeHtml(status)}</span>
+      <span class="agent-detail-diff-filepath">${escapeHtml(f.path || '')}</span>
+    </button>
+    <pre class="agent-detail-diff-hunks">${escapeHtml(f.hunks || '')}</pre>
+  </div>`;
 }
 
 // startLiveStream opens a dedicated EventSource for the open drawer. The
@@ -179,6 +248,15 @@ function ensureDrawer() {
       <div class="action-modal-body agent-detail-body" id="agent-detail-body">
         <div class="agent-detail-spinner" aria-busy="true">loading…</div>
       </div>
+      <section class="agent-detail-diff" id="agent-detail-diff" aria-label="Worktree diff">
+        <header class="agent-detail-diff-head">
+          <span class="agent-detail-diff-title">Worktree diff vs <code id="agent-detail-diff-target">main</code></span>
+          <span class="agent-detail-diff-meta" id="agent-detail-diff-meta"></span>
+        </header>
+        <div class="agent-detail-diff-files" id="agent-detail-diff-files">
+          <div class="agent-detail-diff-empty">loading diff…</div>
+        </div>
+      </section>
     </aside>`;
   document.body.appendChild(modalEl);
   modalEl.addEventListener('click', (e) => {
