@@ -1,0 +1,56 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — FEAT-056
+
+## Verdict: clean
+
+Stats panel grew from 3 tiles to 8, with a 24h/7d/30d window
+selector and consistent empty-state copy. Backend / schema
+untouched (`git diff internal/stats/ internal/server/stats_api.go`
+empty per AC#5). Reviewer disprove-loop confirmed: removing a
+new tile causes the test to fail with the corresponding tile-id
+assertion; restoring fixes it. RED→GREEN bracket is real.
+
+## Reviewer-confirmed
+
+- All 5 new tiles read fields that already exist on the
+  `stats.Snapshot` schema (Items.{open,claimed,blocked,done},
+  Claims.DurationSeconds.{P50,P90,P99,Count}, Verification.ByKind,
+  AgentRow, CapabilityRow). No schema change.
+- Each draw function has a guarded empty-state path:
+  `emptyCanvas(canvas, msg)` for canvas tiles, text-only div
+  for the leaderboard.
+- Window selector + `currentWindow` + change handler agree on
+  initial value (`168h`); URL-encoded refetch is correct.
+- Leaderboard sort (claims_completed DESC) + cap (top 10) +
+  all 5 columns (display_name fallback to agent_id, done,
+  released, ratio, verify) match AC#4.
+
+## Suggestion filed as follow-up — CHORE-019
+
+Reviewer flagged a window-selector race: rapid 24h → 7d → 30d
+flips can let an older fetch resolve last and overwrite the
+newer window's data. Fix is a render-token sentinel checked
+post-await. Filed as CHORE-019 with reproduction notes,
+suggested patch shape, and AC. Not blocking FEAT-056 — the race
+recovers on the next user interaction and never produces stuck
+charts.
+
+## Other reviewer notes (no action needed)
+
+- Stacked-bar trick in `drawVerifyByKind` is correct
+  (attested-minus-passed for the grey portion).
+- `emptyCanvas` extraction is justified — 5+ real callers, well
+  past the "wait for three" threshold.
+- `font-variant-numeric: tabular-nums` on the leaderboard's
+  numeric columns prevents digit jitter on window changes.
+- Test coverage matches BUG-043 / BUG-052 prior art —
+  static-string match against embedded webFS, no jsdom runtime.
+
+## Findings
+
+None blocking.
