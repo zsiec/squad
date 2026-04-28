@@ -68,8 +68,6 @@ Full walkthrough: [docs/recipes/triage.md](docs/recipes/triage.md). The reasonin
 
 ## Beyond the quick start
 
-A claim → work → done loop is the whole shape of squad. The next layer of the surface is what makes it durable past one session.
-
 **Items live in your repo, not in a tracker.** Every item is a markdown file under `.squad/items/<TYPE>-<NN>-<slug>.md` with YAML frontmatter (priority, type, evidence-required, blockers). They're git-tracked, so the queue travels with the repo and code review covers the queue too. See [docs/concepts/the-loop.md](docs/concepts/the-loop.md).
 
 **Chat is durable and typed.** Squad's chat verbs (`ask`, `say`, `fyi`, `milestone`, `stuck`) write to a SQLite-backed bus that outlives any session. A teammate's question yesterday is still in your inbox today. The plugin's hooks deliver pending chat at session-start, between tool calls, and before context compaction — no polling. Concepts: [docs/concepts/chat-cadence.md](docs/concepts/chat-cadence.md).
