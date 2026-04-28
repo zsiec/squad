@@ -342,22 +342,6 @@ func TestAutoRefine_NoWriteTruncatesStdout(t *testing.T) {
 	}
 }
 
-func TestAutoRefine_NonCapturedReturns409(t *testing.T) {
-	s, _, itemsDir := newAutoRefineServer(t)
-	writeAutoRefineItem(t, itemsDir, "BUG-706", "open")
-	s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
-		t.Fatalf("runner must not be called for non-captured items")
-		return autoRefineRunResult{}
-	})
-	rec := postJSON(t, s, "/api/items/BUG-706/auto-refine", map[string]any{})
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("code=%d body=%s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "open") {
-		t.Errorf("body should mention current status, got %s", rec.Body.String())
-	}
-}
-
 func TestAutoRefine_UnknownItemReturns404(t *testing.T) {
 	s, _, _ := newAutoRefineServer(t)
 	rec := postJSON(t, s, "/api/items/BUG-999/auto-refine", map[string]any{})

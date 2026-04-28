@@ -102,7 +102,56 @@ func TestAutoRefineApply_PreservesAreaWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestAutoRefineApply_RefusesNonCapturedStatus(t *testing.T) {
+// TestAutoRefineApply_RefusesInProgressStatus pins the only remaining
+// rejected status after the comment-driven flow broadened the gate to
+// allow re-refinement on captured / needs-refinement / open. An
+// in_progress item is held by an agent; rewriting its body under the
+// agent's feet causes silent data loss.
+func TestAutoRefineApply_RefusesInProgressStatus(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := NewWithOptions(dir, "FEAT", "a sufficiently long title for dor", Options{
+		Area:  "auth",
+		Ready: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeBytes := mustReadFile(t, path)
+	// Hand-rewrite the status field to in_progress — the lifecycle
+	// helpers don't expose an "open → in_progress" path because that
+	// transition normally happens via claim, which lives in a
+	// different package.
+	mutated := strings.Replace(string(beforeBytes), "status: open", "status: in_progress", 1)
+	if mutated == string(beforeBytes) {
+		t.Fatalf("status field not found; fixture changed?")
+	}
+	if err := os.WriteFile(path, []byte(mutated), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	id := mustParseID(t, path)
+	beforeBytes = mustReadFile(t, path)
+
+	err = AutoRefineApply(dir, id, dorCleanBody, "", "claude")
+	if err == nil {
+		t.Fatal("AutoRefineApply on in_progress item must error")
+	}
+	if !strings.Contains(err.Error(), "in_progress") {
+		t.Errorf("error should name the rejected status; got %v", err)
+	}
+
+	if afterBytes := mustReadFile(t, path); !equalBytes(beforeBytes, afterBytes) {
+		t.Errorf("file mutated despite refusal")
+	}
+}
+
+// TestAutoRefineApply_AllowsOpenItem pins the broadened gate: an item
+// that auto-refine has already drafted (status: open after Accept) can
+// be re-refined with operator comments. Pre-broadening this returned
+// the captured-only error.
+func TestAutoRefineApply_AllowsOpenItem(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "items"), 0o755); err != nil {
 		t.Fatal(err)
@@ -115,18 +164,15 @@ func TestAutoRefineApply_RefusesNonCapturedStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := mustParseID(t, path)
-	beforeBytes := mustReadFile(t, path)
-
-	err = AutoRefineApply(dir, id, dorCleanBody, "", "claude")
-	if err == nil {
-		t.Fatal("AutoRefineApply on open item must error")
+	if err := AutoRefineApply(dir, id, dorCleanBody, "", "claude"); err != nil {
+		t.Fatalf("AutoRefineApply on open item must now succeed; got %v", err)
 	}
-	if !strings.Contains(err.Error(), "captured") {
-		t.Errorf("error should mention captured-only contract; got %v", err)
+	it, err := Parse(path)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
 	}
-
-	if afterBytes := mustReadFile(t, path); !equalBytes(beforeBytes, afterBytes) {
-		t.Errorf("file mutated despite refusal")
+	if it.Status != "open" {
+		t.Errorf("re-refining an open item must preserve status; got %q", it.Status)
 	}
 }
 

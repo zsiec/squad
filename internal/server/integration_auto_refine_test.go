@@ -222,25 +222,22 @@ func TestIntegration_AutoRefine(t *testing.T) {
 		}
 	})
 
-	t.Run("non-captured status returns 409 with current status", func(t *testing.T) {
+	t.Run("in_progress status returns 409 with current status", func(t *testing.T) {
 		s, _, itemsDir := newIntegrationAutoRefineServer(t)
 		body := strings.Replace(
 			fmt.Sprintf(intAutoRefineTemplateItem, "FEAT-103"),
-			"status: captured", "status: open", 1)
+			"status: captured", "status: in_progress", 1)
 		writeIntegrationItem(t, itemsDir, "FEAT-103", body)
 		s.SetAutoRefineRunner(func(ctx context.Context, prompt, mcpConfigPath, repoRoot string) autoRefineRunResult {
-			t.Fatalf("runner must not be invoked for non-captured items")
+			t.Fatalf("runner must not be invoked for in_progress items")
 			return autoRefineRunResult{}
 		})
 		rec := postJSON(t, s, "/api/items/FEAT-103/auto-refine", map[string]any{})
 		if rec.Code != http.StatusConflict {
 			t.Fatalf("code=%d want 409 body=%s", rec.Code, rec.Body.String())
 		}
-		if !strings.Contains(rec.Body.String(), "open") {
-			t.Errorf("409 body should include current status 'open': %s", rec.Body.String())
-		}
-		if !strings.Contains(rec.Body.String(), "captured") {
-			t.Errorf("409 body should reference the captured-only contract: %s", rec.Body.String())
+		if !strings.Contains(rec.Body.String(), "in_progress") {
+			t.Errorf("409 body should include current status 'in_progress': %s", rec.Body.String())
 		}
 	})
 }
