@@ -49,18 +49,18 @@ pointing at the convention.
 
 ## Acceptance criteria
 
-- [ ] `git commit -m "fix: BUG-100 something"` fails locally with
+- [x] `git commit -m "fix: BUG-100 something"` fails locally with
       a message naming the convention and pointing at CLAUDE.md.
-- [ ] `git commit -m "chore(squad): close FEAT-100"` succeeds —
+- [x] `git commit -m "chore(squad): close FEAT-100"` succeeds —
       the squad-itself bookkeeping path is allowlisted.
-- [ ] `git commit -m "fix: thing referencing FEAT-100 in body
+- [x] `git commit -m "fix: thing referencing FEAT-100 in body
       only"` (item-ID only in body, not subject) succeeds.
       Subject-only check.
-- [ ] The hook is registered through the normal scaffold
+- [x] The hook is registered through the normal scaffold
       mechanism (i.e. `squad init` on a fresh repo produces it).
       Existing repos pick it up via `squad init --update` or a
       one-line CLAUDE.md note pointing at the manual install.
-- [ ] A test exercises both the block-path (rejected commit) and
+- [x] A test exercises both the block-path (rejected commit) and
       the allowlist-path (accepted squad bookkeeping commit).
 
 ## Notes
@@ -73,4 +73,50 @@ pointing at the convention.
   the rule that's already in CLAUDE.md.
 
 ## Resolution
-(Filled in when status → done.)
+
+The pre-commit hook (`plugin/hooks/pre_commit_pm_traces.sh`)
+already existed and caught BUG-NNN/FEAT-NNN/etc. patterns, but had
+two gaps relative to the AC:
+
+1. The greedy `sed`-based message extractor matched `.*-m.*`,
+   which captured the LAST `-m` argument (the body in git's
+   multi-paragraph form). A subject-with-ID + clean-body command
+   was being silently allowed; conversely a body-only ID would
+   trigger the gate.
+2. No allowlist for `chore(squad):` prefixes.
+
+Replaced the greedy regex with an awk helper `extract_first_m`
+that probes leftmost `-m `, `-m'`, and `-m"` and returns the next
+quoted/unquoted token. `-F file` and `COMMIT_EDITMSG` sources
+narrow to first-line-only via `head -n1`.
+
+Subjects starting with `chore(squad):` short-circuit the entire
+gate (subject scan AND staged-diff scan). The carve-out is full
+because squad's auto-bookkeeping commits stage `.squad/items/<ID>.md`
+files whose contents would otherwise trip the diff scan; comment in
+the script documents the intended scope.
+
+Three new tests in `pre_commit_pm_traces_allowlist_test.go`:
+
+- `TestPMTraces_AllowsChoreSquadPrefix`: chore(squad) subject
+  passes.
+- `TestPMTraces_AllowsIDInBodyOnly`: clean subject + body-with-ID
+  via two `-m` args passes (subject-only scan).
+- `TestPMTraces_FailsOnIDInSubjectEvenWithMultipleM`: subject-with-ID
+  + clean body fails. This test was the regression guard against
+  the old greedy-regex behavior.
+
+Pre-existing 6 tests untouched and continue to pass.
+
+Code review surfaced one optional follow-up — the hook still
+misses `--message=msg` and `-m=msg` POSIX-style equals forms.
+Filed as `CHORE-024` (`pm-trace hook misses --message= and -m=
+forms of git commit`) under the same epic.
+
+Verification:
+- `go test ./... -race -count=1` — every package `ok`.
+- `golangci-lint run` — `0 issues.`
+- `dash -n plugin/hooks/pre_commit_pm_traces.sh` — clean.
+- New tests RED on unfixed code; verified by reviewer who also
+  empirically validated awk portability (BSD/macOS + mawk on
+  ubuntu-latest).
