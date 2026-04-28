@@ -56,7 +56,7 @@ This item picks one and ships the corresponding cleanup.
 
 ## Acceptance criteria
 
-- [ ] An explicit decision is made and recorded in the resolution:
+- [x] An explicit decision is made and recorded in the resolution:
       delete / keep-document / repurpose. The decision references
       whether `squad refine` (CLI) has other callers beyond the
       now-removed SPA wiring.
@@ -65,13 +65,13 @@ This item picks one and ships the corresponding cleanup.
       orphaned status-machine paths around `needs-refinement` are
       either removed or documented as preserved for a different
       reason.
-- [ ] If keep-document: a comment in the SPA at the former
+- [x] If keep-document: a comment in the SPA at the former
       `openRefineComposer` site explains the alternative path. No
       backend changes.
 - [ ] If repurpose: a separate SPA button surfaces the peer-queue
       flow with distinct labelling, and the AC for "Send for
       refinement" stays bound to the claude flow.
-- [ ] Whatever is decided, the item ledger reflects the new state
+- [x] Whatever is decided, the item ledger reflects the new state
       — no stale references to the removed path in skills,
       AGENTS.md, or CLAUDE.md.
 
@@ -88,4 +88,34 @@ This item picks one and ships the corresponding cleanup.
   shape and commit.
 
 ## Resolution
-(Filled in when status → done.)
+
+**Decision: keep-document.**
+
+The `squad refine` CLI is not a dead surface. Independent callers
+beyond the now-removed SPA wiring:
+
+- `cmd/squad/main.go:53` registers `newRefineCmd()` as a top-level
+  cobra subcommand; `cmd/squad/refine_test.go` covers it.
+- `plugin/skills/squad-loop/SKILL.md:54` documents the
+  `needs-refinement` workflow as the canonical recipe for
+  reviewer-flagged items: `squad refine <ID>` → claim → edit body →
+  `squad recapture <ID>`. Skill text auto-loads on matching paths.
+- `internal/intake` uses `RefineItemID` for an unrelated refinement
+  loop driven by the intake state machine.
+
+`Delete` is unsafe — the CLI has documented users. `Repurpose`
+(distinct SPA button for peer-queue) is a real feature, but it
+doubles operator cognitive load and is well outside a 1h decision
+item; if we want it later, file as its own feature.
+
+**Landing:** brief WHY-comment near `openRefineComposer` in
+`internal/server/web/inbox.js` pointing operators at
+`squad refine <ID>` from the CLI when the claude redraft flow is
+the wrong tool. Structural test
+`TestInboxRefineComposerDocumentsCLIAlternative` pins the comment
+so a future cleanup pass that drops it has to re-decide here.
+
+No backend code changes. The peer-queue (`/api/items/:id/refine`,
+`handleItemsRefine`, the `needs-refinement` status, the
+`/api/refine` listing) stays intact and continues to serve CLI +
+intake-flow callers.
