@@ -55,6 +55,12 @@ type AgentConfig struct {
 	// to opt out per-repo. Per-invocation `--no-worktree` overrides remain
 	// future work.
 	DefaultWorktreePerClaim bool `yaml:"default_worktree_per_claim"`
+
+	// MergeTargetBranch names the branch `squad done` folds a worktree's
+	// per-claim branch into when the item closes. Default "main". The
+	// fold tries fast-forward first, falls back to a merge commit when
+	// the target has advanced. Empty value falls back to DefaultMergeTargetBranch.
+	MergeTargetBranch string `yaml:"merge_target_branch"`
 }
 
 type HygieneConfig struct {
@@ -71,6 +77,10 @@ type HygieneConfig struct {
 // DefaultClaimConcurrency is the cap applied when config doesn't override.
 // Documented as 1 since Phase 6; QA round 4 surfaced that it wasn't enforced.
 const DefaultClaimConcurrency = 1
+
+// DefaultMergeTargetBranch is the branch `squad done` folds per-claim
+// worktree branches into when AgentConfig.MergeTargetBranch is empty.
+const DefaultMergeTargetBranch = "main"
 
 // DefaultStaleClaimMinutes matches the value advertised in the scaffold and
 // reference docs. QA round 5 surfaced a 30/60 mismatch between code and docs;

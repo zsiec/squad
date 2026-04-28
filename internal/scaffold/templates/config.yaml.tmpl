@@ -33,6 +33,11 @@ defaults:
 agent:
   claim_concurrency: 1
   default_worktree_per_claim: true
+  # Branch `squad done` folds the per-claim worktree branch into.
+  # Default "main". Override if your trunk lives elsewhere (e.g. master,
+  # develop). The fold tries fast-forward first, falls back to a merge
+  # commit when the target has advanced.
+  merge_target_branch: main
 
 # Verification gates. `squad done` runs these and refuses to move the item
 # until they pass. Pass `--skip-verify` to override locally.

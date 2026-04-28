@@ -125,6 +125,19 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 		`SELECT claimed_at, COALESCE(worktree,'') FROM claims WHERE repo_id=? AND item_id=? AND agent_id=?`,
 		args.RepoID, args.ItemID, args.AgentID).Scan(&claimedAt, &worktreePath)
 
+	// Fold the per-claim branch into the configured target FIRST, before
+	// the item file moves and the claim releases. On a merge conflict we
+	// return early — the item stays in `.squad/items/`, the claim stays
+	// held, the branch survives. The user resolves manually and re-runs
+	// `squad done`. Rolling back a successful file move + DB release after
+	// a downstream failure is messy; refusing to advance until the merge
+	// is clean keeps the recovery story simple.
+	if worktreePath != "" && args.RepoRoot != "" {
+		if err := foldWorktreeMerge(args.RepoRoot, args.ItemID, args.AgentID); err != nil {
+			return nil, err
+		}
+	}
+
 	store := claims.New(args.DB, args.RepoID, clock)
 	if err := store.Done(ctx, args.ItemID, args.AgentID, claims.DoneOpts{
 		Summary:  args.Summary,
@@ -143,8 +156,18 @@ func Done(ctx context.Context, args DoneArgs) (*DoneResult, error) {
 
 	var cleanupWarning string
 	if worktreePath != "" && args.RepoRoot != "" {
+		// Cleanup tears down the worktree dir and (per worktree.Cleanup's
+		// own logic) deletes the per-claim branch when it has been merged.
+		// foldDeleteBranch is the defensive belt-and-suspenders for the
+		// edge case where Cleanup's branch-arm doesn't fire (no branch
+		// metadata recorded for the dir, or branchHasNewCommits returns
+		// non-zero unexpectedly). It uses `git branch -d` (not `-D`), so
+		// it refuses unmerged commits — safer than Cleanup's force path.
 		if err := worktree.Cleanup(args.RepoRoot, worktreePath); err != nil {
 			cleanupWarning = err.Error()
+		}
+		if err := foldDeleteBranch(args.RepoRoot, args.ItemID, args.AgentID); err != nil {
+			return nil, err
 		}
 	}
 
