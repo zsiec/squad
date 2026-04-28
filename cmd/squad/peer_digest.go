@@ -29,6 +29,7 @@ type peerRow struct {
 	Area        string
 	LastTouch   int64
 	Excerpt     string // most recent human-verb post body, truncated
+	HasMention  bool   // peer's thread carries an unread @<me> mention
 }
 
 // printPeerDigest writes the standup block at squad-go time. The agent
@@ -36,6 +37,11 @@ type peerRow struct {
 // active, in which area, and the latest human-typed thing they said.
 // On `area` overlap with one or more peers, an inline nudge precedes
 // the AC suggesting an `squad ask @<peer>` ack.
+//
+// Peers whose threads carry an unread `@<myAgentID>` mention surface
+// above the last-touch ordering with a `*` marker — the mailbox flush
+// tells the same story but the digest is the one screen agents are
+// guaranteed to read at session start.
 //
 // myAgentID and myItemID are filtered out of the rendered list so the
 // digest is about *peers*, not the calling session. myArea drives the
@@ -45,7 +51,11 @@ func printPeerDigest(ctx context.Context, db *sql.DB, repoID, myAgentID, myItemI
 	if err != nil {
 		return err
 	}
-	renderPeerDigest(w, rows, myArea, now)
+	rows, err = annotateMentions(ctx, db, repoID, myAgentID, rows)
+	if err != nil {
+		return err
+	}
+	renderPeerDigest(w, sortByMentionThenLastTouch(rows), myArea, now)
 	return nil
 }
 
@@ -175,13 +185,72 @@ func renderPeerDigest(w io.Writer, peers []peerRow, myArea string, now time.Time
 		if excerpt == "" {
 			excerpt = "(no posts yet)"
 		}
-		fmt.Fprintf(w, "  @%s on %s (area=%s, %s) %s\n",
-			displayHandle(p), p.ItemID, p.Area, age, excerpt)
+		marker := " "
+		if p.HasMention {
+			marker = "*"
+		}
+		fmt.Fprintf(w, "  %s @%s on %s (area=%s, %s) %s\n",
+			marker, displayHandle(p), p.ItemID, p.Area, age, excerpt)
 	}
 	if overflow > 0 {
 		fmt.Fprintf(w, "  … (+%d more)\n", overflow)
 	}
 	fmt.Fprintln(w)
+}
+
+// annotateMentions sets HasMention=true on each peer row whose thread
+// has an unread message (relative to my reads.last_msg_id) that mentions
+// my agent id. Mention detection is body-based for parity with the
+// existing chat digest path (`@<agentID>` substring) — that's what the
+// mailbox flush surfaces, so the digest mirrors the same signal.
+func annotateMentions(ctx context.Context, db *sql.DB, repoID, myAgentID string, peers []peerRow) ([]peerRow, error) {
+	if len(peers) == 0 {
+		return peers, nil
+	}
+	q := `
+		SELECT 1
+		FROM messages m
+		LEFT JOIN reads r ON r.agent_id = ? AND r.thread = m.thread
+		WHERE m.repo_id = ?
+		  AND m.thread = ?
+		  AND m.id > COALESCE(r.last_msg_id, 0)
+		  AND m.agent_id != ?
+		  AND m.body LIKE ?
+		LIMIT 1
+	`
+	mentionTag := "%@" + myAgentID + "%"
+	for i := range peers {
+		var one int
+		err := db.QueryRowContext(ctx, q, myAgentID, repoID, peers[i].ItemID, myAgentID, mentionTag).Scan(&one)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		peers[i].HasMention = true
+	}
+	return peers, nil
+}
+
+// sortByMentionThenLastTouch partitions peers into two stable groups —
+// those with unread mentions of the calling agent, and those without —
+// and concatenates them (mention group first). Within each group the
+// caller's last_touch DESC ordering is preserved.
+func sortByMentionThenLastTouch(peers []peerRow) []peerRow {
+	if len(peers) == 0 {
+		return peers
+	}
+	mentioned := make([]peerRow, 0, len(peers))
+	rest := make([]peerRow, 0, len(peers))
+	for _, p := range peers {
+		if p.HasMention {
+			mentioned = append(mentioned, p)
+		} else {
+			rest = append(rest, p)
+		}
+	}
+	return append(mentioned, rest...)
 }
 
 func overlappingPeers(peers []peerRow, myArea string) []peerRow {

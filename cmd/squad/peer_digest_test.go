@@ -127,9 +127,14 @@ func TestPeerDigest_SevenPeersTruncatedToSixPlusOne(t *testing.T) {
 	if !strings.Contains(got, "… (+1 more)") {
 		t.Errorf("seven peers should truncate to 6 with '+1 more'; got %q", got)
 	}
-	// Six rows + the truncation line + trailing blank line. Easier to
-	// assert the cap-row-presence than every row.
-	rows := strings.Count(got, "\n  @")
+	// Six rows + the truncation line + trailing blank line. Each peer
+	// row contains `@PeerX on BUG-X` so count by that fragment.
+	rows := 0
+	for _, ln := range strings.Split(got, "\n") {
+		if strings.Contains(ln, "@Peer") && strings.Contains(ln, " on BUG-") {
+			rows++
+		}
+	}
 	if rows != peerDigestCap {
 		t.Errorf("expected exactly %d rendered peer rows; got %d in %q", peerDigestCap, rows, got)
 	}
