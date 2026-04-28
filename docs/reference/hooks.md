@@ -7,7 +7,7 @@ Squad's Claude Code hooks are **opt-in per hook** via `squad install-hooks`. Six
 | Hook | Default | Event | Effect |
 |---|---|---|---|
 | `session-start` | ON | `SessionStart` | Ensures the session has a derived agent id (calls `squad register --no-repo-check`); injects one-line context block. Chat delivery is handled continuously by `user-prompt-tick` plus the `Stop` listen + post-tool-flush mechanism — session-start does not need to surface chat itself. |
-| `user-prompt-tick` | ON | `UserPromptSubmit` | Auto-tick before every prompt; injects pending mentions/knocks/handoffs as `additionalContext`. |
+| `user-prompt-tick` | ON | `UserPromptSubmit` | Auto-tick before every prompt; injects pending mentions/handoffs as `additionalContext`. |
 | `pre-compact` | ON | `PreCompact` | Inject the agent's current claim + intent + recent chat lines so identity survives compaction. |
 | `stop-listen` | ON | `Stop` | Long-block on a localhost TCP listener; wake on any peer say/ask/fyi and inject the inbox before letting the session end. The primary chat-delivery mechanism. |
 | `post-tool-flush` | ON | `PostToolUse` | Mailbox flush between tool calls — delivers peer chat as `additionalContext` mid-turn without waiting for `Stop`. ~5ms when inbox empty. |

@@ -61,9 +61,9 @@ func TestChat_NewWiresStoreAndBus(t *testing.T) {
 
 func TestKinds_AllKnown(t *testing.T) {
 	known := map[string]bool{
-		"say": true, "ask": true, "answer": true,
+		"say": true, "ask": true,
 		"thinking": true, "stuck": true, "milestone": true, "fyi": true,
-		"knock": true, "handoff": true, "review_req": true,
+		"handoff": true, "review_req": true,
 		"progress": true, "done": true, "system": true,
 	}
 	for _, k := range AllKinds() {

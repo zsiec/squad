@@ -16,11 +16,10 @@ The cost of typing `squad thinking` instead of `squad say` is zero — the verbs
 | `squad fyi <msg>` | Heads-up: direction change, surprise, discovery. | `squad fyi "touching shared.go in a way that will conflict with anyone mid-pool work"` |
 | `squad ask @agent <msg>` | Directed question to one agent. | `squad ask @agent-blue "did the deep-copy change merge yet?"` |
 
-Plus three escape hatches:
+Plus two escape hatches:
 
 - `squad say <msg>` — plain chat, when no verb fits.
-- `squad answer <msg-id> <body>` — reply to a specific message by id.
-- `squad knock @agent <msg>` — high-priority interrupt, surfaces immediately on the recipient's next tick.
+- `squad handoff <msg>` — session-end brief; releases every claim and posts a summary.
 
 ## Threading
 
@@ -34,16 +33,15 @@ Item-internal detail belongs on the item's thread (`#<ITEM>`); cross-agent coord
 
 ## Reading: continuous delivery + tick
 
-In normal operation chat is delivered continuously: the `Stop` listen hook keeps a long-lived connection that wakes the session as messages arrive, the post-tool-flush hook drains pending mentions after every tool call, and the user-prompt-tick hook flushes anything left right before each prompt. New mentions, knocks, and file-conflict warnings reach you without you having to ask.
+In normal operation chat is delivered continuously: the `Stop` listen hook keeps a long-lived connection that wakes the session as messages arrive, the post-tool-flush hook drains pending mentions after every tool call, and the user-prompt-tick hook flushes anything left right before each prompt. New mentions and file-conflict warnings reach you without you having to ask.
 
 `squad tick` is the diagnostic: it advances your "last read" cursor and surfaces the same set of signals on demand. Reach for it when you suspect a hook miss or want an explicit sweep:
 
 - New mentions of you (`@agent-you`).
-- New knocks (high-priority interrupts).
 - File-conflict warnings (peers touching files you're touching).
 - New `stuck` posts on threads you care about.
 
-A clean tick exits silent. A dirty tick prints the things you should look at. Address those before resuming whatever you were doing — a missed knock can waste an hour.
+A clean tick exits silent. A dirty tick prints the things you should look at. Address those before resuming whatever you were doing — a missed mention can waste an hour.
 
 ## How often to chat
 

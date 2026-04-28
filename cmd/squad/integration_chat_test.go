@@ -12,7 +12,7 @@ import (
 )
 
 // TestChatIntegration_TwoAgentsConverse runs every chat verb against a single
-// shared store and checks that they cooperate end-to-end: a knock from agent-a
+// shared store and checks that they cooperate end-to-end: an ask from agent-a
 // surfaces in agent-b's tick, a progress note for an item shows up via
 // LatestProgress, and a thinking/handoff round-trip is durably stored.
 func TestChatIntegration_TwoAgentsConverse(t *testing.T) {
@@ -24,18 +24,18 @@ func TestChatIntegration_TwoAgentsConverse(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// agent-a (== f.agentID) knocks agent-b.
-	if code := runKnockBody(ctx, f.chat, f.agentID, []string{"@" + agentB, "stand", "by"}); code != 0 {
-		t.Fatalf("knock exit=%d", code)
+	// agent-a (== f.agentID) asks agent-b.
+	if code := runAskBody(ctx, f.chat, f.agentID, "global", []string{"@" + agentB, "stand", "by"}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("ask exit=%d", code)
 	}
 
-	// agent-b ticks and should see the knock in the digest output.
+	// agent-b ticks and should see the mention in the digest output.
 	var buf bytes.Buffer
 	if code := runTickBody(ctx, f.chat, agentB, false, &buf); code != 0 {
 		t.Fatalf("tick exit=%d", code)
 	}
 	if !strings.Contains(buf.String(), "stand by") {
-		t.Fatalf("knock not in tick output: %q", buf.String())
+		t.Fatalf("ask not in tick output: %q", buf.String())
 	}
 
 	// agent-b reports progress on BUG-1.

@@ -72,7 +72,7 @@ func runTickBody(ctx context.Context, c *chat.Chat, agentID string, jsonOut bool
 }
 
 func emitDigest(w io.Writer, dg chat.Digest) {
-	if len(dg.Knocks) == 0 && len(dg.Mentions) == 0 &&
+	if len(dg.Mentions) == 0 &&
 		len(dg.Handoffs) == 0 && len(dg.Global) == 0 &&
 		len(dg.YourThreads) == 0 && len(dg.LostClaims) == 0 {
 		fmt.Fprintf(w, "no new messages for %s\n", dg.Agent)
@@ -81,7 +81,6 @@ func emitDigest(w io.Writer, dg chat.Digest) {
 	if len(dg.LostClaims) > 0 {
 		fmt.Fprintf(w, "RECLAIMED while you were away: %v\n", dg.LostClaims)
 	}
-	digestSection(w, "KNOCKS (high priority)", dg.Knocks)
 	digestSection(w, "MENTIONS", dg.Mentions)
 	digestSection(w, "YOUR THREADS", dg.YourThreads)
 	digestSection(w, "HANDOFFS", dg.Handoffs)

@@ -5,23 +5,19 @@ import (
 	"testing"
 )
 
-func TestDigest_BucketsKnocksAndMentions(t *testing.T) {
+func TestDigest_BucketsMentionsAndGlobal(t *testing.T) {
 	c, db := newTestChat(t)
 	ctx := context.Background()
 	if err := registerTestAgent(ctx, db, "repo-test", "agent-b", "B", c.nowUnix()); err != nil {
 		t.Fatal(err)
 	}
 
-	_ = c.Knock(ctx, "agent-a", "agent-b", "ping")
 	_ = c.Post(ctx, PostRequest{AgentID: "agent-a", Thread: ThreadGlobal, Kind: KindSay, Body: "@agent-b plain mention"})
 	_ = c.Post(ctx, PostRequest{AgentID: "agent-a", Thread: ThreadGlobal, Kind: KindSay, Body: "no mention here"})
 
 	dg, err := c.Digest(ctx, "agent-b")
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(dg.Knocks) != 1 {
-		t.Fatalf("knocks=%d", len(dg.Knocks))
 	}
 	if len(dg.Mentions) != 1 {
 		t.Fatalf("mentions=%d", len(dg.Mentions))
@@ -62,7 +58,7 @@ func TestDigest_SelfMessagesExcluded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	total := len(dg.Knocks) + len(dg.Mentions) + len(dg.Global) + len(dg.Handoffs)
+	total := len(dg.Mentions) + len(dg.Global) + len(dg.Handoffs)
 	if total != 0 {
 		t.Fatalf("self message leaked, total=%d", total)
 	}

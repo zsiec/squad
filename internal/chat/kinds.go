@@ -3,12 +3,10 @@ package chat
 const (
 	KindSay       = "say"
 	KindAsk       = "ask"
-	KindAnswer    = "answer"
 	KindThinking  = "thinking"
 	KindStuck     = "stuck"
 	KindMilestone = "milestone"
 	KindFYI       = "fyi"
-	KindKnock     = "knock"
 	KindHandoff   = "handoff"
 	KindReviewReq = "review_req"
 	KindProgress  = "progress"
@@ -18,16 +16,13 @@ const (
 
 func AllKinds() []string {
 	return []string{
-		KindSay, KindAsk, KindAnswer,
+		KindSay, KindAsk,
 		KindThinking, KindStuck, KindMilestone, KindFYI,
-		KindKnock, KindHandoff, KindReviewReq,
+		KindHandoff, KindReviewReq,
 		KindProgress, KindDone, KindSystem,
 	}
 }
 
-const (
-	PriorityNormal = "normal"
-	PriorityHigh   = "high"
-)
+const PriorityNormal = "normal"
 
 const ThreadGlobal = "global"

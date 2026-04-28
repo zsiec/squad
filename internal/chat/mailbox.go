@@ -11,7 +11,6 @@ import (
 type Mailbox struct {
 	Agent       string          `json:"agent"`
 	NowTS       int64           `json:"now_ts"`
-	Knocks      []DigestMessage `json:"knocks,omitempty"`
 	Mentions    []DigestMessage `json:"mentions,omitempty"`
 	YourThreads []DigestMessage `json:"your_threads,omitempty"`
 	Handoffs    []DigestMessage `json:"handoffs,omitempty"`
@@ -19,7 +18,7 @@ type Mailbox struct {
 }
 
 func (m Mailbox) Empty() bool {
-	return len(m.Knocks)+len(m.Mentions)+len(m.YourThreads)+len(m.Handoffs)+len(m.Global) == 0
+	return len(m.Mentions)+len(m.YourThreads)+len(m.Handoffs)+len(m.Global) == 0
 }
 
 // Format renders the mailbox as the human-readable string Claude Code's
@@ -41,7 +40,6 @@ func (m Mailbox) Format() string {
 				msg.Thread, msg.Kind, msg.Body)
 		}
 	}
-	section("KNOCKS (high priority)", m.Knocks)
 	section("MENTIONS", m.Mentions)
 	section("YOUR THREADS", m.YourThreads)
 	section("HANDOFFS", m.Handoffs)
@@ -72,7 +70,6 @@ func (c *Chat) Mailbox(ctx context.Context, agentID string) (Mailbox, error) {
 	return Mailbox{
 		Agent:       dg.Agent,
 		NowTS:       dg.NowTS,
-		Knocks:      dg.Knocks,
 		Mentions:    dg.Mentions,
 		YourThreads: dg.YourThreads,
 		Handoffs:    dg.Handoffs,
@@ -92,7 +89,6 @@ func (c *Chat) MarkMailboxRead(ctx context.Context, agentID string, m Mailbox) e
 			}
 		}
 	}
-	consider(m.Knocks)
 	consider(m.Mentions)
 	consider(m.YourThreads)
 	consider(m.Handoffs)

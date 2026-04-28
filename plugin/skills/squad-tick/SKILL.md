@@ -1,6 +1,6 @@
 ---
 name: squad-tick
-description: Tick the squad team — surface mentions, file conflicts, knocks. Address mentions BEFORE continuing other work.
+description: Tick the squad team — surface mentions and file conflicts. Address mentions BEFORE continuing other work.
 argument-hint: ""
 allowed-tools:
   - Bash

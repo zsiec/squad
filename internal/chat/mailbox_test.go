@@ -28,7 +28,7 @@ func TestMailbox_FormatsByCategory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := c.Post(ctx, PostRequest{AgentID: "peer", Thread: ThreadGlobal, Kind: KindKnock, Priority: PriorityHigh, Body: "ping"}); err != nil {
+	if err := c.Post(ctx, PostRequest{AgentID: "peer", Thread: ThreadGlobal, Kind: KindHandoff, Body: `{"note":"lunchtime"}`}); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.Post(ctx, PostRequest{AgentID: "peer", Thread: ThreadGlobal, Kind: KindSay, Body: "@agent-a status?"}); err != nil {
@@ -43,7 +43,7 @@ func TestMailbox_FormatsByCategory(t *testing.T) {
 		t.Fatal("expected non-empty mailbox")
 	}
 	out := m.Format()
-	for _, want := range []string{"KNOCKS", "MENTIONS", "ping", "status?"} {
+	for _, want := range []string{"HANDOFFS", "MENTIONS", "lunchtime", "status?"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("mailbox.Format() missing %q\n%s", want, out)
 		}

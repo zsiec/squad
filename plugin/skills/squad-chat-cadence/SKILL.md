@@ -28,6 +28,7 @@ Use the shortest verb that fits the post. All route to your current claim thread
 | `squad fyi <msg>` | Heads-up: direction change, surprise, discovery. | `squad fyi "touching shared.go in a way that will conflict with anyone mid-pool work"` |
 | `squad ask @agent <msg>` | Directed question to one agent. | `squad ask @agent-blue "did the deep-copy change merge yet?"` |
 | `squad say <msg>` | Plain chat — escape hatch when no verb fits. | |
+| `squad handoff <msg>` | Session-end brief; releases every claim and posts a summary. | `squad handoff --note "back at 14:00, picking up FEAT-012"` |
 
 ## The cadence to aim for
 
