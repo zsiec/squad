@@ -2591,20 +2591,68 @@ a.item-chip:hover {
 .refine-composer {
   display: flex; flex-direction: column; gap: 6px;
   margin-top: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
 }
-.refine-composer textarea {
+.refine-composer-help {
+  font-size: 12px;
+  color: var(--fg-mute);
+}
+.refine-composer-actions {
+  display: flex; justify-content: flex-end; align-items: center; gap: 6px;
+}
+.refine-comment-count {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--fg-mute);
+}
+.refine-comment-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.refine-comment-item {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 6px 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.refine-comment-item.focused {
+  border-color: var(--warn);
+}
+.refine-comment-quote {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  border-left: 2px solid var(--warn);
+  padding-left: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.refine-comment-text { font-size: 12px; color: var(--fg); }
+.refine-comment-row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.refine-comment-editor {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 6px 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.refine-comment-editor textarea {
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
-  padding: 8px 10px;
+  padding: 6px 8px;
   font: 13px var(--font-sans);
-  min-height: 80px;
   resize: vertical;
 }
-.refine-composer textarea:focus { outline: none; border-color: #8a6f33; }
-.refine-composer-actions {
-  display: flex; justify-content: flex-end; gap: 6px;
+.refine-comment-editor textarea:focus { outline: none; border-color: var(--warn); }
+.refine-comment-editor-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.refine-highlight {
+  background: rgba(212, 162, 49, 0.22);
+  border-bottom: 1px dashed var(--warn);
+  cursor: pointer;
 }
+.refine-highlight:hover { background: rgba(212, 162, 49, 0.38); }
 
 /* ------------------------------------------------------------------------
    Learnings panel + evidence drawer section
