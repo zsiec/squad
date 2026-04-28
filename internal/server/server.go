@@ -119,6 +119,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/items/{id}/recapture", s.handleItemsRecapture)
 	mux.HandleFunc("POST /api/items/{id}/reject", s.handleItemsReject)
 	mux.HandleFunc("POST /api/items/{id}/claim", s.handleItemClaim)
+	mux.HandleFunc("POST /api/items/{id}/assign", s.handleItemAssign)
 	mux.HandleFunc("POST /api/items/{id}/release", s.handleItemRelease)
 	mux.HandleFunc("POST /api/items/{id}/done", s.handleItemDone)
 	mux.HandleFunc("POST /api/items/{id}/blocked", s.handleItemBlocked)
