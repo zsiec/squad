@@ -95,15 +95,16 @@ func TestAutoRefineCommand_PassesPermissionFlagsAndDisablesHooks(t *testing.T) {
 	}
 }
 
-// TestAutoRefineCommand_SetsCmdDirToRepoRoot pins the BUG-047 fix: the
-// spawned `claude -p` must run with cwd at the resolved repo root so the
-// downstream `squad mcp` subprocess (which calls repo.Discover) finds
-// the repo. Without this the handler 500s on "claude exited without
+// TestAutoRefineCommand_SetsCmdDirToRepoRoot pins that the spawned
+// `claude -p` runs with cwd at the resolved repo root. Without this the
+// downstream `squad mcp` subprocess inherits the daemon's cwd; its
+// `repo.Discover` walks up from `/` and fails, so `squad_get_item`
+// returns "not found" and the handler 500s on "claude exited without
 // drafting" in workspace mode every time.
 func TestAutoRefineCommand_SetsCmdDirToRepoRoot(t *testing.T) {
 	cmd := autoRefineCommand(context.Background(), "p", "/tmp/cfg", "/abs/repo/root")
 	if cmd.Dir != "/abs/repo/root" {
-		t.Fatalf("cmd.Dir=%q, want %q (BUG-047: subprocess inherits daemon cwd otherwise)",
+		t.Fatalf("cmd.Dir=%q, want %q (subprocess inherits daemon cwd otherwise)",
 			cmd.Dir, "/abs/repo/root")
 	}
 }
@@ -232,11 +233,11 @@ func TestAutoRefine_NoWriteReturns500(t *testing.T) {
 	}
 }
 
-// TestAutoRefine_NoWriteIncludesStdoutTail pins the BUG-047 second fix:
-// when claude exits 0 without advancing auto_refined_at, the operator
-// gets the captured stdout tail in the 500 body so they can see what
-// claude actually said (e.g. "I couldn't find item BUG-XXX") instead
-// of guessing at "run again".
+// TestAutoRefine_NoWriteIncludesStdoutTail pins that when claude exits
+// 0 without advancing auto_refined_at, the operator gets the captured
+// stdout tail in the 500 body so they can see what claude actually
+// said (e.g. "I couldn't find item X") instead of guessing at "run
+// again".
 func TestAutoRefine_NoWriteIncludesStdoutTail(t *testing.T) {
 	s, _, itemsDir := newAutoRefineServer(t)
 	writeAutoRefineItem(t, itemsDir, "BUG-712", "captured")
