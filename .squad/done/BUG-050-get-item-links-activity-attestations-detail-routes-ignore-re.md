@@ -4,7 +4,7 @@ title: GET item/links/activity/attestations detail routes ignore ?repo_id= for c
 type: bug
 priority: P3
 area: internal/server
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]

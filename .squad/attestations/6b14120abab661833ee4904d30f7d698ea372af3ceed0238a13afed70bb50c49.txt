@@ -1,0 +1,71 @@
+status: clean
+disagreements: 0
+resolution: accepted
+
+---
+
+# Code review — CHORE-017 (final)
+
+## Verdict: clean after fixes
+
+Reviewer flagged 1 important (stale `docs/adopting.md` banner
+paragraph) + 3 comment nits + 1 spec drift (caught during the
+fix-up grep). All addressed.
+
+## Disprove-loop verification (reviewer)
+
+- ensureInstall: `SetBanner(BannerInstalled(...))` was a side-
+  effect-free atomic.Value store; removing it cannot affect
+  control flow. Verified end-to-end: install path returns nil
+  cleanly, daemon stays up.
+- callTool happy path: response shape is now exactly one content
+  block in every branch. No surviving consumer indexes
+  `Result.Content[1]`.
+- Welcome flow: independent of banner system, correctly preserved.
+- Empirical: full suite + race + lint all green against the
+  worktree.
+
+## Fixes applied
+
+### Important (docs/adopting.md) — rewritten
+
+Old paragraph claimed:
+- The dashboard "opens automatically in your default browser" (was
+  removed in `a37b0d6 fix(bootstrap): stop auto-opening browser`).
+- "The next tool response carries a banner with the URL" (removed
+  by this commit).
+- `SQUAD_NO_BROWSER=1` toggled the auto-open (no longer present).
+
+New paragraph: "the daemon supervises itself across reboots and
+binary upgrades; the URL is printed by `squad serve` at startup."
+Truthful description of current behavior.
+
+### Suggestion 1 — `internal/mcp/bootstrap/probe.go:3` package doc
+
+Was: "...run a one-shot welcome flow, and surface a banner in the
+next MCP tool response."
+Now: "...run a one-shot welcome flow."
+
+### Suggestion 2 — `internal/mcp/bootstrap/welcome.go:17` comment
+
+Was: "the install banner already prints the URL for anyone who
+wants to see it."
+Now: "The dashboard URL is surfaced by `squad serve` at startup."
+
+### Suggestion 3 — `internal/mcp/bootstrap/upgrade_test.go:59` test docstring
+
+Was: "...poll succeeds, upgrade banner is staged."
+Now: "...post-restart poll observes the new version."
+
+### Bonus (caught during the fix-up grep) — spec drift
+
+`.squad/specs/mcp-dashboard-bootstrap.md` had 3 acceptance
+bullets, 1 integration line, and 3 flow lines describing banner
+behavior. All updated to reflect post-banner reality (the
+auto-open and SQUAD_NO_BROWSER references were also pre-drifted
+from the earlier `a37b0d6` browser removal — fixed at the same
+time).
+
+## Findings
+
+None blocking.

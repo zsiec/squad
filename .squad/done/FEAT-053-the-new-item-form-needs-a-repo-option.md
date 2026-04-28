@@ -4,7 +4,7 @@ title: the new item form needs a repo option
 type: feature
 priority: P2
 area: spa
-status: open
+status: done
 estimate: 1h
 risk: low
 evidence_required: [test]
